@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit --project tsconfig.verify.json",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm run security:framework && npm run security:supply-chain && npm run security:tenant-scope && npm run security:mutation-boundaries && npm run quality:complexity",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run security:framework && npm run security:supply-chain && npm run security:tenant-scope && npm run security:mutation-boundaries && npm run security:sensitive-content && npm run quality:complexity",
     "verify": "npm run check && npm test && npm run db:check && npm run build",
     "db:reset": "node -e \"console.error('Blocked: AgencyOS uses forward-only provider-neutral migrations. Database reset is disabled.'); process.exit(1)\"",
     "db:pull": "node -e \"console.error('Blocked: AgencyOS is migration-file-first. Use forward migrations instead of schema pulls.'); process.exit(1)\"",
@@ -45,7 +45,9 @@
     "security:mutation-boundaries": "node scripts/security/check-mutation-boundaries.mjs",
     "quality:complexity": "node scripts/quality/check-complexity-budget.mjs",
     "ai:policy": "node --env-file-if-exists=.env.local scripts/operations/configure-ai-policy.mjs",
-    "test:e2e:seed": "node --env-file-if-exists=.env.local scripts/testing/seed-e2e.mjs"
+    "test:e2e:seed": "node --env-file-if-exists=.env.local scripts/testing/seed-e2e.mjs",
+    "security:sensitive-content": "node scripts/security/check-sensitive-content-boundaries.mjs",
+    "security:restore-drill:verify": "node --env-file-if-exists=.env.local scripts/operations/verify-restore-drill.mjs"
   },
   "engines": {
     "node": ">=22.23.2 <23"

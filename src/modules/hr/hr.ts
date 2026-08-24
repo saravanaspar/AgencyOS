@@ -36,6 +36,7 @@ export const hrPermissionKeys = {
   offboardingView: "hr.offboarding.view",
   offboardingManage: "hr.offboarding.manage",
   offboardingCreateOwn: "hr.offboarding.create_own",
+  reportExport: "hr.report.export",
 } as const;
 
 export const employeeLifecycleStatuses = [

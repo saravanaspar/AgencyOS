@@ -1,7 +1,5 @@
 import "server-only";
-
 import type { Sql } from "postgres";
-
 import { getDatabaseClient } from "@/integrations/postgres/database";
 import { withInfrastructureRetry } from "@/lib/server/retry";
 import { writeAuditEvent } from "@/modules/audit/server/write-audit-event";
@@ -1220,7 +1218,9 @@ export async function getReportsWorkspaceDataForContext(
       savedViewId: options.savedViewId ?? null,
       options: result.options,
       capabilities: {
-        canExport: context.permissions.has(reportsPermissionKeys.export),
+        canExport:
+          context.permissions.has(reportsPermissionKeys.export) &&
+          (normalizedFilters.section !== "hr" || context.permissions.has(hrPermissionKeys.reportExport)),
         canManageSavedViews: context.permissions.has(reportsPermissionKeys.savedViewManage),
         canSchedule: context.permissions.has(reportsPermissionKeys.scheduleManage),
         canCreateSnapshot: context.permissions.has(reportsPermissionKeys.snapshotCreate),

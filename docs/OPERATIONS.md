@@ -227,6 +227,19 @@ npm run db:test
 npm run worker -- --once
 ```
 
+After restoring the full backup set into that isolated environment, run the bounded restore verifier before reconnecting integrations:
+
+```bash
+AGENCYOS_RESTORE_DRILL=1 \
+RESTORE_DRILL_BACKUP_SET_ID=backup-2026-08-24 \
+RESTORE_DRILL_TARGET_ID=isolated-drill-01 \
+npm run security:restore-drill:verify -- \
+  --app-url https://restore-drill.example.invalid \
+  --output restore-drill-verification-summary.json
+```
+
+The verifier reuses deployment migration/provider/pgTAP/HTTP security checks and adds MinIO, scanner, and one-cycle worker checks. It refuses `NODE_ENV=production` and writes a private hashed evidence manifest. The manifest verifies the **restored target**; it is not proof that infrastructure providers restored each backup component. Preserve PostgreSQL, MinIO, configuration, DNS/TLS, and secret-manager restore evidence separately and attach its references/hashes when recording the immutable Security restore-drill record.
+
 Only reconnect outbound integrations after application, authorization, file, worker, and reporting smoke tests pass.
 
 Recovery does not require any repository template or generated evidence file.

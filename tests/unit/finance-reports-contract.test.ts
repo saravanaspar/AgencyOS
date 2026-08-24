@@ -31,7 +31,7 @@ describe("finance report contracts", () => {
     expect(reports).toContain("credit.issued_at is not null");
     expect(reports).toContain("invoice.subtotal_minor - invoice.discount_minor");
     expect(reports).toContain("line.subtotal_minor - line.discount_minor");
-    expect(reports).toContain("expense.approval_status in ('approved', 'not_required')");
+    expect(reports).toContain("expense.approval_status = 'approved'");
   });
 
   it("keeps report values in the organization default currency", () => {

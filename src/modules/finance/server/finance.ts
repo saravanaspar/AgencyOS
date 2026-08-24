@@ -329,13 +329,11 @@ export interface FinanceWorkspaceData extends FinanceExpenseData, FinanceReportD
     canViewEstimates: boolean;
     canCreateEstimates: boolean;
     canUpdateEstimates: boolean;
-    canApproveEstimates: boolean;
     canRecordEstimateAcceptance: boolean;
     canConvertEstimates: boolean;
     canViewInvoices: boolean;
     canCreateInvoices: boolean;
     canUpdateInvoices: boolean;
-    canApproveInvoices: boolean;
     canIssueInvoices: boolean;
     canVoidInvoices: boolean;
     canCorrectInvoices: boolean;
@@ -343,7 +341,6 @@ export interface FinanceWorkspaceData extends FinanceExpenseData, FinanceReportD
     canManageInvoiceStatus: boolean;
     canViewCreditNotes: boolean;
     canCreateCreditNotes: boolean;
-    canApproveCreditNotes: boolean;
     canIssueCreditNotes: boolean;
     canVoidCreditNotes: boolean;
     canViewPayments: boolean;
@@ -353,7 +350,6 @@ export interface FinanceWorkspaceData extends FinanceExpenseData, FinanceReportD
     canViewExpenses: boolean;
     canCreateExpenses: boolean;
     canManageExpenses: boolean;
-    canApproveExpenses: boolean;
     canPayExpenses: boolean;
     canManageExpenseCategories: boolean;
     canManageExpenseReceipts: boolean;
@@ -630,13 +626,11 @@ export async function getFinanceWorkspaceData(
     canViewEstimates: context.permissions.has(financePermissionKeys.estimateView),
     canCreateEstimates: context.permissions.has(financePermissionKeys.estimateCreate),
     canUpdateEstimates: context.permissions.has(financePermissionKeys.estimateUpdate),
-    canApproveEstimates: context.permissions.has(financePermissionKeys.estimateApprove),
     canRecordEstimateAcceptance: context.permissions.has(financePermissionKeys.estimateAccept),
     canConvertEstimates: context.permissions.has(financePermissionKeys.estimateConvert),
     canViewInvoices: context.permissions.has(financePermissionKeys.invoiceView),
     canCreateInvoices: context.permissions.has(financePermissionKeys.invoiceCreate),
     canUpdateInvoices: context.permissions.has(financePermissionKeys.invoiceUpdate),
-    canApproveInvoices: context.permissions.has(financePermissionKeys.invoiceApprove),
     canIssueInvoices: context.permissions.has(financePermissionKeys.invoiceIssue),
     canVoidInvoices: context.permissions.has(financePermissionKeys.invoiceVoid),
     canCorrectInvoices: context.permissions.has(financePermissionKeys.invoiceCorrect),
@@ -646,7 +640,6 @@ export async function getFinanceWorkspaceData(
     canManageInvoiceStatus: context.permissions.has(financePermissionKeys.invoiceStatusManage),
     canViewCreditNotes: context.permissions.has(financePermissionKeys.creditNoteView),
     canCreateCreditNotes: context.permissions.has(financePermissionKeys.creditNoteCreate),
-    canApproveCreditNotes: context.permissions.has(financePermissionKeys.creditNoteApprove),
     canIssueCreditNotes: context.permissions.has(financePermissionKeys.creditNoteIssue),
     canVoidCreditNotes: context.permissions.has(financePermissionKeys.creditNoteVoid),
     canViewPayments: context.permissions.has(financePermissionKeys.paymentView),
@@ -656,7 +649,6 @@ export async function getFinanceWorkspaceData(
     canViewExpenses: context.permissions.has(financePermissionKeys.expenseView),
     canCreateExpenses: context.permissions.has(financePermissionKeys.expenseCreate),
     canManageExpenses: context.permissions.has(financePermissionKeys.expenseManage),
-    canApproveExpenses: context.permissions.has(financePermissionKeys.expenseApprove),
     canPayExpenses: context.permissions.has(financePermissionKeys.expensePay),
     canManageExpenseCategories: context.permissions.has(
       financePermissionKeys.expenseCategoryManage,

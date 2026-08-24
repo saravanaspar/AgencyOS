@@ -10,6 +10,7 @@ import {
 import { getDatabaseClient } from "@/integrations/postgres/database";
 import { renderHtmlToPdf } from "@/lib/server/html-to-pdf";
 import { toJsonValue } from "@/lib/server/json-value";
+import { hrPermissionKeys } from "@/modules/hr/hr";
 import { writeAuditEvent } from "@/modules/audit/server/write-audit-event";
 import type { CurrentPermissionContext } from "@/modules/permissions/server/effective-permissions";
 import {
@@ -107,6 +108,9 @@ export async function generateReportSnapshot(
     scheduleId: input.systemDelivery ? input.scheduleId : null,
   });
   if (!view) throw new Error("report-view-not-found");
+  if (view.section === "hr" && !context.permissions.has(hrPermissionKeys.reportExport)) {
+    throw new Error("hr-export-permission-required");
+  }
   if (input.scheduleId && input.scheduledFor) {
     const existing = await database<SnapshotStorageRow[]>`
       select snapshot.id, snapshot.saved_view_id, snapshot.owner_membership_id,

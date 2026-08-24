@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getDatabaseClient } from "@/integrations/postgres/database";
 import { getRequestSecurityContextFromRequest } from "@/lib/server/request-context";
 import { buildReportDocument } from "@/modules/reports/report-document";
+import { hrPermissionKeys } from "@/modules/hr/hr";
 import { buildReportCsv } from "@/modules/reports/csv";
 import { reportSections, reportsPermissionKeys } from "@/modules/reports/reports";
 import { reportsFiltersSchema } from "@/modules/reports/schemas/reports";
@@ -78,6 +79,12 @@ export async function GET(request: Request) {
   if (!result.data.capabilities.sections.includes(section)) {
     return NextResponse.json(
       { error: "insufficient-source-permission" },
+      { status: 403, headers: { "Cache-Control": "private, no-store" } },
+    );
+  }
+  if (section === "hr" && !authorization.context.permissions.has(hrPermissionKeys.reportExport)) {
+    return NextResponse.json(
+      { error: "hr-export-permission-required" },
       { status: 403, headers: { "Cache-Control": "private, no-store" } },
     );
   }

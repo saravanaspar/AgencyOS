@@ -3151,14 +3151,14 @@ export const AGENCYOS_MCP_TOOLS: readonly AgencyOsMcpToolDefinition[] = [
   },
   {
     name: "agencyos.finance.set_approval",
-    title: "Set finance approval state",
+    title: "Submit finance approval",
     description:
-      "Submits, approves, or rejects an estimate, invoice, or credit note after exact permission re-authorization.",
+      "Submits an estimate, invoice, or credit note to the shared Approval engine. Approval decisions stay in the Approvals workspace.",
     inputSchema: objectSchema(
       {
         entityId: uuidSchema,
         entityType: { type: "string", enum: ["estimate", "invoice", "credit_note"] },
-        decision: { type: "string", enum: ["submit", "approve", "reject"] },
+        decision: { type: "string", enum: ["submit"] },
         reason: { anyOf: [{ type: "string", maxLength: 1000 }, { type: "null" }] },
       },
       ["entityId", "entityType", "decision"],
@@ -3166,11 +3166,8 @@ export const AGENCYOS_MCP_TOOLS: readonly AgencyOsMcpToolDefinition[] = [
     requiredPermissions: [financePermissionKeys.workspace],
     requiredAnyPermissions: [
       financePermissionKeys.estimateUpdate,
-      financePermissionKeys.estimateApprove,
       financePermissionKeys.invoiceUpdate,
-      financePermissionKeys.invoiceApprove,
       financePermissionKeys.creditNoteCreate,
-      financePermissionKeys.creditNoteApprove,
     ],
     annotations: {
       readOnlyHint: false,

@@ -1021,43 +1021,28 @@ function ApprovalControls({
   entityType,
   status,
   canUpdate,
-  canApprove,
 }: {
   entityId: string;
   entityType: "estimate" | "invoice" | "credit_note";
   status: string;
   canUpdate: boolean;
-  canApprove: boolean;
 }) {
   const [state, action, pending] = useActionState(decideFinanceApprovalAction, initialState);
-  const available =
-    status === "draft"
-      ? canUpdate
-        ? ["submit"]
-        : []
-      : status === "pending_approval" && canApprove
-        ? ["approve", "reject"]
-        : [];
-  if (available.length === 0) return null;
+  if (status === "pending_approval") {
+    return (
+      <Link className="button button--secondary button--sm" href="/approvals">
+        View approval
+      </Link>
+    );
+  }
+  if (status !== "draft" || !canUpdate) return null;
   return (
     <form action={action} className="finance-inline-actions">
       <input type="hidden" name="entityId" value={entityId} />
       <input type="hidden" name="entityType" value={entityType} />
-      {available.map((decision) => (
-        <Button
-          key={decision}
-          type="submit"
-          name="decision"
-          value={decision}
-          size="sm"
-          variant={
-            decision === "reject" ? "danger" : decision === "approve" ? "primary" : "secondary"
-          }
-          disabled={pending}
-        >
-          {financeStatusLabel(decision)}
-        </Button>
-      ))}
+      <Button type="submit" name="decision" value="submit" size="sm" variant="secondary" disabled={pending}>
+        {pending ? "Submitting" : "Submit approval"}
+      </Button>
       <ActionMessage state={state} />
     </form>
   );
@@ -1132,7 +1117,6 @@ function EstimatesSection({ data }: { data: FinanceWorkspaceData }) {
                     entityType="estimate"
                     status={estimate.status}
                     canUpdate={data.capabilities.canUpdateEstimates}
-                    canApprove={data.capabilities.canApproveEstimates}
                   />
                   {data.capabilities.canRecordEstimateAcceptance &&
                   ["approved", "sent"].includes(estimate.status) ? (
@@ -1764,11 +1748,10 @@ function InvoicesSection({ data }: { data: FinanceWorkspaceData }) {
                     entityType="invoice"
                     status={invoice.status}
                     canUpdate={data.capabilities.canUpdateInvoices}
-                    canApprove={data.capabilities.canApproveInvoices}
                   />
                   {data.capabilities.canIssueInvoices &&
-                  (invoice.status === "approved" ||
-                    (invoice.status === "draft" && invoice.approvalStatus === "not_required")) ? (
+                  invoice.status === "approved" &&
+                  invoice.approvalStatus === "approved" ? (
                     <IssueInvoiceForm invoice={invoice} />
                   ) : null}
                   {data.capabilities.canCorrectInvoices &&
@@ -1913,12 +1896,10 @@ function CreditNotesSection({ data }: { data: FinanceWorkspaceData }) {
                     entityType="credit_note"
                     status={creditNote.status}
                     canUpdate={data.capabilities.canCreateCreditNotes}
-                    canApprove={data.capabilities.canApproveCreditNotes}
                   />
                   {data.capabilities.canIssueCreditNotes &&
-                  (creditNote.status === "approved" ||
-                    (creditNote.status === "draft" &&
-                      creditNote.approvalStatus === "not_required")) ? (
+                  creditNote.status === "approved" &&
+                  creditNote.approvalStatus === "approved" ? (
                     <IssueCreditNoteForm creditNote={creditNote} />
                   ) : null}
                   {data.capabilities.canVoidCreditNotes &&

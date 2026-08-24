@@ -24,7 +24,7 @@ Rate limits apply to password login, MFA attempts, password reset, search, expor
 
 ## Files and exports
 
-Private files are quarantined in MinIO, scanned, checksum-verified, and served only through reauthorizing server routes. Multipart routes require bounded `Content-Length`, and reference ingress limits protect against oversized bodies. Server-side PDF rendering disables JavaScript, aborts network requests, and does not permit `file:` resources. Exports require separate permission, private no-store responses, and spreadsheet-formula neutralization.
+Private files are quarantined in MinIO, scanned, checksum-verified, and served only through reauthorizing server routes. Multipart routes require bounded `Content-Length`, and reference ingress limits protect against oversized bodies. Server-side PDF rendering disables JavaScript, aborts network requests, and does not permit `file:` resources. Uploaded HR HTML templates use a positive tag/attribute allowlist, and the security gate rejects raw browser HTML-injection APIs. Exports require separate permission, private no-store responses, and spreadsheet-formula neutralization; bulk HR report output additionally requires `hr.report.export`.
 
 ## MCP and AI
 
@@ -53,6 +53,7 @@ The worker commits a platform-scoped system canary to the real append-only `audi
 npm run security:framework
 npm run security:supply-chain
 npm run security:tenant-scope
+npm run security:sensitive-content
 npm run verify
 npm run db:status
 npm run db:doctor

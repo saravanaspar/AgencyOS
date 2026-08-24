@@ -1,10 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useMemo, useRef, useState } from "react";
 import {
   BadgeDollarSign,
-  Check,
   Download,
   History,
   Paperclip,
@@ -13,7 +13,6 @@ import {
   Send,
   Tags,
   Trash2,
-  X,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -405,48 +404,29 @@ function ExpenseApprovalControls({
     data.capabilities.canCreateExpenses &&
     ["not_required", "rejected"].includes(expense.approvalStatus) &&
     expense.paymentStatus === "unpaid";
-  const canDecide =
-    data.capabilities.canApproveExpenses &&
-    expense.approvalStatus === "pending" &&
-    expense.paymentStatus === "unpaid";
-  if (!canSubmit && !canDecide) return null;
+
+  if (expense.approvalStatus === "pending") {
+    return (
+      <Link className="button button--secondary button--sm" href="/approvals">
+        View approval
+      </Link>
+    );
+  }
+  if (!canSubmit) return null;
 
   return (
     <form action={action} className="finance-inline-form">
       <input type="hidden" name="expenseId" value={expense.id} />
-      {canSubmit ? (
-        <Button
-          type="submit"
-          name="decision"
-          value="submit"
-          size="sm"
-          variant="secondary"
-          disabled={pending}
-        >
-          <Send size={15} aria-hidden="true" /> Submit approval
-        </Button>
-      ) : null}
-      {canDecide ? (
-        <>
-          <label className="field">
-            <span>Decision note</span>
-            <input name="reason" maxLength={1000} />
-          </label>
-          <Button type="submit" name="decision" value="approve" size="sm" disabled={pending}>
-            <Check size={15} aria-hidden="true" /> Approve
-          </Button>
-          <Button
-            type="submit"
-            name="decision"
-            value="reject"
-            size="sm"
-            variant="danger"
-            disabled={pending}
-          >
-            <X size={15} aria-hidden="true" /> Reject
-          </Button>
-        </>
-      ) : null}
+      <Button
+        type="submit"
+        name="decision"
+        value="submit"
+        size="sm"
+        variant="secondary"
+        disabled={pending}
+      >
+        <Send size={15} aria-hidden="true" /> {pending ? "Submitting" : "Submit approval"}
+      </Button>
       <ActionMessage state={state} />
     </form>
   );
@@ -454,7 +434,7 @@ function ExpenseApprovalControls({
 
 function ExpensePaymentControl({ expense, canPay }: { expense: FinanceExpense; canPay: boolean }) {
   const [state, action, pending] = useActionState(updateExpensePaymentStateAction, initialState);
-  if (!canPay || ["pending", "rejected"].includes(expense.approvalStatus)) return null;
+  if (!canPay || expense.approvalStatus !== "approved") return null;
   return (
     <form action={action} className="finance-inline-form">
       <input type="hidden" name="expenseId" value={expense.id} />

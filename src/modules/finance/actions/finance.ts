@@ -44,6 +44,8 @@ import {
   downloadFinanceSnapshotBytes,
   ensureFinanceDocumentSnapshot,
 } from "@/modules/finance/server/document-snapshots";
+import { submitFinanceApprovalForRecord } from "@/modules/finance/server/approvals";
+import { insertEstimateVersion } from "@/modules/finance/server/estimate-versions";
 import { writeAuditEvent } from "@/modules/audit/server/write-audit-event";
 import { authorizeCurrentUser } from "@/modules/permissions/server/authorization";
 import type { CurrentPermissionContext } from "@/modules/permissions/server/effective-permissions";
@@ -230,83 +232,13 @@ async function insertInvoiceDraft(
   return invoiceId;
 }
 
-async function insertEstimateVersion(
-  sql: QuerySql,
-  context: CurrentPermissionContext,
-  estimateId: string,
-  reason: string,
-): Promise<void> {
-  const rows = await sql<
-    Array<{
-      version_number: number;
-      snapshot: Record<string, unknown>;
-    }>
-  >`
-    select estimate.version_number,
-      jsonb_build_object(
-        'estimateId', estimate.id,
-        'estimateNumber', estimate.estimate_number,
-        'companyId', estimate.company_id,
-        'contactId', estimate.contact_id,
-        'projectId', estimate.project_id,
-        'issueDate', estimate.issue_date,
-        'expiryDate', estimate.expiry_date,
-        'currency', estimate.currency,
-        'status', estimate.status,
-        'approvalStatus', estimate.approval_status,
-        'clientAcceptanceStatus', estimate.client_acceptance_status,
-        'notes', estimate.notes,
-        'terms', estimate.terms,
-        'subtotalMinor', estimate.subtotal_minor,
-        'discountMinor', estimate.discount_minor,
-        'taxMinor', estimate.tax_minor,
-        'totalMinor', estimate.total_minor,
-        'lines', coalesce((
-          select jsonb_agg(jsonb_build_object(
-            'position', line.position,
-            'catalogItemId', line.catalog_item_id,
-            'description', line.description,
-            'quantityMilli', line.quantity_milli,
-            'unitRateMinor', line.unit_rate_minor,
-            'discountBps', line.discount_bps,
-            'taxBps', line.tax_bps,
-            'subtotalMinor', line.subtotal_minor,
-            'discountMinor', line.discount_minor,
-            'taxMinor', line.tax_minor,
-            'totalMinor', line.total_minor
-          ) order by line.position)
-          from public.finance_estimate_lines as line
-          where line.estimate_id = estimate.id
-        ), '[]'::jsonb)
-      ) as snapshot
-    from public.finance_estimates as estimate
-    where estimate.id = ${estimateId}::uuid
-      and estimate.organization_id = ${context.membership.organizationId}::uuid
-    limit 1
-  `;
-  const row = rows[0];
-  if (!row) throw new FinanceActionError("Estimate was not found.");
-
-  await sql`
-    insert into public.finance_estimate_versions (
-      organization_id, estimate_id, version_number, snapshot, reason, created_by_membership_id
-    ) values (
-      ${context.membership.organizationId}::uuid,
-      ${estimateId}::uuid,
-      ${row.version_number},
-      ${sql.json(toJsonValue(row.snapshot))},
-      ${reason},
-      ${context.membership.id}::uuid
-    )
-    on conflict (estimate_id, version_number) do nothing
-  `;
-}
-
 function databaseFailure(error: unknown, fallback: string): FinanceActionState {
   if (error instanceof FinanceActionError) return errorState(error.message);
   if (
     error instanceof Error &&
-    /decimal|quantity|percentage|amount|calculated/i.test(error.message)
+    /decimal|quantity|percentage|amount|calculated|approval policy|eligible approver|approval requires|self-approval|pending approval|approval submission|shared approval/i.test(
+      error.message,
+    )
   ) {
     return errorState(error.message);
   }
@@ -910,11 +842,12 @@ export async function issueCreditNoteAction(
           original_invoice_id: string;
           status: string;
           approval_status: string;
+          approval_request_id: string | null;
           currency: string;
           total_minor: string | number;
         }>
       >`
-        select id, original_invoice_id, status, approval_status, currency, total_minor
+        select id, original_invoice_id, status, approval_status, approval_request_id, currency, total_minor
         from public.finance_credit_notes
         where id = ${parsed.data.creditNoteId}::uuid
           and organization_id = ${context.membership.organizationId}::uuid
@@ -922,8 +855,12 @@ export async function issueCreditNoteAction(
       `;
       const note = noteRows[0];
       if (!note) throw new FinanceActionError("Credit note was not found.");
-      if (note.status !== "approved" && note.approval_status !== "not_required") {
-        throw new FinanceActionError("Approve the credit note before issuing it.");
+      if (
+        note.status !== "approved" ||
+        note.approval_status !== "approved" ||
+        !note.approval_request_id
+      ) {
+        throw new FinanceActionError("Complete shared approval before issuing the credit note.");
       }
       if (Number(note.total_minor) <= 0) {
         throw new FinanceActionError(
@@ -1169,148 +1106,172 @@ export async function decideFinanceApprovalAction(
   if (!parsed.success) {
     return errorState("Check the approval decision.", parsed.error.flatten().fieldErrors);
   }
-
   const entityType = parsed.data.entityType;
   const label =
     entityType === "estimate" ? "Estimate" : entityType === "invoice" ? "Invoice" : "Credit note";
   const permission =
-    parsed.data.decision === "submit"
-      ? entityType === "estimate"
-        ? financePermissionKeys.estimateUpdate
-        : entityType === "invoice"
-          ? financePermissionKeys.invoiceUpdate
-          : financePermissionKeys.creditNoteCreate
-      : entityType === "estimate"
-        ? financePermissionKeys.estimateApprove
-        : entityType === "invoice"
-          ? financePermissionKeys.invoiceApprove
-          : financePermissionKeys.creditNoteApprove;
+    entityType === "estimate"
+      ? financePermissionKeys.estimateUpdate
+      : entityType === "invoice"
+        ? financePermissionKeys.invoiceUpdate
+        : financePermissionKeys.creditNoteCreate;
 
   try {
     const context = await authorize(permission);
     const database = getDatabaseClient();
-    await database.begin(async (sql) => {
-      let row: { id: string; status: string; approval_status: string } | undefined;
-      if (entityType === "estimate") {
-        row = (
-          await sql<Array<{ id: string; status: string; approval_status: string }>>`
-            select id, status, approval_status
+    const rows = await database<
+      Array<{
+        id: string;
+        status: string;
+        approval_status: string;
+        total_minor: string | number;
+        currency: string;
+        content_hash: string;
+        display_number: string;
+      }>
+    >`
+      ${entityType === "estimate"
+        ? database`
+            select id, status, approval_status, total_minor, currency, content_hash,
+              estimate_number as display_number
             from public.finance_estimates
             where id = ${parsed.data.entityId}::uuid
               and organization_id = ${context.membership.organizationId}::uuid
-            for update
+            limit 1
           `
-        )[0];
-      } else if (entityType === "invoice") {
-        row = (
-          await sql<Array<{ id: string; status: string; approval_status: string }>>`
-            select id, status, approval_status
-            from public.finance_invoices
-            where id = ${parsed.data.entityId}::uuid
-              and organization_id = ${context.membership.organizationId}::uuid
-            for update
-          `
-        )[0];
-      } else {
-        row = (
-          await sql<Array<{ id: string; status: string; approval_status: string }>>`
-            select id, status, approval_status
-            from public.finance_credit_notes
-            where id = ${parsed.data.entityId}::uuid
-              and organization_id = ${context.membership.organizationId}::uuid
-            for update
-          `
-        )[0];
-      }
+        : entityType === "invoice"
+          ? database`
+              select id, status, approval_status, total_minor, currency, content_hash,
+                coalesce(invoice_number, draft_reference) as display_number
+              from public.finance_invoices
+              where id = ${parsed.data.entityId}::uuid
+                and organization_id = ${context.membership.organizationId}::uuid
+              limit 1
+            `
+          : database`
+              select id, status, approval_status, total_minor, currency, content_hash,
+                coalesce(credit_note_number, left(id::text, 8)) as display_number
+              from public.finance_credit_notes
+              where id = ${parsed.data.entityId}::uuid
+                and organization_id = ${context.membership.organizationId}::uuid
+              limit 1
+            `}
+    `;
+    const record = rows[0];
+    if (!record) throw new FinanceActionError(`${label} was not found.`);
+    if (record.status !== "draft") {
+      throw new FinanceActionError("Only a draft can be submitted for approval.");
+    }
 
-      if (!row) throw new FinanceActionError(`${label} was not found.`);
-      if (!["draft", "pending_approval", "approved"].includes(row.status)) {
-        throw new FinanceActionError("Only an editable draft can change approval state.");
-      }
+    const amountMinor = Number(record.total_minor);
+    if (!Number.isSafeInteger(amountMinor) || amountMinor < 0) {
+      throw new FinanceActionError("The finance total is outside the supported approval range.");
+    }
 
-      const nextStatus =
-        parsed.data.decision === "submit"
-          ? "pending_approval"
-          : parsed.data.decision === "approve"
-            ? "approved"
-            : "draft";
-      const nextApproval =
-        parsed.data.decision === "submit"
-          ? "pending"
-          : parsed.data.decision === "approve"
-            ? "approved"
-            : "rejected";
-      const eventType =
-        parsed.data.decision === "submit"
-          ? "submitted"
-          : parsed.data.decision === "approve"
-            ? "approved"
-            : "rejected";
-
-      if (entityType === "estimate") {
-        await sql`
-          update public.finance_estimates
-          set status = ${nextStatus}, approval_status = ${nextApproval},
-            approved_at = case when ${parsed.data.decision} = 'approve' then now() else null end,
-            version_number = version_number + 1
-          where id = ${parsed.data.entityId}::uuid
-        `;
-        await insertEstimateVersion(
-          sql,
-          context,
-          parsed.data.entityId,
-          `Approval ${parsed.data.decision}`,
-        );
-      } else if (entityType === "invoice") {
-        await sql`
-          update public.finance_invoices
-          set status = ${nextStatus}, approval_status = ${nextApproval},
-            approved_at = case when ${parsed.data.decision} = 'approve' then now() else null end
-          where id = ${parsed.data.entityId}::uuid
-        `;
-        await sql`
-          insert into public.finance_invoice_events (
-            organization_id, invoice_id, event_type, event_data, actor_membership_id
-          ) values (
-            ${context.membership.organizationId}::uuid, ${parsed.data.entityId}::uuid,
-            ${eventType}, ${sql.json(toJsonValue({ reason: parsed.data.reason }))},
-            ${context.membership.id}::uuid
-          )
-        `;
-      } else {
-        await sql`
-          update public.finance_credit_notes
-          set status = ${nextStatus}, approval_status = ${nextApproval},
-            approved_at = case when ${parsed.data.decision} = 'approve' then now() else null end
-          where id = ${parsed.data.entityId}::uuid
-        `;
-        await sql`
-          insert into public.finance_credit_note_events (
-            organization_id, credit_note_id, event_type, event_data, actor_membership_id
-          ) values (
-            ${context.membership.organizationId}::uuid, ${parsed.data.entityId}::uuid,
-            ${eventType}, ${sql.json(toJsonValue({ reason: parsed.data.reason }))},
-            ${context.membership.id}::uuid
-          )
-        `;
-      }
-
-      await writeAuditEvent(sql, context, {
-        action: `finance.${entityType}.approval_${parsed.data.decision}`,
-        entityType: `finance_${entityType}`,
-        entityId: parsed.data.entityId,
-        afterState: {
-          status: nextStatus,
-          approvalStatus: nextApproval,
-          reason: parsed.data.reason,
+    const submitted = await submitFinanceApprovalForRecord(
+      context,
+      {
+        entityType,
+        entityId: record.id,
+        title: `${label} ${record.display_number}`,
+        amountMinor,
+        currency: record.currency,
+        snapshot: {
+          entityId: record.id,
+          entityType,
+          displayNumber: record.display_number,
+          totalMinor: amountMinor,
+          currency: record.currency,
+          contentHash: record.content_hash,
         },
-      });
-    });
+      },
+      async (sql, requestId) => {
+        if (entityType === "estimate") {
+          const updated = await sql<{ id: string }[]>`
+            update public.finance_estimates
+            set status = 'pending_approval', approval_status = 'pending',
+              approval_request_id = ${requestId}::uuid, approved_at = null,
+              version_number = version_number + 1
+            where id = ${record.id}::uuid
+              and organization_id = ${context.membership.organizationId}::uuid
+              and status = 'draft'
+              and content_hash = ${record.content_hash}
+            returning id
+          `;
+          if (!updated[0]) {
+            throw new FinanceActionError("The estimate changed before approval submission. Reload and try again.");
+          }
+          await insertEstimateVersion(sql, context, record.id, "Submitted for shared approval");
+        } else if (entityType === "invoice") {
+          const updated = await sql<{ id: string }[]>`
+            update public.finance_invoices
+            set status = 'pending_approval', approval_status = 'pending',
+              approval_request_id = ${requestId}::uuid, approved_at = null
+            where id = ${record.id}::uuid
+              and organization_id = ${context.membership.organizationId}::uuid
+              and status = 'draft'
+              and content_hash = ${record.content_hash}
+            returning id
+          `;
+          if (!updated[0]) {
+            throw new FinanceActionError("The invoice changed before approval submission. Reload and try again.");
+          }
+          await sql`
+            insert into public.finance_invoice_events (
+              organization_id, invoice_id, event_type, event_data, actor_membership_id
+            ) values (
+              ${context.membership.organizationId}::uuid, ${record.id}::uuid, 'submitted',
+              ${sql.json(toJsonValue({ approvalRequestId: requestId }))},
+              ${context.membership.id}::uuid
+            )
+          `;
+        } else {
+          const updated = await sql<{ id: string }[]>`
+            update public.finance_credit_notes
+            set status = 'pending_approval', approval_status = 'pending',
+              approval_request_id = ${requestId}::uuid, approved_at = null
+            where id = ${record.id}::uuid
+              and organization_id = ${context.membership.organizationId}::uuid
+              and status = 'draft'
+              and content_hash = ${record.content_hash}
+            returning id
+          `;
+          if (!updated[0]) {
+            throw new FinanceActionError("The credit note changed before approval submission. Reload and try again.");
+          }
+          await sql`
+            insert into public.finance_credit_note_events (
+              organization_id, credit_note_id, event_type, event_data, actor_membership_id
+            ) values (
+              ${context.membership.organizationId}::uuid, ${record.id}::uuid, 'submitted',
+              ${sql.json(toJsonValue({ approvalRequestId: requestId }))},
+              ${context.membership.id}::uuid
+            )
+          `;
+        }
+
+        await writeAuditEvent(sql, context, {
+          action: `finance.${entityType}.approval_submitted`,
+          entityType: `finance_${entityType}`,
+          entityId: record.id,
+          beforeState: { status: record.status, approvalStatus: record.approval_status },
+          afterState: {
+            status: "pending_approval",
+            approvalStatus: "pending",
+            approvalRequestId: requestId,
+          },
+          changedFields: ["status", "approval_status", "approval_request_id"],
+        });
+      },
+    );
 
     refreshFinance();
-    return successState(`${label} approval state updated.`, parsed.data.entityId);
+    return successState(
+      `${label} submitted for shared approval. Track request ${submitted.requestId.slice(0, 8)} in Approvals.`,
+      record.id,
+    );
   } catch (error) {
-    return databaseFailure(error, "The approval state could not be updated.");
+    return databaseFailure(error, "The approval request could not be submitted.");
   }
 }
 
@@ -1562,12 +1523,13 @@ export async function issueInvoiceAction(
           id: string;
           status: string;
           approval_status: string;
+          approval_request_id: string | null;
           total_minor: string | number;
           company_id: string;
           currency: string;
         }>
       >`
-        select id, status, approval_status, total_minor, company_id, currency
+        select id, status, approval_status, approval_request_id, total_minor, company_id, currency
         from public.finance_invoices
         where id = ${parsed.data.invoiceId}::uuid
           and organization_id = ${context.membership.organizationId}::uuid
@@ -1575,8 +1537,12 @@ export async function issueInvoiceAction(
       `;
       const invoice = rows[0];
       if (!invoice) throw new FinanceActionError("Invoice was not found.");
-      if (invoice.status !== "approved" && invoice.approval_status !== "not_required") {
-        throw new FinanceActionError("Approve the invoice before issuing it.");
+      if (
+        invoice.status !== "approved" ||
+        invoice.approval_status !== "approved" ||
+        !invoice.approval_request_id
+      ) {
+        throw new FinanceActionError("Complete shared approval before issuing the invoice.");
       }
       if (Number(invoice.total_minor) <= 0)
         throw new FinanceActionError("Add at least one billable line before issuing the invoice.");

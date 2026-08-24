@@ -39,8 +39,8 @@ const approvalStepSchema = z
     selectorMembershipId: optionalUuid,
     decisionMode: z.enum(["any", "all"]),
     conditions: z.strictObject({
-      minimumAmount: z.number().nonnegative().max(999_999_999_999).optional(),
-      maximumAmount: z.number().nonnegative().max(999_999_999_999).optional(),
+      minimumAmount: z.number().nonnegative().max(9_000_000_000_000).optional(),
+      maximumAmount: z.number().nonnegative().max(9_000_000_000_000).optional(),
       departmentId: z.uuid().optional(),
     }),
     commentRequired: z.boolean(),
@@ -122,7 +122,7 @@ export const createApprovalRequestSchema = z
     entityId: z.string().trim().max(200).nullable(),
     deepLink: safeDeepLinkSchema.transform((value) => value || null),
     departmentId: optionalUuid,
-    amount: z.number().nonnegative().max(999_999_999_999).nullable(),
+    amount: z.number().nonnegative().max(9_000_000_000_000).nullable(),
     currency: z
       .string()
       .trim()
@@ -210,7 +210,7 @@ export const approvalRequestIntegrationSchema = z
     entityId: z.string().trim().max(200).nullable(),
     deepLink: safeDeepLinkSchema.transform((value) => value || null),
     departmentId: optionalUuid,
-    amount: z.number().nonnegative().max(999_999_999_999).nullable(),
+    amount: z.number().nonnegative().max(9_000_000_000_000).nullable(),
     currency: z
       .string()
       .trim()

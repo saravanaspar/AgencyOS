@@ -1722,7 +1722,7 @@ The unchecked controls below are reconciled by implementation evidence, not gues
 - [x] Parameterized database queries
 - [x] Output encoding
 - [ ] HTML sanitization
-- [ ] Rich-text allowlist
+- [x] Rich-text allowlist / future rich-text release guard
 - [x] CSP headers
 - [x] CSRF protection
 - [x] Strict CORS
@@ -1749,9 +1749,9 @@ The unchecked controls below are reconciled by implementation evidence, not gues
 
 - [ ] Issued invoices immutable
 - [ ] Transactional invoice numbering
-- [ ] Approval for invoice issue
-- [ ] Approval thresholds
-- [ ] No self-approval for controlled transactions
+- [x] Approval for invoice issue
+- [x] Approval thresholds
+- [x] No self-approval for controlled transactions
 - [ ] Payment entries audited
 - [ ] Credit notes reference original invoices
 - [ ] Monetary calculations centralized
@@ -1764,9 +1764,9 @@ The unchecked controls below are reconciled by implementation evidence, not gues
 - [x] Salary access audited
 - [x] Employee documents private
 - [ ] Managers see only required employee information
-- [ ] Medical information separately classified
+- [x] Medical information separate-classification release guard
 - [x] Government IDs masked by default
-- [ ] HR export explicitly permitted
+- [x] HR export explicitly permitted
 - [x] Deactivated employees lose login access immediately
 
 ### Legal security

@@ -6,6 +6,7 @@ import { getDatabaseClient } from "@/integrations/postgres/database";
 import { toJsonValue } from "@/lib/server/json-value";
 import { parseMoneyToMinor, parsePercentToBps } from "@/modules/finance/calculations";
 import { financePermissionKeys } from "@/modules/finance/finance";
+import { submitFinanceApprovalForRecord } from "@/modules/finance/server/approvals";
 import {
   expenseApprovalDecisionSchema,
   expenseCategoryCreateSchema,
@@ -64,6 +65,14 @@ function failure(error: unknown, fallback: string): FinanceActionState {
     return errorState("A matching expense category or allocation already exists.");
   if (code === "23514" || code === "23503") {
     return errorState("One or more expense fields are invalid or outside this organization.");
+  }
+  if (
+    error instanceof Error &&
+    /approval policy|eligible approver|approval requires|self-approval|pending approval|approval submission|shared approval/i.test(
+      error.message,
+    )
+  ) {
+    return errorState(error.message);
   }
   return errorState(fallback);
 }
@@ -336,84 +345,106 @@ export async function decideExpenseApprovalAction(
   if (!parsed.success) {
     return errorState("Check the approval decision.", parsed.error.flatten().fieldErrors);
   }
-
   try {
-    const permission =
-      parsed.data.decision === "submit"
-        ? financePermissionKeys.expenseCreate
-        : financePermissionKeys.expenseApprove;
-    const context = await authorizeExpense(permission);
-    await assertExpenseScope(context, permission, parsed.data.expenseId);
-
+    const context = await authorizeExpense(financePermissionKeys.expenseCreate);
+    await assertExpenseScope(context, financePermissionKeys.expenseCreate, parsed.data.expenseId);
     const database = getDatabaseClient();
-    await database.begin(async (sql) => {
-      const rows = await sql<
-        Array<{ id: string; approval_status: string; payment_status: string }>
-      >`
-        select id, approval_status, payment_status
-        from public.finance_expenses
-        where id = ${parsed.data.expenseId}::uuid
-          and organization_id = ${context.membership.organizationId}::uuid
-        for update
-      `;
-      const expense = rows[0];
-      if (!expense) throw new ExpenseActionError("Expense was not found.");
-      if (expense.payment_status !== "unpaid") {
-        throw new ExpenseActionError("Approval cannot change after payment processing begins.");
-      }
+    const rows = await database<
+      Array<{
+        id: string;
+        approval_status: string;
+        payment_status: string;
+        total_minor: string | number;
+        currency: string;
+        vendor_name: string | null;
+        expense_date: string;
+        updated_at: string;
+      }>
+    >`
+      select id, approval_status, payment_status, total_minor, currency, vendor_name,
+        expense_date::text, updated_at::text
+      from public.finance_expenses
+      where id = ${parsed.data.expenseId}::uuid
+        and organization_id = ${context.membership.organizationId}::uuid
+      limit 1
+    `;
+    const expense = rows[0];
+    if (!expense) throw new ExpenseActionError("Expense was not found.");
+    if (expense.payment_status !== "unpaid") {
+      throw new ExpenseActionError("Approval cannot change after payment processing begins.");
+    }
+    if (!["not_required", "rejected"].includes(expense.approval_status)) {
+      throw new ExpenseActionError("Only an unsubmitted or rejected expense can be submitted.");
+    }
 
-      let nextStatus: "pending" | "approved" | "rejected";
-      if (parsed.data.decision === "submit") {
-        if (!["not_required", "rejected"].includes(expense.approval_status)) {
-          throw new ExpenseActionError("Only an unsubmitted or rejected expense can be submitted.");
-        }
-        nextStatus = "pending";
-      } else {
-        if (expense.approval_status !== "pending") {
-          throw new ExpenseActionError("Only a pending expense can be approved or rejected.");
-        }
-        nextStatus = parsed.data.decision === "approve" ? "approved" : "rejected";
-      }
+    const amountMinor = Number(expense.total_minor);
+    if (!Number.isSafeInteger(amountMinor) || amountMinor < 0) {
+      throw new ExpenseActionError("The expense total is outside the supported approval range.");
+    }
 
-      await sql`
-        update public.finance_expenses
-        set approval_status = ${nextStatus},
-          approved_by_membership_id = case when ${nextStatus} = 'approved' then ${context.membership.id}::uuid else null end,
-          approved_at = case when ${nextStatus} = 'approved' then now() else null end,
-          rejection_reason = case when ${nextStatus} = 'rejected' then ${parsed.data.reason} else null end
-        where id = ${expense.id}::uuid
-      `;
-      await sql`
-        insert into public.finance_expense_events (
-          organization_id, expense_id, event_type, event_data, actor_membership_id
-        ) values (
-          ${context.membership.organizationId}::uuid,
-          ${expense.id}::uuid,
-          ${parsed.data.decision === "submit" ? "approval_submitted" : nextStatus},
-          ${sql.json(toJsonValue({ reason: parsed.data.reason }))},
-          ${context.membership.id}::uuid
-        )
-      `;
-      await writeAuditEvent(sql, context, {
-        action: `finance.expense.${parsed.data.decision}`,
-        entityType: "finance_expense",
+    const submitted = await submitFinanceApprovalForRecord(
+      context,
+      {
+        entityType: "expense",
         entityId: expense.id,
-        beforeState: { approvalStatus: expense.approval_status },
-        afterState: { approvalStatus: nextStatus, reason: parsed.data.reason },
-      });
-    });
+        title: `Expense ${expense.vendor_name ?? expense.expense_date}`,
+        amountMinor,
+        currency: expense.currency,
+        snapshot: {
+          entityId: expense.id,
+          entityType: "expense",
+          vendorName: expense.vendor_name,
+          expenseDate: expense.expense_date,
+          totalMinor: amountMinor,
+          currency: expense.currency,
+        },
+      },
+      async (sql, requestId) => {
+        const updated = await sql<{ id: string }[]>`
+          update public.finance_expenses
+          set approval_status = 'pending', approval_request_id = ${requestId}::uuid,
+            approved_by_membership_id = null, approved_at = null, rejection_reason = null
+          where id = ${expense.id}::uuid
+            and organization_id = ${context.membership.organizationId}::uuid
+            and payment_status = 'unpaid'
+            and approval_status in ('not_required', 'rejected')
+            and updated_at = ${expense.updated_at}::timestamptz
+          returning id
+        `;
+        if (!updated[0]) {
+          throw new ExpenseActionError(
+            "The expense changed before approval submission. Reload and try again.",
+          );
+        }
+        await sql`
+          insert into public.finance_expense_events (
+            organization_id, expense_id, event_type, event_data, actor_membership_id
+          ) values (
+            ${context.membership.organizationId}::uuid,
+            ${expense.id}::uuid,
+            'approval_submitted',
+            ${sql.json(toJsonValue({ approvalRequestId: requestId }))},
+            ${context.membership.id}::uuid
+          )
+        `;
+        await writeAuditEvent(sql, context, {
+          action: "finance.expense.approval_submitted",
+          entityType: "finance_expense",
+          entityId: expense.id,
+          beforeState: { approvalStatus: expense.approval_status },
+          afterState: { approvalStatus: "pending", approvalRequestId: requestId },
+          changedFields: ["approval_status", "approval_request_id"],
+        });
+      },
+    );
 
     refreshFinance();
     return successState(
-      parsed.data.decision === "submit"
-        ? "Expense submitted for approval."
-        : parsed.data.decision === "approve"
-          ? "Expense approved."
-          : "Expense rejected.",
-      parsed.data.expenseId,
+      `Expense submitted for shared approval. Track request ${submitted.requestId.slice(0, 8)} in Approvals.`,
+      expense.id,
     );
   } catch (error) {
-    return failure(error, "The expense approval could not be updated.");
+    return failure(error, "The expense approval request could not be submitted.");
   }
 }
 
@@ -434,11 +465,12 @@ export async function updateExpensePaymentStateAction(
         Array<{
           id: string;
           approval_status: string;
+          approval_request_id: string | null;
           payment_status: string;
           is_reimbursable: boolean;
         }>
       >`
-        select id, approval_status, payment_status, is_reimbursable
+        select id, approval_status, approval_request_id, payment_status, is_reimbursable
         from public.finance_expenses
         where id = ${parsed.data.expenseId}::uuid
           and organization_id = ${context.membership.organizationId}::uuid
@@ -446,8 +478,10 @@ export async function updateExpensePaymentStateAction(
       `;
       const expense = rows[0];
       if (!expense) throw new ExpenseActionError("Expense was not found.");
-      if (["pending", "rejected"].includes(expense.approval_status)) {
-        throw new ExpenseActionError("Approve the expense before changing its payment state.");
+      if (expense.approval_status !== "approved" || !expense.approval_request_id) {
+        throw new ExpenseActionError(
+          "Complete shared approval before changing the expense payment state.",
+        );
       }
       if (parsed.data.paymentStatus === "reimbursed" && !expense.is_reimbursable) {
         throw new ExpenseActionError("Only reimbursable expenses can be marked reimbursed.");

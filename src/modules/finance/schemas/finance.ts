@@ -160,8 +160,7 @@ export const invoiceCreateSchema = baseDocument
 export const financeApprovalDecisionSchema = z.object({
   entityId: uuid,
   entityType: z.enum(["estimate", "invoice", "credit_note"]),
-  decision: z.enum(["submit", "approve", "reject"]),
-  reason: optionalText(1_000),
+  decision: z.literal("submit"),
 });
 
 export const estimateClientDecisionSchema = z.object({
@@ -355,21 +354,10 @@ export const expenseCreateSchema = z
     }
   });
 
-export const expenseApprovalDecisionSchema = z
-  .object({
-    expenseId: uuid,
-    decision: z.enum(["submit", "approve", "reject"]),
-    reason: optionalText(1_000),
-  })
-  .superRefine((value, context) => {
-    if (value.decision === "reject" && !value.reason) {
-      context.addIssue({
-        code: "custom",
-        path: ["reason"],
-        message: "Explain why the expense is rejected.",
-      });
-    }
-  });
+export const expenseApprovalDecisionSchema = z.object({
+  expenseId: uuid,
+  decision: z.literal("submit"),
+});
 
 export const expensePaymentStateSchema = z.object({
   expenseId: uuid,

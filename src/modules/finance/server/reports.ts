@@ -555,7 +555,7 @@ export async function loadFinanceReportData(
         join public.finance_expenses as expense on expense.id = allocation.expense_id
         join public.organizations as organization on organization.id = expense.organization_id
         where expense.organization_id = ${organizationId}::uuid
-          and expense.approval_status in ('approved', 'not_required')
+          and expense.approval_status = 'approved'
           and expense.currency = organization.default_currency
           and expense.expense_date between ${from}::date and ${to}::date
         group by allocation.project_id
@@ -625,7 +625,7 @@ export async function loadFinanceReportData(
       join public.finance_expense_categories as category on category.id = expense.category_id
       join public.organizations as organization on organization.id = expense.organization_id
       where expense.organization_id = ${organizationId}::uuid
-        and expense.approval_status in ('approved', 'not_required')
+        and expense.approval_status = 'approved'
         and expense.currency = organization.default_currency
         and expense.expense_date between ${from}::date and ${to}::date
       group by category.id, category.name
@@ -643,7 +643,7 @@ export async function loadFinanceReportData(
       join public.projects as project on project.id = allocation.project_id
       join public.organizations as organization on organization.id = expense.organization_id
       where expense.organization_id = ${organizationId}::uuid
-        and expense.approval_status in ('approved', 'not_required')
+        and expense.approval_status = 'approved'
         and expense.currency = organization.default_currency
         and expense.expense_date between ${from}::date and ${to}::date
       group by project.id, project.code, project.name
@@ -710,7 +710,7 @@ export async function loadFinanceReportData(
           from public.finance_expenses as expense
           join public.organizations as organization on organization.id = expense.organization_id
           where expense.organization_id = ${organizationId}::uuid
-            and expense.approval_status in ('approved', 'not_required')
+            and expense.approval_status = 'approved'
             and expense.currency = organization.default_currency
             and expense.expense_date between ${from}::date and ${to}::date
         ), 0)::bigint as expense_tax_minor
