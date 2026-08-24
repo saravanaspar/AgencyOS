@@ -23,6 +23,8 @@ export default async function CrmPage({ searchParams }: CrmPageProps) {
     stage: firstValue(raw.stage),
     owner: firstValue(raw.owner),
     status: firstValue(raw.status),
+    currency: firstValue(raw.currency),
+    scope: firstValue(raw.scope),
     page: firstValue(raw.page),
   });
   const rawOAuthResult = firstValue(raw.oauth);
@@ -38,8 +40,8 @@ export default async function CrmPage({ searchParams }: CrmPageProps) {
   const initialTab = oauthResult
     ? "imports"
     : requestedTab &&
-        ["pipeline", "companies", "contacts", "activity", "imports"].includes(requestedTab)
-      ? (requestedTab as "pipeline" | "companies" | "contacts" | "activity" | "imports")
+        ["pipeline", "forecast", "companies", "contacts", "activity", "imports"].includes(requestedTab)
+      ? (requestedTab as "pipeline" | "forecast" | "companies" | "contacts" | "activity" | "imports")
       : firstValue(raw.company)
         ? "companies"
         : firstValue(raw.contact)

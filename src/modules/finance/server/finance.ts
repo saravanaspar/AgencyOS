@@ -16,6 +16,7 @@ import { getCurrentPermissionContext } from "@/modules/permissions/server/effect
 import { reportsPermissionKeys } from "@/modules/reports/reports";
 import { loadFinanceExpenseData, type FinanceExpenseData } from "@/modules/finance/server/expenses";
 import { loadFinanceReportData, type FinanceReportData } from "@/modules/finance/server/reports";
+import { invoiceSourceFilter, paymentSourceFilter } from "@/modules/finance/server/source-filters";
 
 export type {
   FinanceExpense,
@@ -815,6 +816,7 @@ export async function getFinanceWorkspaceData(
                 where invoice.organization_id = ${organizationId}::uuid
                   and (${effectiveFilters.company}::uuid is null or invoice.company_id = ${effectiveFilters.company}::uuid)
                   and (${effectiveFilters.status}::text is null or invoice.status = ${effectiveFilters.status})
+                  ${invoiceSourceFilter(database, effectiveFilters)}
                   and (
                     ${search}::text is null
                     or invoice.invoice_number ilike ${search} escape '\\'
@@ -903,6 +905,7 @@ export async function getFinanceWorkspaceData(
                 left join public.finance_payment_allocations as allocation on allocation.payment_id = payment.id
                 where payment.organization_id = ${organizationId}::uuid
                   and (${effectiveFilters.company}::uuid is null or payment.company_id = ${effectiveFilters.company}::uuid)
+                  ${paymentSourceFilter(database, effectiveFilters)}
                   and (
                     ${search}::text is null
                     or payment.transaction_reference ilike ${search} escape '\\'

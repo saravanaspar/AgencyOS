@@ -1,6 +1,7 @@
 import { escapeCsvCell } from "@/modules/audit/audit-log-utils";
 import { getNumberFormatter } from "@/lib/intl-formatters";
 import { formatMinorMoney } from "@/modules/finance/calculations";
+import { getMetricDefinition } from "@/modules/reports/metric-definitions";
 import { reportWidgetLabel, type ReportWidgetKey } from "@/modules/reports/report-builder";
 import type { ReportCountRow, ReportsWorkspaceData } from "@/modules/reports/reports";
 
@@ -17,6 +18,28 @@ function money(value: number, data: ReportsWorkspaceData): string {
 
 function decimal(value: number, data: ReportsWorkspaceData): string {
   return getNumberFormatter(data.locale, { maximumFractionDigits: 1 }).format(value);
+}
+
+function definitionCells(definitionKey: string | null | undefined): string[] {
+  const definition = getMetricDefinition(definitionKey);
+  if (!definition) return ["", "", "", ""];
+  return [
+    definition.meaning,
+    definition.formula,
+    definition.sourceEntities.join(", "),
+    [definition.currencyRule, ...definition.caveats].filter(Boolean).join(" "),
+  ];
+}
+
+function reportMetricValue(
+  metric: ReportsWorkspaceData["summary"][number],
+  data: ReportsWorkspaceData,
+): string {
+  if (metric.unit === "minor") return money(metric.value, data);
+  if (metric.unit === "bps") return `${decimal(metric.value / 100, data)}%`;
+  if (metric.unit === "minutes") return `${decimal(metric.value / 60, data)} h`;
+  if (metric.unit === "days") return `${decimal(metric.value, data)} days`;
+  return String(metric.value);
 }
 
 function countBlock(
@@ -55,8 +78,23 @@ function blockForWidget(
     return {
       key,
       title: founderBlock.title,
-      columns: ["Metric", "Value", "Detail"],
-      rows: founderBlock.rows.map((row) => [row.label, row.value, row.detail ?? ""]),
+      columns: [
+        "Metric",
+        "Value",
+        "Detail",
+        "Definition",
+        "Formula",
+        "Source entities",
+        "Currency / caveats",
+        "Source records",
+      ],
+      rows: founderBlock.rows.map((row) => [
+        row.label,
+        row.value,
+        row.detail ?? "",
+        ...definitionCells(row.definitionKey),
+        row.href ?? "",
+      ]),
     };
   }
 
@@ -64,17 +102,22 @@ function blockForWidget(
     return {
       key,
       title: reportWidgetLabel(key),
-      columns: ["Metric", "Value", "Comparison"],
+      columns: [
+        "Metric",
+        "Value",
+        "Comparison",
+        "Definition",
+        "Formula",
+        "Source entities",
+        "Currency / caveats",
+        "Source records",
+      ],
       rows: data.summary.map((metric) => [
         metric.label,
-        metric.unit === "minor"
-          ? money(metric.value, data)
-          : metric.unit === "bps"
-            ? `${decimal(metric.value / 100, data)}%`
-            : metric.unit === "minutes"
-              ? `${decimal(metric.value / 60, data)} h`
-              : String(metric.value),
+        reportMetricValue(metric, data),
         metric.comparisonValue == null ? "" : String(metric.comparisonValue),
+        ...definitionCells(metric.definitionKey),
+        metric.href,
       ]),
     };
   }
@@ -152,6 +195,39 @@ function blockForWidget(
     return countBlock(key, data.finance.revenueByMonth, data, "amount");
   if (key === "finance.balances" && data.finance)
     return countBlock(key, data.finance.clientBalances, data, "amount");
+  if (key === "finance.concentration" && data.finance) {
+    return {
+      key,
+      title: reportWidgetLabel(key),
+      columns: [
+        "Measure",
+        "Currency",
+        "Largest",
+        "Top 3",
+        "Leading clients / prospects",
+        "Definition",
+        "Formula",
+        "Source entities",
+        "Currency / caveats",
+        "Source records",
+      ],
+      rows: data.finance.clientConcentration.map((metric) => [
+        metric.kind === "pipeline"
+          ? "Weighted pipeline"
+          : metric.kind === "receivables"
+            ? "Receivables"
+            : "Revenue",
+        metric.currency,
+        `${decimal(metric.largestShareBps / 100, data)}%`,
+        `${decimal(metric.topThreeShareBps / 100, data)}%`,
+        metric.entries
+          .map((entry) => `${entry.label} (${decimal(entry.shareBps / 100, data)}%)`)
+          .join("; "),
+        ...definitionCells(metric.definitionKey),
+        metric.sourceHref,
+      ]),
+    };
+  }
   if (key === "finance.expenses" && data.finance)
     return countBlock(key, data.finance.expenseBreakdown, data, "amount");
   if (key === "finance.summary" && data.finance) {

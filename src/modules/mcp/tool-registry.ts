@@ -1,5 +1,4 @@
 import "server-only";
-
 import { getAuditLogData } from "@/modules/audit/server/audit-log";
 import {
   bumpRedisCacheVersion,
@@ -1227,6 +1226,8 @@ export const AGENCYOS_MCP_TOOLS: readonly AgencyOsMcpToolDefinition[] = [
             typeof input.status === "string"
               ? (input.status as "new" | "qualified" | "unqualified" | "converted" | "lost")
               : null,
+          currency: null,
+          scope: null,
           page: typeof input.page === "number" ? input.page : 1,
         }),
       );
@@ -3044,6 +3045,8 @@ export const AGENCYOS_MCP_TOOLS: readonly AgencyOsMcpToolDefinition[] = [
               : "invoices",
           status: typeof input.status === "string" ? input.status : null,
           company: typeof input.company === "string" ? input.company : null,
+          currency: null,
+          scope: null,
           from: typeof input.from === "string" ? input.from : null,
           to: typeof input.to === "string" ? input.to : null,
         }),

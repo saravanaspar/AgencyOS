@@ -13,7 +13,6 @@ import {
   ContactRound,
   ExternalLink,
   FileText,
-  Filter,
   Headphones,
   Mail,
   Paperclip,
@@ -22,7 +21,6 @@ import {
   Receipt,
   Save,
   Scale,
-  Search,
   Sparkles,
   Trash2,
   TrendingUp,
@@ -30,6 +28,7 @@ import {
   UserRound,
 } from "lucide-react";
 
+import { CrmFilterForm } from "@/components/crm/crm-filter-form";
 import { CrmImportCenter, type CrmOAuthResult } from "@/components/crm/crm-import-center";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -53,7 +52,6 @@ import {
 } from "@/modules/crm/actions/crm";
 import {
   crmActivityTypes,
-  crmLeadStatuses,
   crmLeadTypes,
   crmStageRequiredFields,
 } from "@/modules/crm/crm";
@@ -1518,52 +1516,7 @@ export function CrmWorkspace({
       </section>
 
       <section className="crm-filter-panel">
-        <form method="get" action="/crm" className="crm-filter-form">
-          <label className="crm-search-field">
-            <Search size={16} aria-hidden="true" />
-            <input
-              name="q"
-              defaultValue={data.filters.q}
-              placeholder="Search leads, companies, contacts"
-            />
-          </label>
-          <label className="field">
-            <span>Stage</span>
-            <select name="stage" defaultValue={data.filters.stage ?? ""}>
-              <option value="">All stages</option>
-              {data.stages.map((stage) => (
-                <option value={stage.id} key={stage.id}>
-                  {stage.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span>Owner</span>
-            <select name="owner" defaultValue={data.filters.owner ?? ""}>
-              <option value="">All owners</option>
-              {data.members.map((member) => (
-                <option value={member.membershipId} key={member.membershipId}>
-                  {member.displayName}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span>Status</span>
-            <select name="status" defaultValue={data.filters.status ?? ""}>
-              <option value="">All statuses</option>
-              {crmLeadStatuses.map((status) => (
-                <option value={status} key={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-          </label>
-          <Button type="submit" variant="secondary">
-            <Filter size={15} aria-hidden="true" /> Apply
-          </Button>
-        </form>
+        <CrmFilterForm data={data} />
       </section>
 
       <nav className="crm-tabs" aria-label="CRM views" role="tablist">

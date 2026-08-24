@@ -236,6 +236,9 @@ export async function loadFinanceExpenseData(
                 or expense.payment_status = ${filters.status}
                 or expense.expense_type = ${filters.status}
               )
+              and (${filters.currency}::text is null or expense.currency = ${filters.currency})
+              and (${filters.from}::date is null or expense.expense_date >= ${filters.from}::date)
+              and (${filters.to}::date is null or expense.expense_date <= ${filters.to}::date)
               and (
                 ${search}::text is null
                 or category.name ilike ${search} escape '\\'

@@ -116,6 +116,7 @@ export interface FounderReportRow {
   value: string;
   detail?: string | null;
   href?: string | null;
+  definitionKey?: string | null;
   tone?: "neutral" | "warning" | "danger" | "success";
 }
 
@@ -137,6 +138,27 @@ export interface ReportMetric {
   unit: "count" | "minor" | "bps" | "days" | "minutes";
   comparisonValue: number | null;
   href: string;
+  definitionKey?: string | null;
+}
+
+export type ClientConcentrationKind = "revenue" | "receivables" | "pipeline";
+
+export interface ClientConcentrationEntry {
+  id: string;
+  label: string;
+  shareBps: number;
+  href: string;
+}
+
+export interface ClientConcentrationMetric {
+  id: string;
+  kind: ClientConcentrationKind;
+  currency: string;
+  largestShareBps: number;
+  topThreeShareBps: number;
+  entries: ClientConcentrationEntry[];
+  sourceHref: string;
+  definitionKey: string;
 }
 
 export interface ReportsWorkspaceData {
@@ -201,6 +223,7 @@ export interface ReportsWorkspaceData {
     grossProfitMinor: number;
     taxMinor: number;
     collectionRateBps: number;
+    clientConcentration: ClientConcentrationMetric[];
   } | null;
   hr: {
     headcount: number;

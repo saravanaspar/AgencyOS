@@ -38,6 +38,7 @@ const data: ReportsWorkspaceData = {
   finance: {
     revenueByMonth: [{ id: "2026-07", label: "July", count: 1, amountMinor: 250000 }],
     clientBalances: [],
+    clientConcentration: [],
     expenseBreakdown: [],
     outstandingMinor: 10000,
     overdueMinor: 5000,

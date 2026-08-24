@@ -13,6 +13,7 @@ import { authorizeCurrentUser } from "@/modules/permissions/server/authorization
 import type { CurrentPermissionContext } from "@/modules/permissions/server/effective-permissions";
 import { projectPermissionKeys } from "@/modules/projects/projects";
 import { normalizeReportWidgets } from "@/modules/reports/report-builder";
+import { buildSummaryMetrics } from "@/modules/reports/summary-metrics";
 import {
   rateBps,
   reportSections,
@@ -20,7 +21,6 @@ import {
   resolveComparisonPeriod,
   resolveReportPeriod,
   type ReportCountRow,
-  type ReportMetric,
   type ReportProjectRow,
   type ReportSection,
   type ReportsWorkspaceData,
@@ -29,6 +29,7 @@ import {
 import type { ReportsFilters } from "@/modules/reports/schemas/reports";
 import { supportPermissionKeys } from "@/modules/support/support";
 import { getFounderReportPackForContext } from "@/modules/reports/server/founder-packs";
+import { getClientConcentrationForContext } from "@/modules/reports/server/client-concentration";
 
 export type ReportsWorkspaceResult =
   | { allowed: true; data: ReportsWorkspaceData }
@@ -571,7 +572,7 @@ async function loadFinanceReport(
   filters: ReportsWorkspaceData["filters"],
 ): Promise<NonNullable<ReportsWorkspaceData["finance"]>> {
   const organizationId = context.membership.organizationId;
-  const [summaryRows, monthRows, clientRows, expenseRows] = await Promise.all([
+  const [summaryRows, monthRows, clientRows, expenseRows, clientConcentration] = await Promise.all([
     database<FinanceAggregateRow[]>`
       with invoice_totals as (
         select
@@ -662,6 +663,10 @@ async function loadFinanceReport(
       order by amount_minor desc, lower(category.name)
       limit 100
     `,
+    getClientConcentrationForContext(database, context, {
+      from: filters.from,
+      to: filters.to,
+    }),
   ]);
   const row = summaryRows[0] ?? {
     outstanding_minor: 0,
@@ -685,6 +690,7 @@ async function loadFinanceReport(
     grossProfitMinor: revenueMinor - expensesMinor,
     taxMinor: toNumber(row.tax_minor),
     collectionRateBps: rateBps(toNumber(row.paid_minor), toNumber(row.issued_minor)),
+    clientConcentration,
   };
 }
 
@@ -1033,92 +1039,6 @@ async function comparisonRevenue(
   return toNumber(rows[0]?.amount_value);
 }
 
-function summaryMetrics(data: {
-  crm: ReportsWorkspaceData["crm"];
-  projects: ReportsWorkspaceData["projects"];
-  finance: ReportsWorkspaceData["finance"];
-  hr: ReportsWorkspaceData["hr"];
-  support: ReportsWorkspaceData["support"];
-  legal: ReportsWorkspaceData["legal"];
-  comparisonRevenueMinor: number | null;
-}): ReportMetric[] {
-  const metrics: ReportMetric[] = [];
-  if (data.finance) {
-    metrics.push(
-      {
-        id: "revenue",
-        label: "Revenue",
-        value: data.finance.revenueMinor,
-        unit: "minor",
-        comparisonValue: data.comparisonRevenueMinor,
-        href: "/reports?section=finance",
-      },
-      {
-        id: "gross-profit",
-        label: "Gross profit",
-        value: data.finance.grossProfitMinor,
-        unit: "minor",
-        comparisonValue: null,
-        href: "/reports?section=finance",
-      },
-      {
-        id: "overdue-invoices",
-        label: "Overdue invoices",
-        value: data.finance.overdueMinor,
-        unit: "minor",
-        comparisonValue: null,
-        href: "/finance?tab=invoices",
-      },
-    );
-  }
-  if (data.crm)
-    metrics.push({
-      id: "lead-conversion",
-      label: "Lead conversion",
-      value: data.crm.conversion.rateBps,
-      unit: "bps",
-      comparisonValue: null,
-      href: "/reports?section=crm",
-    });
-  if (data.projects)
-    metrics.push({
-      id: "overdue-projects",
-      label: "Projects needing attention",
-      value: data.projects.overdueProjects,
-      unit: "count",
-      comparisonValue: null,
-      href: "/reports?section=projects",
-    });
-  if (data.hr)
-    metrics.push({
-      id: "headcount",
-      label: "Active headcount",
-      value: data.hr.headcount,
-      unit: "count",
-      comparisonValue: null,
-      href: "/reports?section=hr",
-    });
-  if (data.support)
-    metrics.push({
-      id: "open-support",
-      label: "Open support tickets",
-      value: data.support.openTickets,
-      unit: "count",
-      comparisonValue: null,
-      href: "/reports?section=support",
-    });
-  if (data.legal)
-    metrics.push({
-      id: "active-contracts",
-      label: "Active contracts",
-      value: data.legal.activeContracts,
-      unit: "count",
-      comparisonValue: null,
-      href: "/reports?section=legal",
-    });
-  return metrics.slice(0, 8);
-}
-
 export async function getReportsWorkspaceDataForContext(
   context: CurrentPermissionContext,
   filters: ReportsFilters,
@@ -1227,7 +1147,8 @@ export async function getReportsWorkspaceDataForContext(
         sections,
       },
       founderPack: result.founderPack,
-      summary: summaryMetrics({
+      summary: buildSummaryMetrics({
+        filters: normalizedFilters,
         crm: result.crm,
         projects: result.projects,
         finance: result.finance,
@@ -1235,6 +1156,7 @@ export async function getReportsWorkspaceDataForContext(
         support: result.support,
         legal: result.legal,
         comparisonRevenueMinor: result.priorRevenue,
+        currency: organization.default_currency,
       }),
       crm: result.crm,
       projects: result.projects,

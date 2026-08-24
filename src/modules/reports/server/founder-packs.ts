@@ -5,17 +5,24 @@ import type { Sql } from "postgres";
 import { getDatabaseClient } from "@/integrations/postgres/database";
 import { formatMinorMoney } from "@/modules/finance/calculations";
 import { financePermissionKeys } from "@/modules/finance/finance";
+import type { FinanceFilters } from "@/modules/finance/schemas/finance";
+import type { CrmFilters } from "@/modules/crm/schemas/crm";
 import { getCrmForecastDataForContext } from "@/modules/crm/server/forecast";
+import { founderMetricDefinitionKey } from "@/modules/reports/metric-definitions";
 import { hrPermissionKeys } from "@/modules/hr/hr";
 import type { CurrentPermissionContext } from "@/modules/permissions/server/effective-permissions";
 import { getProjectProfitabilityForContext } from "@/modules/projects/server/profitability";
 import { projectPermissionKeys } from "@/modules/projects/projects";
-import type {
-  FounderReportBlock,
-  FounderReportPack,
-  FounderReportRow,
+import {
+  resolveReportPeriod,
+  type ClientConcentrationMetric,
+  type FounderReportBlock,
+  type FounderReportPack,
+  type FounderReportRow,
+  type ReportSection,
 } from "@/modules/reports/reports";
 import { supportPermissionKeys } from "@/modules/support/support";
+import { getClientConcentrationForContext } from "@/modules/reports/server/client-concentration";
 import { vendorPermissionKeys } from "@/modules/vendors/vendors";
 
 interface OrganizationRow {
@@ -114,7 +121,88 @@ function row(
 }
 
 function block(id: string, title: string, rows: FounderReportRow[]): FounderReportBlock {
-  return { id, title, rows };
+  return {
+    id,
+    title,
+    rows: rows.map((item) => ({
+      ...item,
+      definitionKey: item.definitionKey ?? founderMetricDefinitionKey(id, item.id),
+    })),
+  };
+}
+
+function concentrationRows(metrics: readonly ClientConcentrationMetric[]): FounderReportRow[] {
+  const labels = {
+    revenue: "Revenue concentration",
+    receivables: "Receivables concentration",
+    pipeline: "Weighted pipeline concentration",
+  } as const;
+  return metrics.map((metric) => ({
+    id: metric.id,
+    label: `${labels[metric.kind]} · ${metric.currency}`,
+    value: `Largest ${(metric.largestShareBps / 100).toFixed(1)}% · Top 3 ${(metric.topThreeShareBps / 100).toFixed(1)}%`,
+    detail: metric.entries
+      .map((entry) => `${entry.label} ${(entry.shareBps / 100).toFixed(1)}%`)
+      .join(" · "),
+    href: metric.sourceHref,
+    definitionKey: metric.definitionKey,
+    tone: "neutral",
+  }));
+}
+
+function reportHref(
+  section: ReportSection,
+  period: { from: string; to: string },
+): string {
+  const params = new URLSearchParams({
+    section,
+    from: period.from,
+    to: period.to,
+  });
+  return `/reports?${params.toString()}`;
+}
+
+function financeHref(
+  tab: "invoices" | "payments" | "expenses" | "reports",
+  period?: { from: string; to: string },
+  options: {
+    status?: string;
+    scope?: NonNullable<FinanceFilters["scope"]>;
+    currency?: string;
+  } = {},
+): string {
+  const params = new URLSearchParams({ tab });
+  if (period) {
+    params.set("from", period.from);
+    params.set("to", period.to);
+  }
+  if (options.status) params.set("status", options.status);
+  if (options.scope) params.set("scope", options.scope);
+  if (options.currency) params.set("currency", options.currency);
+  return `/finance?${params.toString()}`;
+}
+
+function crmHref(options: {
+  tab?: "pipeline" | "forecast";
+  currency?: string;
+  scope?: NonNullable<CrmFilters["scope"]>;
+} = {}): string {
+  const params = new URLSearchParams({ tab: options.tab ?? "pipeline" });
+  if (options.currency) params.set("currency", options.currency);
+  if (options.scope) params.set("scope", options.scope);
+  return `/crm?${params.toString()}`;
+}
+
+function shiftPeriod(
+  period: { from: string; to: string },
+  days: number,
+): { from: string; to: string } {
+  const shift = (value: string) => {
+    const date = new Date(`${value}T00:00:00.000Z`);
+    date.setUTCDate(date.getUTCDate() + days);
+    return date.toISOString().slice(0, 10);
+  };
+  return { from: shift(period.from), to: shift(period.to) };
 }
 
 async function organization(database: Sql, organizationId: string): Promise<OrganizationRow> {
@@ -162,11 +250,11 @@ async function dailyFinance(
       coalesce((select sum(invoice.balance_minor)
         from public.finance_invoices invoice
         where invoice.organization_id = ${org}::uuid and invoice.currency = ${currency}
-          and invoice.balance_minor > 0 and invoice.status not in ('paid','void','credited')), 0)::bigint as receivables,
+          and invoice.issued_at is not null and invoice.balance_minor > 0 and invoice.status not in ('paid','void','credited')), 0)::bigint as receivables,
       coalesce((select sum(invoice.balance_minor)
         from public.finance_invoices invoice, local_day
         where invoice.organization_id = ${org}::uuid and invoice.currency = ${currency}
-          and invoice.balance_minor > 0 and invoice.status not in ('paid','void','credited')
+          and invoice.issued_at is not null and invoice.balance_minor > 0 and invoice.status not in ('paid','void','credited')
           and invoice.due_date < local_day.today), 0)::bigint as overdue_receivables,
       coalesce((select sum(expense.total_minor)
         from public.finance_expenses expense, local_day
@@ -439,20 +527,20 @@ async function weeklyMetrics(
       coalesce((select sum(invoice.subtotal_minor - invoice.discount_minor) from public.finance_invoices invoice, bounds
         where ${canFinance} and invoice.organization_id = ${org}::uuid and invoice.currency = ${currency}
           and invoice.status in ('draft','pending_approval','approved')
-          and invoice.issue_date >= bounds.this_week and invoice.issue_date < bounds.this_week + 7), 0)::bigint as expected_invoices_next_week,
+          and invoice.issue_date >= bounds.this_week + 7 and invoice.issue_date < bounds.this_week + 14), 0)::bigint as expected_invoices_next_week,
       coalesce((select sum(invoice.balance_minor) from public.finance_invoices invoice, bounds
         where ${canFinance} and invoice.organization_id = ${org}::uuid and invoice.currency = ${currency}
           and invoice.balance_minor > 0 and invoice.status not in ('paid','void','credited')
-          and invoice.due_date >= bounds.this_week and invoice.due_date < bounds.this_week + 7), 0)::bigint as expected_collections_next_week,
+          and invoice.due_date >= bounds.this_week + 7 and invoice.due_date < bounds.this_week + 14), 0)::bigint as expected_collections_next_week,
       coalesce((select count(*) from public.crm_leads lead, bounds
         where ${canCrm} and lead.organization_id = ${org}::uuid and lead.status in ('new','qualified')
           and private.crm_scope_allows_membership(${member}::uuid, ${crmScope}, lead.owner_membership_id, lead.created_by_membership_id)
-          and lead.expected_close_date >= bounds.this_week and lead.expected_close_date < bounds.this_week + 7), 0)::int as deals_closing_next_week,
+          and lead.expected_close_date >= bounds.this_week + 7 and lead.expected_close_date < bounds.this_week + 14), 0)::int as deals_closing_next_week,
       coalesce((select count(*) from public.projects project, bounds
         where ${canProject} and project.organization_id = ${org}::uuid and project.archived_at is null
           and project.status in ('planned','active','on_hold')
           and private.project_is_visible(project.id, ${member}::uuid, ${projectScope})
-          and project.due_date >= bounds.this_week and project.due_date < bounds.this_week + 7), 0)::int as critical_delivery_dates,
+          and project.due_date >= bounds.this_week + 7 and project.due_date < bounds.this_week + 14), 0)::int as critical_delivery_dates,
       coalesce((select count(*) from public.project_tasks task
         join public.project_task_statuses status on status.id = task.status_id
         where ${canProject} and task.organization_id = ${org}::uuid and not status.is_terminal
@@ -463,8 +551,8 @@ async function weeklyMetrics(
           and private.legal_contract_membership_access_allowed(
             contract.id, ${member}::uuid, 'legal.contract.view'
           )
-          and coalesce(contract.renewal_date, contract.end_date) >= bounds.this_week
-          and coalesce(contract.renewal_date, contract.end_date) < bounds.this_week + 7), 0)::int as contracts_renewing_next_week,
+          and coalesce(contract.renewal_date, contract.end_date) >= bounds.this_week + 7
+          and coalesce(contract.renewal_date, contract.end_date) < bounds.this_week + 14), 0)::int as contracts_renewing_next_week,
       coalesce((select count(*) from public.approval_requests request
         where ${canApprovals} and request.organization_id = ${org}::uuid and request.status = 'pending'
           and (
@@ -490,10 +578,15 @@ export async function getFounderReportPackForContext(
   const org = await organization(database, context.membership.organizationId);
   const currency = org.default_currency;
   const locale = org.number_format;
+  const thisMonth = resolveReportPeriod({ periodMode: "this_month", timezone: org.timezone });
+  const yearToDate = resolveReportPeriod({ periodMode: "year_to_date", timezone: org.timezone });
+  const lastWeek = resolveReportPeriod({ periodMode: "last_week", timezone: org.timezone });
+  const thisWeek = resolveReportPeriod({ periodMode: "this_week", timezone: org.timezone });
+  const nextWeek = shiftPeriod(thisWeek, 7);
 
   if (kind === "daily") {
-    const [finance, vendor, forecast, delivery, profitability, people, actions] = await Promise.all(
-      [
+    const [finance, vendor, forecast, delivery, profitability, people, actions, concentration] =
+      await Promise.all([
         dailyFinance(database, context, currency),
         vendorCash(database, context, currency),
         getCrmForecastDataForContext(context),
@@ -501,8 +594,8 @@ export async function getFounderReportPackForContext(
         getProjectProfitabilityForContext(context),
         dailyPeople(database, context),
         dailyActions(database, context),
-      ],
-    );
+        getClientConcentrationForContext(database, context, yearToDate),
+      ]);
     const currencyForecast = forecast.currencies.find((item) => item.currency === currency) ?? null;
     const projectValues = [...profitability.byProject.values()].filter(
       (item) => item.currency === currency,
@@ -526,51 +619,51 @@ export async function getFounderReportPackForContext(
             "revenue-mtd",
             "Revenue MTD",
             formatMinorMoney(number(finance?.revenue_mtd), currency, locale),
-            "Issued net revenue",
-            "/finance?tab=invoices",
+            null,
+            financeHref("invoices", thisMonth, { scope: "issued_revenue", currency }),
           ),
           row(
             "revenue-ytd",
             "Revenue YTD",
             formatMinorMoney(number(finance?.revenue_ytd), currency, locale),
-            "Issued net revenue",
-            "/finance?tab=invoices",
+            null,
+            financeHref("invoices", yearToDate, { scope: "issued_revenue", currency }),
           ),
           row(
             "cash-mtd",
             "Cash collected MTD",
             formatMinorMoney(number(finance?.cash_collected_mtd), currency, locale),
-            "Recorded incoming payments",
-            "/finance?tab=payments",
+            null,
+            financeHref("payments", thisMonth, { currency }),
           ),
           row(
             "receivables",
             "Receivables",
             formatMinorMoney(number(finance?.receivables), currency, locale),
-            "Open invoice balances",
-            "/finance?tab=invoices",
+            null,
+            financeHref("invoices", undefined, { scope: "open_receivables", currency }),
           ),
           row(
             "overdue",
             "Overdue receivables",
             formatMinorMoney(number(finance?.overdue_receivables), currency, locale),
-            "Past due open invoice balances",
-            "/finance?tab=invoices",
+            null,
+            financeHref("invoices", undefined, { scope: "overdue_receivables", currency }),
             number(finance?.overdue_receivables) > 0 ? "danger" : "neutral",
           ),
           row(
             "upcoming-payments",
             "Upcoming payments",
             formatMinorMoney(upcomingPayments, currency, locale),
-            "Approved/scheduled expenses and vendor bills due within 7 days",
-            "/finance?tab=expenses",
+            null,
+            financeHref("expenses"),
           ),
           row(
             "cash-estimate",
             "Estimated cash balance",
             formatMinorMoney(estimatedCash, currency, locale),
-            "Recorded lifetime incoming payments less recorded paid expenses/vendor bills; not a bank reconciliation",
-            "/finance?tab=reports",
+            null,
+            financeHref("reports"),
           ),
         ]),
         block("founder_daily.sales", "Sales", [
@@ -581,7 +674,7 @@ export async function getFounderReportPackForContext(
             currencyForecast
               ? majorMoney(currencyForecast.unweightedPipeline, currency, locale)
               : "No accessible pipeline",
-            "/crm?tab=forecast",
+            crmHref({ currency, scope: "open_opportunities" }),
           ),
           row(
             "weighted-pipeline",
@@ -589,8 +682,8 @@ export async function getFounderReportPackForContext(
             currencyForecast
               ? majorMoney(currencyForecast.weightedPipeline, currency, locale)
               : "No data",
-            "Probability-weighted expected revenue",
-            "/crm?tab=forecast",
+            null,
+            crmHref({ currency, scope: "open_opportunities" }),
           ),
           row(
             "closing-month",
@@ -598,39 +691,40 @@ export async function getFounderReportPackForContext(
             currencyForecast
               ? majorMoney(currencyForecast.forecastThisMonth, currency, locale)
               : "No data",
-            "Probability-weighted",
-            "/crm?tab=forecast",
+            null,
+            crmHref({ tab: "forecast" }),
           ),
           row(
             "stale",
             "Stale opportunities",
             String(forecast.staleOpportunities.length),
-            "No meaningful update for 7+ days",
-            "/crm?tab=forecast",
+            null,
+            crmHref({ tab: "forecast" }),
             forecast.staleOpportunities.length ? "warning" : "neutral",
           ),
           row(
             "lost",
             "Lost opportunities",
             String(lostCount),
-            "Rolling 365-day lost-reason sample",
-            "/crm?tab=forecast",
+            null,
+            crmHref({ tab: "forecast" }),
           ),
           row(
             "followups",
             "Required follow-ups",
             String(forecast.overdueFollowUps.length),
-            "Follow-up time has passed",
-            "/crm?tab=forecast",
+            null,
+            crmHref({ tab: "forecast" }),
             forecast.overdueFollowUps.length ? "danger" : "neutral",
           ),
         ]),
+        block("founder_daily.concentration", "Client concentration risk", concentrationRows(concentration)),
         block("founder_daily.delivery", "Delivery", [
           row(
             "rag",
             "Projects red / amber / green",
             `${number(delivery?.rag_red)} / ${number(delivery?.rag_amber)} / ${number(delivery?.rag_green)}`,
-            "Red = overdue/on hold/open overdue work; amber = due within 7 days",
+            null,
             "/projects",
           ),
           row(
@@ -652,7 +746,7 @@ export async function getFounderReportPackForContext(
             "unsubmitted-time",
             "Unsubmitted time",
             String(number(delivery?.unsubmitted_time)),
-            "Draft time entries this week",
+            null,
             "/projects",
             number(delivery?.unsubmitted_time) ? "warning" : "neutral",
           ),
@@ -660,7 +754,7 @@ export async function getFounderReportPackForContext(
             "budget-overruns",
             "Budget overruns",
             String(budgetOverruns),
-            "Visible projects whose recorded costs exceed project budget",
+            null,
             "/projects",
             budgetOverruns ? "danger" : "neutral",
           ),
@@ -670,28 +764,28 @@ export async function getFounderReportPackForContext(
             "away",
             "Who is away",
             String(number(people?.away_today)),
-            "Approved leave covering today",
+            null,
             "/hr?tab=leave",
           ),
           row(
             "attendance",
             "Attendance exceptions",
             String(number(people?.attendance_exceptions)),
-            "Absent, half-day, late, or early departure today",
+            null,
             "/hr?tab=attendance",
           ),
           row(
             "onboarding",
             "Upcoming onboarding",
             String(number(people?.onboarding_open)),
-            "Open onboarding plans",
+            null,
             "/hr?tab=onboarding",
           ),
           row(
             "offboarding",
             "Upcoming offboarding",
             String(number(people?.offboarding_open)),
-            "Open offboarding plans",
+            null,
             "/hr?tab=offboarding",
           ),
           row(
@@ -707,7 +801,7 @@ export async function getFounderReportPackForContext(
             "approvals",
             "Approvals waiting",
             String(number(actions.approvals_waiting)),
-            "Assigned to you",
+            null,
             "/approvals",
             number(actions.approvals_waiting) ? "warning" : "neutral",
           ),
@@ -715,22 +809,22 @@ export async function getFounderReportPackForContext(
             "invoices",
             "Invoices to issue",
             String(number(actions.invoices_to_issue)),
-            "Draft or approved invoices",
-            "/finance?tab=invoices",
+            null,
+            financeHref("invoices", undefined, { scope: "actionable_issue", currency }),
           ),
           row(
             "collections",
             "Collections requiring follow-up",
             String(number(actions.collections_due)),
-            "Due or overdue open invoices",
-            "/finance?tab=invoices",
+            null,
+            financeHref("invoices", undefined, { scope: "collections_due", currency }),
             number(actions.collections_due) ? "danger" : "neutral",
           ),
           row(
             "contracts",
             "Contracts expiring",
             String(number(actions.contracts_expiring)),
-            "Renewal/end date within 30 days",
+            null,
             "/legal",
           ),
           row(
@@ -744,7 +838,7 @@ export async function getFounderReportPackForContext(
             "security",
             "Security / integration issues",
             String(number(actions.security_integration_issues)),
-            "Unread operational alerts assigned to you",
+            null,
             "/notifications",
             number(actions.security_integration_issues) ? "danger" : "neutral",
           ),
@@ -783,48 +877,57 @@ export async function getFounderReportPackForContext(
           "revenue",
           "Revenue",
           formatMinorMoney(number(weekly.revenue_previous_week), currency, locale),
-          "Issued net revenue",
+          null,
+          financeHref("invoices", lastWeek, { scope: "issued_revenue", currency }),
         ),
         row(
           "cash",
           "Cash collected",
           formatMinorMoney(number(weekly.cash_previous_week), currency, locale),
-          "Recorded incoming payments",
+          null,
+          financeHref("payments", lastWeek, { currency }),
         ),
         row(
           "expenses",
           "Expenses",
           formatMinorMoney(number(weekly.expenses_previous_week), currency, locale),
-          "Recorded non-rejected expenses",
+          null,
+          financeHref("expenses", lastWeek, { currency }),
         ),
         row(
           "pipeline",
           "New pipeline",
           majorMoney(number(weekly.new_pipeline_previous_week), currency, locale),
-          "Lead estimated value created last week",
+          null,
+          reportHref("crm", lastWeek),
         ),
         row(
           "won-lost",
           "Deals won / lost",
           `${number(weekly.deals_won_previous_week)} / ${number(weekly.deals_lost_previous_week)}`,
+          null,
+          reportHref("crm", lastWeek),
         ),
         row(
           "utilization",
           "Utilization",
           percent(utilization),
-          "Submitted project time / 40h × active members on visible projects; operational approximation",
+          null,
+          reportHref("projects", lastWeek),
         ),
         row(
           "margin",
           "Project margin",
           percent(margin),
-          "Current visible-project gross contribution margin",
+          null,
+          "/projects",
         ),
         row(
           "client-issues",
           "Client issues",
           String(number(weekly.client_issues)),
-          "Open high/urgent support tickets",
+          null,
+          "/support",
         ),
       ]),
       block("founder_weekly.next", "Next week", [
@@ -832,33 +935,36 @@ export async function getFounderReportPackForContext(
           "expected-invoices",
           "Expected invoices",
           formatMinorMoney(number(weekly.expected_invoices_next_week), currency, locale),
-          "Draft/pending/approved invoices dated next week",
+          null,
+          financeHref("invoices", nextWeek, { scope: "expected_issue", currency }),
         ),
         row(
           "expected-collections",
           "Expected collections",
           formatMinorMoney(number(weekly.expected_collections_next_week), currency, locale),
-          "Open invoice balances due next week",
+          null,
+          financeHref("invoices", nextWeek, { scope: "expected_collection", currency }),
         ),
         row(
           "deals-close",
           "Deals expected to close",
           String(number(weekly.deals_closing_next_week)),
-          "Open CRM opportunities with close dates next week",
+          null,
+          crmHref({ tab: "forecast" }),
         ),
         row(
           "delivery",
           "Critical delivery dates",
           String(number(weekly.critical_delivery_dates)),
-          "Projects due next week",
-          "/projects",
+          null,
+          reportHref("projects", nextWeek),
           number(weekly.critical_delivery_dates) ? "warning" : "neutral",
         ),
         row(
           "constraints",
           "Resource constraints",
           String(number(weekly.resource_constraints)),
-          "Current overdue open tasks; review assignment/capacity",
+          null,
           "/projects",
           number(weekly.resource_constraints) ? "warning" : "neutral",
         ),
@@ -866,14 +972,14 @@ export async function getFounderReportPackForContext(
           "renewals",
           "Contracts / renewals",
           String(number(weekly.contracts_renewing_next_week)),
-          "Active contracts reaching renewal/end next week",
+          null,
           "/legal",
         ),
         row(
           "decisions",
           "Founder decisions",
           String(number(weekly.founder_decisions)),
-          "Pending approval requests",
+          null,
           "/approvals",
           number(weekly.founder_decisions) ? "warning" : "neutral",
         ),
@@ -957,6 +1063,15 @@ export async function ensureFounderReportSchedulesForContext(
         viewId = inserted[0]?.id;
       }
       if (!viewId) throw new Error("founder-report-view-create-failed");
+      await sql`
+        update public.report_saved_views
+        set name = ${input.name}, description = ${input.description}, widget_keys = ${input.widgetKeys},
+          period_mode = ${input.periodMode}, updated_at = now()
+        where id = ${viewId}::uuid
+          and organization_id = ${context.membership.organizationId}::uuid
+          and owner_membership_id = ${context.membership.id}::uuid
+          and system_key = ${input.systemKey}
+      `;
 
       const scheduleRows = await sql<Array<{ id: string }>>`
         select id from public.report_schedules
@@ -994,12 +1109,13 @@ export async function ensureFounderReportSchedulesForContext(
       systemKey: "founder.daily.v1",
       name: "Founder Daily Brief",
       description:
-        "Automatic founder brief covering money, sales, delivery, people, and decisions.",
+        "Automatic founder brief covering money, sales, client concentration, delivery, people, and decisions.",
       section: "founder_daily",
       periodMode: "today",
       widgetKeys: [
         "founder_daily.money",
         "founder_daily.sales",
+        "founder_daily.concentration",
         "founder_daily.delivery",
         "founder_daily.people",
         "founder_daily.actions",

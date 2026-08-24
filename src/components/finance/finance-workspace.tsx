@@ -355,6 +355,25 @@ function FinanceFilters({ data }: { data: FinanceWorkspaceData }) {
           </select>
         </label>
       ) : null}
+      {data.filters.scope ? <input type="hidden" name="scope" value={data.filters.scope} /> : null}
+      {data.filters.currency ? (
+        <label className="field">
+          <span>Currency</span>
+          <input name="currency" defaultValue={data.filters.currency} maxLength={3} />
+        </label>
+      ) : null}
+      {data.filters.from || data.filters.to ? (
+        <>
+          <label className="field">
+            <span>From</span>
+            <input type="date" name="from" defaultValue={data.filters.from ?? ""} />
+          </label>
+          <label className="field">
+            <span>To</span>
+            <input type="date" name="to" defaultValue={data.filters.to ?? ""} />
+          </label>
+        </>
+      ) : null}
       <label className="field">
         <span>Status</span>
         <select name="status" defaultValue={data.filters.status ?? ""}>

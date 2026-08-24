@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { getDateTimeFormatter, getNumberFormatter } from "@/lib/intl-formatters";
 import { formatMinorMoney } from "@/modules/finance/calculations";
+import { getMetricDefinition } from "@/modules/reports/metric-definitions";
 import {
   reportComparisonLabels,
   reportComparisons,
@@ -35,21 +36,60 @@ function metricValue(metric: ReportMetric, data: ReportsWorkspaceData): string {
   return number(metric.value, data);
 }
 
+function MetricDefinitionDisclosure({ definitionKey }: { definitionKey?: string | null }) {
+  const definition = getMetricDefinition(definitionKey);
+  if (!definition) return null;
+  return (
+    <details className="reports-metric-definition">
+      <summary>Definition</summary>
+      <div className="reports-metric-definition__body">
+        <p>{definition.meaning}</p>
+        <dl>
+          <div>
+            <dt>Formula</dt>
+            <dd>{definition.formula}</dd>
+          </div>
+          <div>
+            <dt>Sources</dt>
+            <dd>{definition.sourceEntities.join(", ")}</dd>
+          </div>
+          <div>
+            <dt>Currency</dt>
+            <dd>{definition.currencyRule}</dd>
+          </div>
+          {definition.caveats.length ? (
+            <div>
+              <dt>Caveats</dt>
+              <dd>{definition.caveats.join(" ")}</dd>
+            </div>
+          ) : null}
+        </dl>
+      </div>
+    </details>
+  );
+}
+
 function MetricStrip({ data }: { data: ReportsWorkspaceData }) {
   return (
     <section className="reports-metric-strip" aria-label="Report summary">
       {data.summary.map((metric) => {
         const delta = metric.comparisonValue == null ? null : metric.value - metric.comparisonValue;
         return (
-          <Link href={metric.href} className="reports-metric" key={metric.id}>
-            <span>{metric.label}</span>
-            <strong>{metricValue(metric, data)}</strong>
-            <small>
-              {delta == null
-                ? "Open report"
-                : `${delta >= 0 ? "+" : ""}${metric.unit === "minor" ? money(delta, data) : number(delta, data)} vs comparison`}
-            </small>
-          </Link>
+          <article className="reports-metric" key={metric.id}>
+            <div className="reports-metric__value">
+              <span>{metric.label}</span>
+              <strong>{metricValue(metric, data)}</strong>
+              <small>
+                {delta == null
+                  ? "Current authorized report scope"
+                  : `${delta >= 0 ? "+" : ""}${metric.unit === "minor" ? money(delta, data) : number(delta, data)} vs comparison`}
+              </small>
+            </div>
+            <div className="reports-metric__actions">
+              <Link href={metric.href}>Open source</Link>
+              <MetricDefinitionDisclosure definitionKey={metric.definitionKey} />
+            </div>
+          </article>
         );
       })}
     </section>
@@ -402,6 +442,55 @@ function ProjectsReport({ data }: { data: ReportsWorkspaceData }) {
   );
 }
 
+function ClientConcentrationReport({ data }: { data: ReportsWorkspaceData }) {
+  const metrics = data.finance?.clientConcentration ?? [];
+  const kindLabels = {
+    revenue: "Revenue",
+    receivables: "Receivables",
+    pipeline: "Weighted pipeline",
+  } as const;
+  return (
+    <section className="reports-breakdown reports-client-concentration">
+      <header>
+        <h3>Client concentration risk</h3>
+        <span>{metrics.length} currency slices</span>
+      </header>
+      {metrics.length === 0 ? (
+        <p className="empty-state">No authorized concentration data for this scope.</p>
+      ) : (
+        <div className="reports-client-concentration__rows">
+          {metrics.map((metric) => (
+            <article className="reports-client-concentration__metric" key={metric.id}>
+              <div className="reports-client-concentration__heading">
+                <div>
+                  <strong>{kindLabels[metric.kind]}</strong>
+                  <small>{metric.currency}</small>
+                </div>
+                <div>
+                  <b>Largest {(metric.largestShareBps / 100).toFixed(1)}%</b>
+                  <small>Top 3 {(metric.topThreeShareBps / 100).toFixed(1)}%</small>
+                </div>
+              </div>
+              <ol>
+                {metric.entries.map((entry) => (
+                  <li key={entry.id}>
+                    <Link href={entry.href}>{entry.label}</Link>
+                    <span>{(entry.shareBps / 100).toFixed(1)}%</span>
+                  </li>
+                ))}
+              </ol>
+              <div className="reports-client-concentration__actions">
+                <Link href={metric.sourceHref}>Open all source records</Link>
+                <MetricDefinitionDisclosure definitionKey={metric.definitionKey} />
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function FinanceReport({ data }: { data: ReportsWorkspaceData }) {
   if (!data.finance) return null;
   return (
@@ -424,6 +513,7 @@ function FinanceReport({ data }: { data: ReportsWorkspaceData }) {
           value="amount"
         />
       ) : null}
+      {hasWidget(data, "finance.concentration") ? <ClientConcentrationReport data={data} /> : null}
       {hasWidget(data, "finance.expenses") ? (
         <Breakdown
           title="Expenses by category"
@@ -664,11 +754,15 @@ function FounderPackReport({ data }: { data: ReportsWorkspaceData }) {
                 >
                   <div>
                     <strong>{item.label}</strong>
+                    {getMetricDefinition(item.definitionKey) ? (
+                      <small>{getMetricDefinition(item.definitionKey)?.meaning}</small>
+                    ) : null}
                     {item.detail ? <small>{item.detail}</small> : null}
                   </div>
                   <div>
                     <b>{item.value}</b>
-                    {item.href ? <Link href={item.href}>Open</Link> : null}
+                    {item.href ? <Link href={item.href}>Open source</Link> : null}
+                    <MetricDefinitionDisclosure definitionKey={item.definitionKey} />
                   </div>
                 </div>
               ))}

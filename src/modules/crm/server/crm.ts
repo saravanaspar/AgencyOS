@@ -515,6 +515,11 @@ export async function getCrmWorkspaceData(filters: CrmFilters): Promise<CrmWorks
                 and (${filters.stage}::uuid is null or lead.stage_id = ${filters.stage}::uuid)
                 and (${filters.owner}::uuid is null or lead.owner_membership_id = ${filters.owner}::uuid)
                 and (${filters.status}::text is null or lead.status = ${filters.status}::text)
+                and (${filters.currency}::text is null or lead.currency = ${filters.currency})
+                and (
+                  ${filters.scope}::text is null
+                  or (${filters.scope} = 'open_opportunities' and lead.status in ('new', 'qualified') and stage.state = 'open')
+                )
               order by stage.position, lead.updated_at desc, lead.id
               limit ${CRM_PAGE_SIZE}
               offset ${offset}
@@ -524,6 +529,7 @@ export async function getCrmWorkspaceData(filters: CrmFilters): Promise<CrmWorks
         ? database<CountRow[]>`
               select count(*)::integer as count
               from public.crm_leads as lead
+              join public.crm_pipeline_stages as stage on stage.id = lead.stage_id
               where lead.organization_id = ${organizationId}::uuid
                 and private.crm_scope_allows_membership(
                   ${membershipId}::uuid,
@@ -540,6 +546,11 @@ export async function getCrmWorkspaceData(filters: CrmFilters): Promise<CrmWorks
                 and (${filters.stage}::uuid is null or lead.stage_id = ${filters.stage}::uuid)
                 and (${filters.owner}::uuid is null or lead.owner_membership_id = ${filters.owner}::uuid)
                 and (${filters.status}::text is null or lead.status = ${filters.status}::text)
+                and (${filters.currency}::text is null or lead.currency = ${filters.currency})
+                and (
+                  ${filters.scope}::text is null
+                  or (${filters.scope} = 'open_opportunities' and lead.status in ('new', 'qualified') and stage.state = 'open')
+                )
             `
         : Promise.resolve([{ count: 0 }] as CountRow[]),
       capabilities.canViewCompanies

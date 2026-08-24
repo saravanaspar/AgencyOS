@@ -1,6 +1,6 @@
 # Founder Operations — Next Phase
 
-Last updated: 2026-08-18
+Last updated: 2026-08-24
 
 This release deliberately prioritizes the founder operating core requested for AgencyOS: trustworthy report delivery, CRM forecasting/conversion, project commercial truth/closure, founder attention, Daily Brief, and Weekly Review. The items below are intentionally deferred until that foundation has completed normal dependency-backed verification and production acceptance.
 
@@ -34,9 +34,9 @@ Add configurable stages such as pre-due, due today, 7/14/30 days overdue, with:
 - founder escalation thresholds;
 - idempotent delivery evidence and retry status.
 
-### Client concentration risk
+### Client concentration risk — IMPLEMENTED
 
-Report revenue, receivables, and pipeline concentration for the largest client and top three clients. Keep currency handling explicit and avoid summing incompatible currencies.
+AgencyOS now reports issued net revenue, open receivables, and probability-weighted open-pipeline concentration for the largest client/prospect and top three. Concentration is calculated independently per ISO currency, links back to the authorized source records, and never sums incompatible currencies.
 
 ## P1 — Founder execution layer
 
@@ -46,13 +46,13 @@ Unify actionable records across tasks, approvals, CRM follow-ups, collections, c
 
 The Founder Attention Queue added in the current release is the exception summary; this future feature becomes a normalized executable work queue.
 
-### KPI drill-down everywhere
+### KPI drill-down everywhere — IMPLEMENTED FOR CURRENT EXECUTIVE REPORTS
 
-Every executive metric should open its exact source records and expose the metric definition. A founder should never receive a number that cannot be traced to records and an explicit calculation rule.
+Current Overview, Founder Daily, and Founder Weekly metrics expose source links and reusable metric definitions. Previously unlinked Weekly Review metrics now route to their source workspaces with report periods preserved where the source filter supports them; finance record drill-downs preserve date and currency scope. New executive metrics must provide both a definition key and a source link rather than introducing opaque totals.
 
-### Metric definition catalogue
+### Metric definition catalogue — IMPLEMENTED
 
-Document accounting/operational semantics, including distinctions such as invoiced revenue vs recognized revenue, recorded cash vs bank cash, committed vendor cost vs paid cost, and forecast vs contracted value.
+Executive metric semantics now live in one reusable catalogue with meaning, formula, source entities, currency rules, and caveats. The catalogue explicitly distinguishes invoiced revenue from recognized revenue, recorded cash from bank cash, operational obligations from paid costs, and probability-weighted pipeline from contracted revenue. The same definitions are rendered in the report UI and included in CSV/PDF report documents.
 
 ### Global Create and command palette
 

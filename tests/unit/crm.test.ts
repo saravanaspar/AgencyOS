@@ -122,6 +122,14 @@ describe("CRM schemas", () => {
   it("parses search, scope filters and pagination safely", () => {
     expect(
       crmFiltersSchema.parse({ q: "  acme ", stage: "", owner: "", status: "", page: "2" }),
-    ).toEqual({ q: "acme", stage: null, owner: null, status: null, page: 2 });
+    ).toEqual({
+      q: "acme",
+      stage: null,
+      owner: null,
+      status: null,
+      currency: null,
+      scope: null,
+      page: 2,
+    });
   });
 });

@@ -23,6 +23,7 @@ export const reportWidgetCatalog = {
   finance: [
     { key: "finance.revenue", label: "Revenue by month" },
     { key: "finance.balances", label: "Outstanding client balances" },
+    { key: "finance.concentration", label: "Client concentration risk" },
     { key: "finance.expenses", label: "Expenses by category" },
     { key: "finance.summary", label: "Finance summary" },
   ],
@@ -43,6 +44,7 @@ export const reportWidgetCatalog = {
   founder_daily: [
     { key: "founder_daily.money", label: "Money" },
     { key: "founder_daily.sales", label: "Sales" },
+    { key: "founder_daily.concentration", label: "Client concentration risk" },
     { key: "founder_daily.delivery", label: "Delivery" },
     { key: "founder_daily.people", label: "People" },
     { key: "founder_daily.actions", label: "Founder actions" },
