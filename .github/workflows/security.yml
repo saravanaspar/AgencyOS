@@ -1,0 +1,39 @@
+name: Security Baseline
+
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - package.json
+      - package-lock.json
+      - security/framework-baseline.json
+      - scripts/security/**
+      - .github/workflows/**
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - name: Install exact lockfile
+        run: npm ci
+      - name: Verify reviewed framework floor and supply-chain policy
+        run: |
+          npm run security:framework
+          npm run security:supply-chain
+      - name: Fail on high/critical production dependency advisories
+        run: npm audit --omit=dev --audit-level=high

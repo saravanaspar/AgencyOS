@@ -1,0 +1,5 @@
+name,email,phone,company,source,value,currency,expected close date,notes
+E2E-RUN-KEY Ada Lovelace,ada.E2E-RUN-KEY@example.test,+44 20 1234 5678,E2E-RUN-KEY Analytical Engines,Manual fixture,12500,GBP,2026-09-30,Initial synthetic enquiry
+E2E-RUN-KEY Alan Turing,alan.E2E-RUN-KEY@example.test,+44 20 7654 3210,E2E-RUN-KEY Bletchley Services,Manual fixture,8000,GBP,2026-10-15,Synthetic proposal request
+E2E-RUN-KEY Duplicate Ada, ADA.E2E-RUN-KEY@example.test,,E2E-RUN-KEY Analytical Engines,Manual fixture,15000,GBP,,Duplicate normalized email test
+E2E-RUN-KEY Company Lead,,,E2E-RUN-KEY Company Only,Manual fixture,5000,GBP,,Company-only duplicate key test

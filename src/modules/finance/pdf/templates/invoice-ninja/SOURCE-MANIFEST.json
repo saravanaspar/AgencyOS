@@ -1,0 +1,105 @@
+{
+  "source": "Invoice Ninja",
+  "version": "v5.13.26",
+  "commit": "9a5325bd10141fe62b5d88f46d7acbe91b559e30",
+  "license": "Elastic License 2.0",
+  "sourcePaths": {
+    "templates": "resources/views/pdf-designs",
+    "font": "public/assets/fonts/Roboto-Regular.ttf",
+    "techHero": "public/images/pdf-designs/tech-hero-image.jpg"
+  },
+  "assets": {
+    "ELASTIC-LICENSE-2.0.txt": {
+      "sha256": "608def7d683e7b536c4dd53e844897d2f659e2460cf448cb05052d7163519024",
+      "bytes": 3891
+    },
+    "Roboto-Regular.ttf": {
+      "sha256": "79e851404657dac2106b3d22ad256d47824a9a5765458edb72c9102a45816d95",
+      "bytes": 171676
+    },
+    "basic_statement.html": {
+      "sha256": "b222146c073c94560b5d75ce1f8e2f51fd17995e9042777ceb848bccf2ee2cd3",
+      "bytes": 7807
+    },
+    "bold.html": {
+      "sha256": "c161eca3772a3211f44a1dc7df5874cf53f7f0270e3f70e8fee7d835aa72ae9b",
+      "bytes": 12429
+    },
+    "business.html": {
+      "sha256": "c7225c57cf50457a5f0bdb117fee5c0bbbba58796caeb6d02b780b48b48b8ef1",
+      "bytes": 11078
+    },
+    "calm.html": {
+      "sha256": "335b1bb34c9aa93512427907ef0266fdd588a87362674f16c12904a0e2bd0067",
+      "bytes": 11651
+    },
+    "clean.html": {
+      "sha256": "6558a314cde7ea3eefd1c06438e87fa5e3c00f540377e617947ea5052a8af168",
+      "bytes": 10410
+    },
+    "creative.html": {
+      "sha256": "fb703a727027773b270d889871aa7a4ef8ad6df92c71f915bb2638eb0042c44d",
+      "bytes": 10795
+    },
+    "crisp_refund.html": {
+      "sha256": "9ce6dc9ed2d9a2d119d2993a62a9f2aa7257a28880eea6e908392a240a023c18",
+      "bytes": 41730
+    },
+    "elegant.html": {
+      "sha256": "48f1f7615ad4f09cf43c3e573f97575bc1e16f7fa93c4be7d741db07524168ec",
+      "bytes": 11300
+    },
+    "exact_refund.html": {
+      "sha256": "1a26ada8bfb6d9dc0bcaf8b88af15a45fd238737c5da593c514032ec2106418c",
+      "bytes": 5540
+    },
+    "fluid_delivery_note.html": {
+      "sha256": "a84c7bc5b8495c86889f9257c1266bb2a9c5ac6cc061f317f77664fd9e6ff6d9",
+      "bytes": 8261
+    },
+    "harmony_delivery_note.html": {
+      "sha256": "6e575f41e101459a3b14052022631a0aedc02f954adef98b88b12561ae68cd66",
+      "bytes": 7054
+    },
+    "hipster.html": {
+      "sha256": "fb94579890def36f26e03ab5cf49c0b2e8355be07824e212a645b9e49f5ff344",
+      "bytes": 15123
+    },
+    "modern.html": {
+      "sha256": "22dc50cb503b312360831f8f919fc3173e32b892875d9d1be17d0841137016a6",
+      "bytes": 10902
+    },
+    "plain.html": {
+      "sha256": "5f2dc6476c0b3f6cd58dc9549ed4702c1009c01d80b3730186c3975cd662c40a",
+      "bytes": 10453
+    },
+    "playful.html": {
+      "sha256": "fb4435f62b661f048ff405029d335dcb2c97b512a4c2ae153503eea3d3694729",
+      "bytes": 13878
+    },
+    "prime_statement.html": {
+      "sha256": "bbf569ec06dcc5b2ddbe3728df49d3be5d33fb391f432f14f48d48fa19c63b7a",
+      "bytes": 11397
+    },
+    "swift_receipt.html": {
+      "sha256": "5f06f0db5392d81eb865ed4538c97e964052068cc82ea0e3c999591f98b71c37",
+      "bytes": 34146
+    },
+    "tech-hero-image.jpg": {
+      "sha256": "2fcf6d830c88b45b5e84e72788d8235102b0cdba2178849254224a7f52e412e7",
+      "bytes": 608748
+    },
+    "tech.html": {
+      "sha256": "3f37da4b5c6848498799e99ba82bfb18fa38b3d44db80bb3fe4433296bac6262",
+      "bytes": 12579
+    },
+    "tidy_receipt.html": {
+      "sha256": "1df7ae9d5e2e61d9394972d41edec11bdfff0b3a9e8f5a9ca43b9e02077a1dd8",
+      "bytes": 4402
+    },
+    "vertical_statement.html": {
+      "sha256": "3150c84499bd7d2b322d21e9b09e2bba74ce86d6cf981a6312f77da98384ce36",
+      "bytes": 9799
+    }
+  }
+}

@@ -1,0 +1,171 @@
+{
+  "public": [
+    {
+      "route": "/",
+      "feature": "Root redirect",
+      "testSection": "F01-AUTH"
+    },
+    {
+      "route": "/login",
+      "feature": "Sign in",
+      "testSection": "F01-AUTH"
+    },
+    {
+      "route": "/signup",
+      "feature": "Access request",
+      "testSection": "F01-AUTH"
+    },
+    {
+      "route": "/forgot-password",
+      "feature": "Password reset request",
+      "testSection": "F01-AUTH"
+    },
+    {
+      "route": "/reset-password",
+      "feature": "Password reset",
+      "testSection": "F01-AUTH"
+    },
+    {
+      "route": "/mfa",
+      "feature": "MFA challenge",
+      "testSection": "F01-AUTH"
+    },
+    {
+      "route": "/access-denied",
+      "feature": "Denied access",
+      "testSection": "F01-AUTH"
+    },
+    {
+      "route": "/pending-access",
+      "feature": "Pending access",
+      "testSection": "F01-AUTH"
+    }
+  ],
+  "authenticated": [
+    {
+      "route": "/dashboard",
+      "feature": "Dashboard",
+      "testSection": "Feature 32"
+    },
+    {
+      "route": "/crm",
+      "feature": "CRM",
+      "testSection": "F09-CRM"
+    },
+    {
+      "route": "/projects",
+      "feature": "Projects",
+      "testSection": "F11-PROJECT"
+    },
+    {
+      "route": "/finance",
+      "feature": "Finance",
+      "testSection": "F14-FINANCE"
+    },
+    {
+      "route": "/hr",
+      "feature": "HR",
+      "testSection": "F15-HR"
+    },
+    {
+      "route": "/documents",
+      "feature": "Documents",
+      "testSection": "Stage 9 \u2014 Private documents"
+    },
+    {
+      "route": "/legal",
+      "feature": "Legal",
+      "testSection": "Feature 24"
+    },
+    {
+      "route": "/support",
+      "feature": "Support",
+      "testSection": "Feature 28"
+    },
+    {
+      "route": "/calendar",
+      "feature": "Calendar",
+      "testSection": "Feature 31"
+    },
+    {
+      "route": "/assets",
+      "feature": "Assets",
+      "testSection": "Feature 29"
+    },
+    {
+      "route": "/vendors",
+      "feature": "Vendors and procurement",
+      "testSection": "Feature 30"
+    },
+    {
+      "route": "/approvals",
+      "feature": "Approvals",
+      "testSection": "F13-APPROVAL"
+    },
+    {
+      "route": "/notifications",
+      "feature": "Notifications",
+      "testSection": "F13-NOTIFICATIONS"
+    },
+    {
+      "route": "/reports",
+      "feature": "Reports",
+      "testSection": "Feature 32"
+    },
+    {
+      "route": "/automation",
+      "feature": "Automation",
+      "testSection": "F13-AUTOMATION"
+    },
+    {
+      "route": "/ai",
+      "feature": "AI workspace",
+      "testSection": "Feature 33"
+    },
+    {
+      "route": "/search?q=E2E",
+      "feature": "Global search",
+      "testSection": "Feature 31"
+    },
+    {
+      "route": "/settings",
+      "feature": "Settings",
+      "testSection": "F03-AUTHZ"
+    },
+    {
+      "route": "/settings/audit",
+      "feature": "Audit log",
+      "testSection": "F02-AUDIT"
+    },
+    {
+      "route": "/settings/permissions",
+      "feature": "Effective permissions",
+      "testSection": "F03-AUTHZ"
+    },
+    {
+      "route": "/settings/roles",
+      "feature": "Role editor",
+      "testSection": "F06-ROLE"
+    },
+    {
+      "route": "/settings/organization",
+      "feature": "Organization profile",
+      "testSection": "F04-ORG"
+    },
+    {
+      "route": "/settings/structure",
+      "feature": "Organization structure",
+      "testSection": "F05-STRUCT"
+    },
+    {
+      "route": "/settings/users",
+      "feature": "User access",
+      "testSection": "F01-AUTH"
+    },
+    {
+      "route": "/settings/security",
+      "feature": "Security controls",
+      "testSection": "Feature 34"
+    }
+  ]
+}

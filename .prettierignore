@@ -1,0 +1,25 @@
+.next
+node_modules
+out
+coverage
+.agents
+.impeccable
+.env
+.env.local
+.env.*.local
+*.zip
+public/AgencyOS.png
+PLAN.md
+README.md
+
+*.css
+agencyos-references/
+
+supabase/tests/database/_helpers/*.inc
+
+# Exact upstream Invoice Ninja assets; integrity is checked by SOURCE-MANIFEST.json.
+src/modules/finance/pdf/templates/invoice-ninja/*.html
+src/modules/finance/pdf/templates/invoice-ninja/*.ttf
+src/modules/finance/pdf/templates/invoice-ninja/*.jpg
+src/modules/finance/pdf/templates/invoice-ninja/ELASTIC-LICENSE-2.0.txt
+

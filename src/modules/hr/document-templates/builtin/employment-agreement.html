@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>{{document.title}}</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 16mm;
+      }
+      body {
+        margin: 0;
+        color: #111827;
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 11.5px;
+        line-height: 1.55;
+      }
+      h1 {
+        text-align: center;
+        font-size: 23px;
+        margin: 0 0 22px;
+      }
+      h2 {
+        font-size: 13px;
+        margin: 20px 0 6px;
+        page-break-after: avoid;
+      }
+      p,
+      li {
+        orphans: 3;
+        widows: 3;
+      }
+      .notice {
+        background: #fff8df;
+        border-left: 4px solid #c79000;
+        padding: 10px 12px;
+        margin-bottom: 18px;
+      }
+      .parties {
+        border: 1px solid #d5dbe1;
+        padding: 12px;
+      }
+      .signature {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 36px;
+        margin-top: 42px;
+        page-break-inside: avoid;
+      }
+      .signature div {
+        border-top: 1px solid #6b7280;
+        padding-top: 8px;
+      }
+      footer {
+        color: #66717d;
+        font-size: 9.5px;
+        margin-top: 32px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="notice">
+      <strong>Draft template.</strong> This starter agreement is not legal advice and must be
+      replaced or reviewed by qualified counsel.
+    </div>
+    <h1>Employment Agreement</h1>
+    <div class="parties">
+      <p>
+        This agreement is made on {{document.effective_date}} between
+        <strong>{{organization.legal_name}}</strong> of {{organization.registered_address}} (the
+        “Employer”) and <strong>{{employee.legal_name}}</strong> of {{employee.personal_address}}
+        (the “Employee”).
+      </p>
+    </div>
+    <h2>1. Appointment and duties</h2>
+    <p>
+      The Employer appoints the Employee as {{employee.designation}} in the {{employee.department}}
+      department. The Employee will perform the duties reasonably associated with that role and
+      lawful additional duties assigned from time to time.
+    </p>
+    <h2>2. Start date and continuity</h2>
+    <p>Employment commences on {{employee.joining_date}}. {{custom.continuity_terms}}</p>
+    <h2>3. Place, mode, and hours of work</h2>
+    <p>{{custom.working_terms}}</p>
+    <h2>4. Compensation and benefits</h2>
+    <p>{{custom.compensation_summary}}</p>
+    <h2>5. Probation</h2>
+    <p>{{custom.probation_terms}}</p>
+    <h2>6. Leave and absence</h2>
+    <p>{{custom.leave_terms}}</p>
+    <h2>7. Confidentiality, data, and intellectual property</h2>
+    <p>{{custom.confidentiality_terms}}</p>
+    <h2>8. Policies and conduct</h2>
+    <p>{{custom.policy_terms}}</p>
+    <h2>9. Termination</h2>
+    <p>{{custom.termination_terms}}</p>
+    <h2>10. Governing law and dispute resolution</h2>
+    <p>{{custom.governing_law_terms}}</p>
+    <h2>11. Entire agreement and amendments</h2>
+    <p>{{custom.entire_agreement_terms}}</p>
+    <div class="signature">
+      <div>
+        <strong>{{document.signatory_name}}</strong><br />{{document.signatory_title}}<br />For
+        {{organization.legal_name}}
+      </div>
+      <div><strong>{{employee.legal_name}}</strong><br />Employee</div>
+    </div>
+    <footer>
+      Reference {{document.reference}} · Generated from {{template.name}} version
+      {{template.version}}.
+    </footer>
+  </body>
+</html>

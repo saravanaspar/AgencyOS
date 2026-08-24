@@ -1,0 +1,31 @@
+{
+  "generatedAt": "2026-08-22T17:57:38.803Z",
+  "policy": "Files already above the default budget may shrink but may not grow; new files may not exceed the default budget.",
+  "limits": {
+    ".ts": 1200,
+    ".tsx": 1200,
+    ".css": 4000
+  },
+  "exceptions": {
+    "src/app/globals.css": 8868,
+    "src/components/assets/assets-workspace.tsx": 1289,
+    "src/components/crm/crm-workspace.tsx": 1749,
+    "src/components/finance/finance-workspace.tsx": 2271,
+    "src/components/projects/project-stage-two.tsx": 1256,
+    "src/components/projects/projects-workspace.tsx": 1611,
+    "src/components/vendors/vendors-workspace.tsx": 1309,
+    "src/modules/approvals/server/approvals.ts": 1887,
+    "src/modules/assets/actions/assets.ts": 1514,
+    "src/modules/crm/actions/crm.ts": 1653,
+    "src/modules/crm/server/imports.ts": 2631,
+    "src/modules/dashboard/server/dashboard.ts": 1275,
+    "src/modules/finance/actions/finance.ts": 2491,
+    "src/modules/finance/server/finance.ts": 1375,
+    "src/modules/mcp/tool-registry.ts": 3700,
+    "src/modules/projects/actions/projects.ts": 2666,
+    "src/modules/projects/server/projects.ts": 1286,
+    "src/modules/reports/server/reports.ts": 1284,
+    "src/modules/vendors/actions/vendors.ts": 2014,
+    "src/modules/vendors/server/vendors.ts": 1341
+  }
+}

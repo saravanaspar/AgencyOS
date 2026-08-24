@@ -1,0 +1,13 @@
+services:
+  clamav:
+    image: clamav/clamav:1.5.3-debian13-slim
+    container_name: agencyos-clamav
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3310:3310"
+    volumes:
+      - agencyos-clamav-signatures:/var/lib/clamav
+    stop_grace_period: 30s
+
+volumes:
+  agencyos-clamav-signatures:

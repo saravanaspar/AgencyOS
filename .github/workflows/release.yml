@@ -1,0 +1,103 @@
+name: Release Gate
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: agencyos-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    environment: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DATABASE_ADMIN_URL: ${{ secrets.DATABASE_ADMIN_URL }}
+      AUTH_ENCRYPTION_KEY: ${{ secrets.AUTH_ENCRYPTION_KEY }}
+      CRM_CONNECTOR_ENCRYPTION_KEY: ${{ secrets.CRM_CONNECTOR_ENCRYPTION_KEY }}
+      INTERNAL_WORKER_SECRET: ${{ secrets.INTERNAL_WORKER_SECRET }}
+      APP_URL: ${{ vars.AGENCYOS_E2E_BASE_URL }}
+      AGENCYOS_E2E_BASE_URL: ${{ vars.AGENCYOS_E2E_BASE_URL }}
+      AGENCYOS_E2E_OWNER_EMAIL: ${{ secrets.AGENCYOS_E2E_OWNER_EMAIL }}
+      AGENCYOS_E2E_OWNER_PASSWORD: ${{ secrets.AGENCYOS_E2E_OWNER_PASSWORD }}
+      AGENCYOS_E2E_OWNER_MFA_SECRET: ${{ secrets.AGENCYOS_E2E_OWNER_MFA_SECRET }}
+      AGENCYOS_E2E_CONFIRM_ISOLATED: "1"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - name: Install exact lockfile
+        run: npm ci
+      - name: Verify security and supply-chain baselines
+        run: |
+          npm run security:framework
+          npm run security:supply-chain
+          npm audit --omit=dev --audit-level=high
+      - name: Verify database target
+        run: |
+          npm run db:status
+          npm run db:doctor
+      - name: Run release verification against isolated release target
+        run: npm run verify:release
+      - name: Log in to GitHub Container Registry
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$GHCR_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Build once, attest, and publish immutable application image
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          repository="$(printf '%s' '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
+          image="ghcr.io/${repository}:sha-${GITHUB_SHA}"
+          docker buildx build \
+            --pull \
+            --push \
+            --sbom=true \
+            --provenance=mode=max \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
+            --tag "$image" \
+            --metadata-file build-metadata.json \
+            .
+          digest="$(node -e "const m=require('./build-metadata.json'); const d=m['containerimage.digest']; if(!d)process.exit(1); process.stdout.write(d)")"
+          immutable="ghcr.io/${repository}@${digest}"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "immutable=$immutable" >> "$GITHUB_OUTPUT"
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            tag_image="ghcr.io/${repository}:${GITHUB_REF_NAME}"
+            docker buildx imagetools create --tag "$tag_image" "$immutable"
+          fi
+      - name: Generate release manifest
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const manifest = {
+            commit: process.env.GITHUB_SHA,
+            image: '${{ steps.image.outputs.immutable }}',
+            sourceRef: process.env.GITHUB_REF,
+            generatedAt: new Date().toISOString(),
+            verification: 'npm run verify:release',
+            provenance: 'BuildKit max provenance + SBOM attestation',
+          };
+          fs.writeFileSync('release-manifest.json', JSON.stringify(manifest, null, 2) + '\n');
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## AgencyOS immutable release\n\n- Commit: \`${manifest.commit}\`\n- Image: \`${manifest.image}\`\n- Verification: \`${manifest.verification}\`\n- Supply chain: ${manifest.provenance}\n`);
+          NODE
+          cat release-manifest.json

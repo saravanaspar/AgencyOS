@@ -1,0 +1,21 @@
+node_modules
+.next
+out
+coverage
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+
+# Local AI-assistant working files.
+.agents/
+.impeccable/
+makeowner.txt
+tsconfig.tsbuildinfo
+
+# Generated operator evidence.
+deployment-verification-summary.json
+
+# Local browser and source-control audit output.
+test-results/

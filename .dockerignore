@@ -1,0 +1,10 @@
+.git
+.github
+.next
+.env
+.env.*
+node_modules
+test-results
+*.log
+*.zip
+deployment-verification-summary.json

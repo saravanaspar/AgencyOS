@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "policy": "Every exported *Action function in a top-level use-server module and every exported POST/PUT/PATCH/DELETE route handler is inventoried from the TypeScript AST. Caller-controlled FormData, request bodies, and route parameters require Zod parsing before mutation. Exceptions are exact boundary IDs, never path globs.",
+  "allowlist": [
+    {
+      "boundary": "route:src/app/api/mcp/route.ts#POST",
+      "reason": "The MCP endpoint delegates bounded JSON-RPC envelope, protocol-version, session, tool-name, and per-tool argument validation to its MCP protocol dispatcher before any selected tool can mutate state."
+    },
+    {
+      "boundary": "route:src/app/api/mcp/route.ts#DELETE",
+      "reason": "The MCP endpoint accepts no body mutation payload; its custom boundary validates authorization and an opaque server-issued MCP session identifier before deleting that exact session."
+    },
+    {
+      "boundary": "action:src/modules/notifications/actions/notifications.ts#markAllNotificationsReadAction",
+      "reason": "The React action signature supplies FormData, but the implementation explicitly discards it and derives the only mutation target from the authenticated current membership context."
+    }
+  ]
+}

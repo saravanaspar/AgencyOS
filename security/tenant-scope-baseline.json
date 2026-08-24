@@ -1,0 +1,1704 @@
+{
+  "generatedAt": "2026-08-22T18:07:40.414Z",
+  "policy": "Tagged SQL touching organization-owned tables without an explicit organization_id predicate is review-required. Existing legacy query signatures are baselined for regression control; baseline inclusion is not a safety attestation, and any new or changed unscoped query fails CI.",
+  "tenantTableCount": 167,
+  "legacyExceptions": [
+    {
+      "signature": "943f61791329b6c279c55093c23c57e4c30579d2e1cdebab798b195a511a9d04",
+      "path": "src/app/api/documents/upload/route.ts",
+      "line": 193,
+      "tables": ["document_versions"],
+      "preview": "select coalesce(max(version_number), 0)::integer + 1 as version_number from public.document_versions where document_id = ${documentId}::uuid"
+    },
+    {
+      "signature": "a4242137ddf32b62676259b57278beb33c53bb22a2a40f7c43bbef61cbe8d0f1",
+      "path": "src/app/api/documents/upload/route.ts",
+      "line": 258,
+      "tables": ["documents"],
+      "preview": "update public.documents set current_version_id = ${versionId}::uuid where id = ${documentId}::uuid"
+    },
+    {
+      "signature": "657aadcc541f5b4a5bf1f0084d39343320d802d85ec53882909c75d2df383e2f",
+      "path": "src/app/api/projects/attachments/[attachmentId]/route.ts",
+      "line": 187,
+      "tables": ["project_task_attachments"],
+      "preview": "delete from public.project_task_attachments where id = ${result.row.id}::uuid returning private_file_id"
+    },
+    {
+      "signature": "69a8de591e78de332f3a196f51a29f6a8c007679fcca372ab5e4734582e42f26",
+      "path": "src/modules/approvals/server/approval-worker.ts",
+      "line": 133,
+      "tables": ["approval_request_steps"],
+      "preview": "update public.approval_request_steps set status = case when id = ${step.id}::uuid then 'expired' else 'cancelled' end where request_id = ${step.request_id}::uuid and status in ('wa"
+    },
+    {
+      "signature": "e4508ce5123a6448fe8d6b411d8fd32a41a214d0fb87fe774cada4e7b0f55199",
+      "path": "src/modules/approvals/server/approval-worker.ts",
+      "line": 139,
+      "tables": ["approval_requests"],
+      "preview": "update public.approval_requests set status = 'expired', current_stage = null, completed_at = now() where id = ${step.request_id}::uuid and status = 'pending'"
+    },
+    {
+      "signature": "f2983e518572a920fe01799916370459b9a037fa9b414fa3583fd1bd2e6d14df",
+      "path": "src/modules/approvals/server/approval-worker.ts",
+      "line": 237,
+      "tables": ["approval_request_steps"],
+      "preview": "update public.approval_request_steps set approver_membership_id = ${targetMembershipId}::uuid, delegated_from_membership_id = case when ${targetMembershipId}::uuid <> approver_memb"
+    },
+    {
+      "signature": "27ac9f6a3538c358a7b5f071c95513d7701576e30defef99eb58b6ed339d5955",
+      "path": "src/modules/approvals/server/approval-worker.ts",
+      "line": 314,
+      "tables": ["approval_request_steps"],
+      "preview": "update public.approval_request_steps set reminder_count = ${nextCount}, last_reminded_at = now(), reminder_at = case when ${nextCount} < ${MAX_REMINDERS} then now() + interval '24 "
+    },
+    {
+      "signature": "67c51e2294d5115d762216f04a09df2518bc751943f0a5db94ffc77621b447da",
+      "path": "src/modules/approvals/server/approvals.ts",
+      "line": 1353,
+      "tables": ["approval_request_steps"],
+      "preview": "update public.approval_request_steps set status = ${input.decision}, acted_at = now() where id = ${row.id}::uuid"
+    },
+    {
+      "signature": "898f68ab1c4286b30b2fbc7c58c35d1361115f0c20499e080207593a7309fad7",
+      "path": "src/modules/approvals/server/approvals.ts",
+      "line": 1377,
+      "tables": ["approval_request_steps"],
+      "preview": "update public.approval_request_steps set status = 'cancelled' where request_id = ${row.request_id}::uuid and id <> ${row.id}::uuid and status in ('waiting', 'pending')"
+    },
+    {
+      "signature": "1bc83172e13dba691906747472644ab91896b3156f644a54a945c8a326997f25",
+      "path": "src/modules/approvals/server/approvals.ts",
+      "line": 1384,
+      "tables": ["approval_requests"],
+      "preview": "update public.approval_requests set status = ${requestStatus}, current_stage = null, completed_at = now() where id = ${row.request_id}::uuid"
+    },
+    {
+      "signature": "d7a05388763f341241cd87f0eef6cf1f1151f77fd9feaa6b2c0429b2705c2c70",
+      "path": "src/modules/approvals/server/approvals.ts",
+      "line": 1391,
+      "tables": ["approval_request_steps"],
+      "preview": "update public.approval_request_steps set status = 'skipped' where request_id = ${row.request_id}::uuid and definition_step_id = ${row.definition_step_id}::uuid and id <> ${row.id}:"
+    },
+    {
+      "signature": "9a76810c69eda6675faa2af35dd1c8df5c9d29e9422b77151d2881451a986068",
+      "path": "src/modules/approvals/server/approvals.ts",
+      "line": 1401,
+      "tables": ["approval_request_steps"],
+      "preview": "select count(*)::integer as count from public.approval_request_steps where request_id = ${row.request_id}::uuid and stage_order = ${row.stage_order} and status in ('waiting', 'pend"
+    },
+    {
+      "signature": "7886a34b639d96ab84c3ba357df0df7d80566c4655a5838dd2f448f5a60d3d3d",
+      "path": "src/modules/approvals/server/approvals.ts",
+      "line": 1409,
+      "tables": ["approval_request_steps"],
+      "preview": "select min(stage_order)::integer as stage_order from public.approval_request_steps where request_id = ${row.request_id}::uuid and status = 'waiting'"
+    },
+    {
+      "signature": "6c8682ce67a9bdd79af76921ad60132e7e318c1a93b4d10ba376d4bbe6b927e1",
+      "path": "src/modules/approvals/server/approvals.ts",
+      "line": 1417,
+      "tables": ["approval_definition_steps", "approval_request_steps"],
+      "preview": "update public.approval_request_steps as request_step set status = 'pending', due_at = case when definition_step.expires_after_hours is null then approval_request.due_at when approv"
+    },
+    {
+      "signature": "25bb1954fb6a87a8966121282d5ac041e506d30e904b0afc4e15cd96a7761733",
+      "path": "src/modules/approvals/server/approvals.ts",
+      "line": 1464,
+      "tables": ["approval_requests"],
+      "preview": "update public.approval_requests set current_stage = ${nextStage} where id = ${row.request_id}::uuid"
+    },
+    {
+      "signature": "b2d6e2259fd149a2fdb891eeb32119311c801d2e1c058e64b6667c0c9422e582",
+      "path": "src/modules/approvals/server/approvals.ts",
+      "line": 1471,
+      "tables": ["approval_requests"],
+      "preview": "update public.approval_requests set status = 'approved', current_stage = null, completed_at = now() where id = ${row.request_id}::uuid"
+    },
+    {
+      "signature": "a1a53abfd33ed99f525521cd2ce8ad69e5d5edd5be6a4e7216b8f719b5fe0e14",
+      "path": "src/modules/approvals/server/approvals.ts",
+      "line": 1575,
+      "tables": ["approval_definition_steps", "approval_request_steps"],
+      "preview": "update public.approval_request_steps as request_step set approver_membership_id = ${input.approverMembershipId}::uuid, delegated_from_membership_id = null, reminder_count = 0, last"
+    },
+    {
+      "signature": "883827f3f26a9673417aa1d9bddbdf9310e648374483056a434cb34cd867b3f9",
+      "path": "src/modules/approvals/server/approvals.ts",
+      "line": 1665,
+      "tables": ["approval_requests"],
+      "preview": "update public.approval_requests set status = 'cancelled', current_stage = null, completed_at = now() where id = ${requestId}::uuid"
+    },
+    {
+      "signature": "a2bc3d987769522ca7631a5ff122a5c8d86aa46f505766f50acad37578381756",
+      "path": "src/modules/approvals/server/approvals.ts",
+      "line": 1670,
+      "tables": ["approval_request_steps"],
+      "preview": "update public.approval_request_steps set status = 'cancelled' where request_id = ${requestId}::uuid and status in ('waiting', 'pending')"
+    },
+    {
+      "signature": "393475d86e11292a86b99050f795194d586b694492b6d87a5aff80b36b50ebc4",
+      "path": "src/modules/approvals/server/approvals.ts",
+      "line": 1730,
+      "tables": ["approval_requests"],
+      "preview": "update public.approval_requests set status = 'invalidated', current_stage = null, invalidated_at = now(), completed_at = now() where id = ${row.id}::uuid"
+    },
+    {
+      "signature": "487fde72181514a05fd53db2a45fe767b720bf0b5918e03939a4508b6cf6e100",
+      "path": "src/modules/approvals/server/approvals.ts",
+      "line": 1735,
+      "tables": ["approval_request_steps"],
+      "preview": "update public.approval_request_steps set status = 'cancelled' where request_id = ${row.id}::uuid and status in ('waiting', 'pending')"
+    },
+    {
+      "signature": "e9af3666bbbd6c19f9ba3857152d6a123a177dda9a4458c512d157181a5dc6a9",
+      "path": "src/modules/assets/actions/assets.ts",
+      "line": 392,
+      "tables": ["assets"],
+      "preview": "update public.assets set asset_tag = ${parsed.data.assetTag}, serial_number = ${parsed.data.serialNumber}, category_id = ${parsed.data.categoryId}::uuid, name = ${parsed.data.name}"
+    },
+    {
+      "signature": "2b6b7d25c7200cf29f83156b25c169f4c5d43e34ac91f80612d019f07e94155c",
+      "path": "src/modules/assets/actions/assets.ts",
+      "line": 502,
+      "tables": ["assets"],
+      "preview": "update public.assets set status = 'assigned', condition = ${parsed.data.condition} where id = ${parsed.data.assetId}::uuid"
+    },
+    {
+      "signature": "1e7d3a6787a7f2aa207dec2cae1bb239c18e3ba1c04d3271505f6dc792f4aa47",
+      "path": "src/modules/assets/actions/assets.ts",
+      "line": 650,
+      "tables": ["asset_assignments"],
+      "preview": "update public.asset_assignments set returned_at = ${parsed.data.returnedAt}::timestamptz, return_condition = ${parsed.data.condition}, return_notes = ${parsed.data.notes}, returned"
+    },
+    {
+      "signature": "14b59fcec7c887cebbb740fd86206e6f68aa4592d9595a6485c139cc4b09fe29",
+      "path": "src/modules/assets/actions/assets.ts",
+      "line": 657,
+      "tables": ["assets"],
+      "preview": "update public.assets set status = ${parsed.data.nextStatus}, condition = ${parsed.data.condition} where id = ${parsed.data.assetId}::uuid"
+    },
+    {
+      "signature": "45a4102ff3274ace35e36256db79e5a50bcdf364334b40be1cfa7f005d708207",
+      "path": "src/modules/assets/actions/assets.ts",
+      "line": 661,
+      "tables": ["asset_return_requests"],
+      "preview": "update public.asset_return_requests set status = 'completed', completed_at = ${parsed.data.returnedAt}::timestamptz, updated_at = now() where assignment_id = ${row.assignment_id}::"
+    },
+    {
+      "signature": "86c12ea1a4999cbb8a48d984067f366cc761c66cf74087523a9a2e1fca1cd527",
+      "path": "src/modules/assets/actions/assets.ts",
+      "line": 828,
+      "tables": ["assets"],
+      "preview": "update public.assets set status = 'under_repair' where id = ${parsed.data.assetId}::uuid"
+    },
+    {
+      "signature": "5be95d01877589856ac63bc611be673afe41757c47e1e4ee43a1239b96ed8799",
+      "path": "src/modules/assets/actions/assets.ts",
+      "line": 898,
+      "tables": ["asset_maintenance_records"],
+      "preview": "update public.asset_maintenance_records set status = 'completed', started_at = coalesce(started_at, scheduled_at, created_at), completed_at = ${parsed.data.completedAt}::timestampt"
+    },
+    {
+      "signature": "e3b946d5469e12cd680822c108c0f0b5eebde5045cdea4595d9bd0dcd21f1931",
+      "path": "src/modules/assets/actions/assets.ts",
+      "line": 906,
+      "tables": ["assets"],
+      "preview": "update public.assets set status = 'available', condition = ${parsed.data.conditionAfter} where id = ${parsed.data.assetId}::uuid"
+    },
+    {
+      "signature": "46e5742121b5747773a37edffb158141db39f2f05cfaa1723d2e33891cec9787",
+      "path": "src/modules/assets/actions/assets.ts",
+      "line": 985,
+      "tables": ["assets"],
+      "preview": "update public.assets set status = 'disposed', disposal_date = ${parsed.data.disposalDate}::date, disposal_method = ${parsed.data.method}, disposal_reason = ${parsed.data.reason}, d"
+    },
+    {
+      "signature": "2b6b7d25c7200cf29f83156b25c169f4c5d43e34ac91f80612d019f07e94155c",
+      "path": "src/modules/assets/actions/assets.ts",
+      "line": 1357,
+      "tables": ["assets"],
+      "preview": "update public.assets set status = 'assigned', condition = ${parsed.data.condition} where id = ${parsed.data.assetId}::uuid"
+    },
+    {
+      "signature": "bf8d23bcb07fa38589a91f1dba6c5a45743717ab6ccea922dbc48fd47fc9ab3a",
+      "path": "src/modules/assets/actions/assets.ts",
+      "line": 1358,
+      "tables": ["asset_requests"],
+      "preview": "update public.asset_requests set status = 'fulfilled', fulfilled_asset_id = ${parsed.data.assetId}::uuid, fulfilled_assignment_id = ${assignmentId}::uuid, fulfilled_at = now(), upd"
+    },
+    {
+      "signature": "a935332a90e8709eb0995fcaf0643602545bd93dafe223c136e7ff216ad4ec6d",
+      "path": "src/modules/assets/server/assets.ts",
+      "line": 446,
+      "tables": ["asset_assignments"],
+      "preview": "select assignment.id, assignment.asset_id, assignment.membership_id, private.membership_display_name(assignment.membership_id) as member_name, assignment.checkout_at::text, assignm"
+    },
+    {
+      "signature": "3ca0ec68c26aaa4820eea453b28369639f8159dc473bb07f12dd31efe427f753",
+      "path": "src/modules/assets/server/assets.ts",
+      "line": 462,
+      "tables": ["asset_condition_events"],
+      "preview": "select event.id, event.asset_id, event.condition, event.event_type, event.notes, private.membership_display_name(event.recorded_by_membership_id) as recorded_by_name, event.created"
+    },
+    {
+      "signature": "6f40802f8449f84eda045777e0726a3c13abd7a4e2aea50163e892786d5371b6",
+      "path": "src/modules/assets/server/assets.ts",
+      "line": 472,
+      "tables": ["asset_maintenance_records"],
+      "preview": "select maintenance.id, maintenance.asset_id, maintenance.maintenance_type, maintenance.status, maintenance.provider, maintenance.scheduled_at::text, maintenance.started_at::text, m"
+    },
+    {
+      "signature": "4f3785b62d6989eaaf6ecf8b6fbfd0154704f13069a28b4b14b85e01c1d627a1",
+      "path": "src/modules/assets/server/assets.ts",
+      "line": 504,
+      "tables": ["asset_events"],
+      "preview": "select event.id, event.asset_id, event.event_type, case when event.actor_membership_id is null then null else private.membership_display_name(event.actor_membership_id) end as acto"
+    },
+    {
+      "signature": "3fafbfe37d8cdc863b8e74d0d0bfa046cd363099e9c05b30c44692ad4f80838f",
+      "path": "src/modules/automation/server/event-dispatch-worker.ts",
+      "line": 106,
+      "tables": ["automation_domain_events"],
+      "preview": "select event.id from public.automation_domain_events as event where event.routed_at is null order by event.created_at, event.id for update skip locked limit ${ROUTE_BATCH_SIZE}"
+    },
+    {
+      "signature": "69f38ef9827b80fd6d76aa5cf0c10e71617d539174104f3ce7d745e8d419cafb",
+      "path": "src/modules/automation/server/event-dispatch-worker.ts",
+      "line": 146,
+      "tables": ["automation_domain_events"],
+      "preview": "update public.automation_domain_events set routed_at = now() where id = any(${eventIds}::uuid[]) and routed_at is null"
+    },
+    {
+      "signature": "46a71c166eb60c3bf84836c8785af7d4b3f5f0a4c6735227ef6cf34def9e0089",
+      "path": "src/modules/automation/server/event-dispatch-worker.ts",
+      "line": 299,
+      "tables": ["automation_dispatches"],
+      "preview": "update public.automation_dispatches set status = ${finalOutcome}, available_at = case when ${finalOutcome} = 'retry' then now() + (${result.retryAfterSeconds ?? automationRetryDela"
+    },
+    {
+      "signature": "5d185983cdfa3fa6e338e1c3ca690789ece5d3f8cbb6ce4480b35105760c46e8",
+      "path": "src/modules/automation/server/event-dispatch-worker.ts",
+      "line": 364,
+      "tables": ["automation_definitions"],
+      "preview": "update public.automation_definitions set last_execution_at = ${completedAt.toISOString()}::timestamptz, last_result = ${executionStatus}, error_count = case when ${executionStatus}"
+    },
+    {
+      "signature": "b68cc01f64ca22261ebc74f703f0732a7162bb02a23436830a3d9f03727125dd",
+      "path": "src/modules/calendar/actions/calendar.ts",
+      "line": 123,
+      "tables": ["memberships"],
+      "preview": "select exists ( select 1 from public.memberships where id = ${context.membership.id}::uuid and department_id = ${input.departmentId}::uuid ) as allowed"
+    },
+    {
+      "signature": "244729b608d1dba01dc7346b8612c1d989e3d969e5774b38571983719788fb50",
+      "path": "src/modules/calendar/actions/calendar.ts",
+      "line": 278,
+      "tables": ["calendar_events"],
+      "preview": "update public.calendar_events set status = 'cancelled', updated_by_membership_id = ${context.membership.id}::uuid where id = ${event.id}::uuid"
+    },
+    {
+      "signature": "1bf43f7f67a454fd20e08f04fd14cf648e0b463db7098cf7b951df9b41525133",
+      "path": "src/modules/crm/actions/crm.ts",
+      "line": 443,
+      "tables": ["crm_companies"],
+      "preview": "update public.crm_companies set legal_name = ${parsed.data.legalName}, display_name = ${parsed.data.displayName}, industry = ${parsed.data.industry}, website = ${parsed.data.websit"
+    },
+    {
+      "signature": "22ffe5de099101b5ce02a4e31782f6ff234d065edac497b9f5c618cd78b16ba0",
+      "path": "src/modules/crm/actions/crm.ts",
+      "line": 534,
+      "tables": ["crm_companies"],
+      "preview": "update public.crm_companies set primary_contact_id = ${parsed.data.primaryContactId}::uuid where id = ${company.id}::uuid"
+    },
+    {
+      "signature": "64b01db44ee72950a89525d638d690906ea6b8e6ec3fa028f6f8ba9c75f8ba6a",
+      "path": "src/modules/crm/actions/crm.ts",
+      "line": 664,
+      "tables": ["crm_contacts"],
+      "preview": "update public.crm_contacts set company_id = ${parsed.data.companyId}::uuid, first_name = ${parsed.data.firstName}, last_name = ${parsed.data.lastName}, job_title = ${parsed.data.jo"
+    },
+    {
+      "signature": "2d96101a0c1a7fdd3e6e068835dcf868bb63794bd826fcee8dd25ec87d2312c8",
+      "path": "src/modules/crm/actions/crm.ts",
+      "line": 839,
+      "tables": ["crm_leads"],
+      "preview": "update public.crm_leads set name = ${parsed.data.name}, lead_type = ${parsed.data.leadType}, source = ${parsed.data.source}, status = ${parsed.data.status}, stage_id = ${parsed.dat"
+    },
+    {
+      "signature": "28385346d9d787d321a13a69a7d2a79813f2772c58d5558b2365c305ba46449d",
+      "path": "src/modules/crm/actions/crm.ts",
+      "line": 919,
+      "tables": ["crm_leads"],
+      "preview": "update public.crm_leads set stage_id = ${stage.id}::uuid, probability = ${stage.probability}, status = ${nextStatus}, lost_reason = case when ${stage.state} = 'lost' then ${parsed."
+    },
+    {
+      "signature": "bf5c9dc10a448e0554d04ad60322c4e0eae3b556a5da1ba5db38f873c3dc4e94",
+      "path": "src/modules/crm/actions/crm.ts",
+      "line": 974,
+      "tables": ["crm_leads"],
+      "preview": "update public.crm_leads set status = ${parsed.data.status}, qualification_label = ${parsed.data.status === \"qualified\" ? \"qualified\" : \"cold\"}, qualification = jsonb_build_object( "
+    },
+    {
+      "signature": "15c845a299f229214d4d1e2fdf63e62df760ddefaec525fad37d537fe1d9d624",
+      "path": "src/modules/crm/actions/crm.ts",
+      "line": 1044,
+      "tables": ["crm_leads"],
+      "preview": "delete from public.crm_leads where id = ${lead.id}::uuid"
+    },
+    {
+      "signature": "389a0f818a317e39334251c54ffee2fa7208aa465cfa44d0f4461d70ed9d90a4",
+      "path": "src/modules/crm/actions/crm.ts",
+      "line": 1200,
+      "tables": ["crm_activities"],
+      "preview": "update public.crm_activities set completed_at = now() where id = ${activity.id}::uuid"
+    },
+    {
+      "signature": "6269b8b35344342acbacb7b742d2e9a7949061356cef8f17e90e41b7a772f402",
+      "path": "src/modules/crm/actions/crm.ts",
+      "line": 1202,
+      "tables": ["crm_activities", "crm_leads"],
+      "preview": "update public.crm_leads lead set follow_up_at = ( select min(next_activity.due_at) from public.crm_activities next_activity where next_activity.lead_id = lead.id and next_activity."
+    },
+    {
+      "signature": "c5f4af62790ef319b009487e915250044d0156d8284c9db2a511fe45bde3e8cf",
+      "path": "src/modules/crm/actions/crm.ts",
+      "line": 1317,
+      "tables": ["crm_companies"],
+      "preview": "update public.crm_companies set client_status = 'client' where id = ${companyId}::uuid"
+    },
+    {
+      "signature": "2fb971a8ed660ea7d815252440c4581cf2e300afe5224c2a626ae46aebf8bae0",
+      "path": "src/modules/crm/actions/crm.ts",
+      "line": 1429,
+      "tables": ["crm_leads"],
+      "preview": "update public.crm_leads set status = 'converted', stage_id = coalesce(${wonStages[0]?.id ?? null}::uuid, stage_id), probability = 100, converted_company_id = ${companyId}::uuid, co"
+    },
+    {
+      "signature": "ba0a4171b427fd8dd39c6c61caa7589055643cd6e1c63b7fc15a8b50d13e4e49",
+      "path": "src/modules/crm/server/imports.ts",
+      "line": 507,
+      "tables": ["crm_leads"],
+      "preview": "update public.crm_leads set email = coalesce(email, ${email}), phone = coalesce(phone, ${phone}), company_name = coalesce(company_name, ${companyName}), source = coalesce(source, $"
+    },
+    {
+      "signature": "782e5aa4c77a50c220890ae02e50f35440b7188d4981020cfb24fd7840c4c37b",
+      "path": "src/modules/crm/server/imports.ts",
+      "line": 644,
+      "tables": ["crm_import_runs"],
+      "preview": "update public.crm_import_runs set status = 'completed', created_count = ${createdCount}, merged_count = ${mergedCount}, skipped_count = ${skippedCount}, failed_count = ${failedCoun"
+    },
+    {
+      "signature": "62f56541aac34a666d6bc353da5e14fd6d51c2cc7bf2852dd5066c36f86f5673",
+      "path": "src/modules/crm/server/imports.ts",
+      "line": 1083,
+      "tables": ["crm_import_connections"],
+      "preview": "update public.crm_import_connections set status = ${status}, last_error = null, sync_claimed_until = null, next_sync_at = case when ${status} = 'active' and sync_enabled then now()"
+    },
+    {
+      "signature": "baf69ee17a0cb234f5a09ff29ccd4e58e37286ecc90030833dae613b43c81865",
+      "path": "src/modules/crm/server/imports.ts",
+      "line": 1144,
+      "tables": ["crm_import_connections"],
+      "preview": "update public.crm_import_connections set sync_enabled = ${syncEnabled}, sync_interval_minutes = ${syncIntervalMinutes}, next_sync_at = case when ${syncEnabled} and status <> 'pause"
+    },
+    {
+      "signature": "b23385b6062ef733059f2635c49c4c9d9bee27eb47442e90d227705b30d7f346",
+      "path": "src/modules/crm/server/imports.ts",
+      "line": 1186,
+      "tables": ["crm_import_connections"],
+      "preview": "update public.crm_import_connections set encrypted_credentials = ${encryptSecretObject({ accessToken })}, credential_version = credential_version + 1, credentials_expires_at = null"
+    },
+    {
+      "signature": "33b210a499df8480d5e9ce5423a0b3319266e7e84930dbae5fa0d2f060350525",
+      "path": "src/modules/crm/server/imports.ts",
+      "line": 1220,
+      "tables": ["crm_import_connections"],
+      "preview": "update public.crm_import_connections set webhook_key_hash = ${sha256(webhookKey)}, credential_version = credential_version + 1, last_credentials_rotated_at = now(), last_health_sta"
+    },
+    {
+      "signature": "de0b315dbd98d07ed1877e0ee05b958a8790e342e72227bd1fff883c7a6b42d7",
+      "path": "src/modules/crm/server/imports.ts",
+      "line": 1257,
+      "tables": ["crm_import_connections"],
+      "preview": "update public.crm_import_connections set encrypted_credentials = ${encryptSecretObject({ accessToken, appSecret, verifyToken })}, credential_version = credential_version + 1, last_"
+    },
+    {
+      "signature": "02867d08b054a7982db52cc7769c9dba2c3200ba0b2ebe289ca1ec0b90d250e5",
+      "path": "src/modules/crm/server/imports.ts",
+      "line": 1395,
+      "tables": ["crm_import_connections"],
+      "preview": "update public.crm_import_connections set encrypted_credentials = ${encryptedCredentials}, configuration = ${database.json(toJsonValue(configuration))}, auth_method = 'oauth', statu"
+    },
+    {
+      "signature": "a80dc0f9609b53e19faeb612afb6a5ba183e96deaddc6d177989b67daa59add2",
+      "path": "src/modules/crm/server/imports.ts",
+      "line": 1773,
+      "tables": ["crm_import_connections"],
+      "preview": "update public.crm_import_connections set encrypted_credentials = ${refreshedEnvelope}, configuration = ${database.json(toJsonValue(mergedConfiguration))}, credentials_expires_at = "
+    },
+    {
+      "signature": "efca410140ba3ce8077a388444996e4c9a61a5fd056ec4afc8f4fac65946e761",
+      "path": "src/modules/crm/server/imports.ts",
+      "line": 2033,
+      "tables": ["crm_connection_notifications"],
+      "preview": "update public.crm_connection_notifications set status = 'resolved', last_occurred_at = now() where connection_id = ${connectionId}::uuid and status = 'open' and code = any(${codes}"
+    },
+    {
+      "signature": "5c86bca346c9adb4e197f6d40063de0a0f31dd391817bba26eaec35b084b6aeb",
+      "path": "src/modules/crm/server/imports.ts",
+      "line": 2051,
+      "tables": ["crm_import_connections"],
+      "preview": "update public.crm_import_connections set sync_claimed_until = now() + interval '5 minutes', last_sync_at = now(), last_error = null where id = ${connectionId}::uuid and (sync_claim"
+    },
+    {
+      "signature": "449fc77871f0a0dce47841a0525f97f336f0bc82a723ebbb3830a0ba5ceb2aca",
+      "path": "src/modules/crm/server/imports.ts",
+      "line": 2091,
+      "tables": ["crm_import_connections"],
+      "preview": "update public.crm_import_connections set status = 'active', last_success_at = now(), last_error = null, consecutive_failures = 0, backoff_until = null, sync_claimed_until = null, s"
+    },
+    {
+      "signature": "6638c2524b7de475dc1c8c2f4669437793c22b52054eca0fd919357282896e59",
+      "path": "src/modules/crm/server/imports.ts",
+      "line": 2129,
+      "tables": ["crm_import_connections"],
+      "preview": "update public.crm_import_connections set status = ${authFailure || failures >= 5 ? \"error\" : \"active\"}, last_error = ${errorMessage}, consecutive_failures = consecutive_failures + "
+    },
+    {
+      "signature": "d120c789624a7c417eaf738e606ec05bb1f3eee4ac40a105384ded437e9aab95",
+      "path": "src/modules/crm/server/imports.ts",
+      "line": 2258,
+      "tables": ["crm_import_connections"],
+      "preview": "update public.crm_import_connections set last_health_check_at = now(), last_health_status = 'healthy', last_health_message = ${message}, last_error = null, status = case when statu"
+    },
+    {
+      "signature": "d1bd91385ed67c89d085e35360b956ca75250f46dd9160bebc643f65d368b9e2",
+      "path": "src/modules/crm/server/imports.ts",
+      "line": 2284,
+      "tables": ["crm_import_connections"],
+      "preview": "update public.crm_import_connections set last_health_check_at = now(), last_health_status = ${authFailure ? \"unhealthy\" : \"degraded\"}, last_health_message = ${message}, last_error "
+    },
+    {
+      "signature": "5bfc8e1e451405386875c494d4dea14bf4157e5b103013dff982d90f3ce7fa7e",
+      "path": "src/modules/crm/server/imports.ts",
+      "line": 2315,
+      "tables": ["crm_import_connections"],
+      "preview": "select id from public.crm_import_connections where mode = 'pull' and sync_enabled = true and status <> 'paused' and encrypted_credentials is not null and coalesce(next_sync_at, now"
+    },
+    {
+      "signature": "fb5ac7dcc0ebe65255c1307c7e94ab0fa0829bdb89d7b4300b19b1d4eb27efbe",
+      "path": "src/modules/crm/server/imports.ts",
+      "line": 2345,
+      "tables": ["crm_import_connections"],
+      "preview": "update public.crm_import_connections set sync_enabled = false, next_sync_at = null, sync_claimed_until = null, last_error = 'Scheduled sync disabled because the connection owner no"
+    },
+    {
+      "signature": "b5819c81910e90e4b5151bd8f7aad35892859e21d971c0deeaf1735659e557e5",
+      "path": "src/modules/crm/server/imports.ts",
+      "line": 2491,
+      "tables": ["crm_webhook_deliveries"],
+      "preview": "update public.crm_webhook_deliveries set status = ${status}, processed_at = now(), error_message = ${error?.slice(0, 500) ?? null} where connection_id = ${connectionId}::uuid and p"
+    },
+    {
+      "signature": "8c0675cb4e8c0ee4cfa189b93544b84f392658bb2caaab5502266ee8908c750a",
+      "path": "src/modules/dashboard/server/dashboard.ts",
+      "line": 734,
+      "tables": ["project_tasks", "projects"],
+      "preview": "select task.id::text as id, task.title, concat(project.code, ' · ', status.name) as meta, concat('/projects/', project.id, '?task=', task.id) as href, task.due_date::text as due_at"
+    },
+    {
+      "signature": "4b04fe5835f9ca7497c7163283128e4d2d3837930c224fdb0245e6433c2d36d4",
+      "path": "src/modules/documents/actions/documents.ts",
+      "line": 305,
+      "tables": ["document_tag_links"],
+      "preview": "delete from public.document_tag_links where document_id = ${documentId.data}::uuid"
+    },
+    {
+      "signature": "a1cd1bbf51758f7abeb2daac419e85a305b4109d0183b468d44100f33d3ca700",
+      "path": "src/modules/documents/actions/publication.ts",
+      "line": 296,
+      "tables": ["document_review_requests", "document_versions", "private_files"],
+      "preview": "select review.id, version.version_number from public.document_review_requests as review join public.document_versions as version on version.id = review.version_id join public.priva"
+    },
+    {
+      "signature": "52519b485f45f5ac2fa47854ceaed18c46559d5bb91da1a4485524f450b6b3ef",
+      "path": "src/modules/documents/actions/publication.ts",
+      "line": 309,
+      "tables": ["document_publications"],
+      "preview": "select id, publication_number from public.document_publications where document_id = ${document.id}::uuid and status = 'active' for update"
+    },
+    {
+      "signature": "f861a2a9769d8e3f6176f99676b9763a67fc73b637cd73fbe62567f25670c34e",
+      "path": "src/modules/documents/actions/publication.ts",
+      "line": 315,
+      "tables": ["document_publications"],
+      "preview": "select coalesce(max(publication_number), 0)::integer + 1 as publication_number from public.document_publications where document_id = ${document.id}::uuid"
+    },
+    {
+      "signature": "d9c5bd66ed79981aefabb9f9dcce21ae072c5780ca1cd95d7a9eccab7a6d3e73",
+      "path": "src/modules/documents/actions/publication.ts",
+      "line": 320,
+      "tables": ["document_publications"],
+      "preview": "update public.document_publications set status = 'superseded', superseded_at = now(), superseded_by_membership_id = ${context.membership.id}::uuid where id = ${prior.id}::uuid and "
+    },
+    {
+      "signature": "2c5e5615dfd65558a1b9aa8200b9d6ba3aea98b24ed4ca524d5366884b74c7a7",
+      "path": "src/modules/documents/actions/publication.ts",
+      "line": 343,
+      "tables": ["document_publications"],
+      "preview": "update public.document_publications set superseded_by_publication_id = ${publicationId}::uuid where id = ${prior.id}::uuid and status = 'superseded'"
+    },
+    {
+      "signature": "3e352325858e9644261c2618ffac247e0caf029cedff0fa9c495d39f531e3be0",
+      "path": "src/modules/finance/actions/expenses.ts",
+      "line": 378,
+      "tables": ["finance_expenses"],
+      "preview": "update public.finance_expenses set approval_status = ${nextStatus}, approved_by_membership_id = case when ${nextStatus} = 'approved' then ${context.membership.id}::uuid else null e"
+    },
+    {
+      "signature": "f50efc05230be8595c85d8edc584e780cd86bd06f9e9b7eb919eccfd686033a0",
+      "path": "src/modules/finance/actions/expenses.ts",
+      "line": 457,
+      "tables": ["finance_expenses"],
+      "preview": "update public.finance_expenses set payment_status = ${parsed.data.paymentStatus}, payment_reference = ${parsed.data.paymentReference}, paid_at = case when ${isSettled} then now() e"
+    },
+    {
+      "signature": "926cc6756be953346d0fdbdba050ba4526d75b13d7dce4120eb01c8d39b8eb9b",
+      "path": "src/modules/finance/actions/finance.ts",
+      "line": 667,
+      "tables": ["finance_invoice_lines"],
+      "preview": "select catalog_item_id, description, quantity_milli, unit_rate_minor, discount_bps, tax_bps from public.finance_invoice_lines where invoice_id = ${original.id}::uuid order by posit"
+    },
+    {
+      "signature": "0728c54b082e3c64a8fc953542412aa72bedd4e5ea57db313f51ef7a0d2af37c",
+      "path": "src/modules/finance/actions/finance.ts",
+      "line": 970,
+      "tables": ["finance_credit_note_lines", "finance_credit_notes", "finance_invoices"],
+      "preview": "select jsonb_build_object( 'currency', credit_note.currency, 'subtotalMinor', credit_note.subtotal_minor, 'discountMinor', credit_note.discount_minor, 'taxMinor', credit_note.tax_m"
+    },
+    {
+      "signature": "ab56f7bd964fecddcc02920e4e0057aa10fc83dc84b557633967f8c551c07a24",
+      "path": "src/modules/finance/actions/finance.ts",
+      "line": 1029,
+      "tables": ["finance_credit_notes"],
+      "preview": "update public.finance_credit_notes set credit_note_number = ${allocated}, issue_date = ${parsed.data.issueDate}::date, status = 'issued', issued_at = now(), seller_snapshot = ${sql"
+    },
+    {
+      "signature": "e0de56281022a6340b9d08438633e73635d63d7bf5815a9fedb481a7b40a6d6b",
+      "path": "src/modules/finance/actions/finance.ts",
+      "line": 1124,
+      "tables": ["finance_credit_notes"],
+      "preview": "update public.finance_credit_notes set status = 'void', voided_at = now(), void_reason = ${parsed.data.reason} where id = ${note.id}::uuid"
+    },
+    {
+      "signature": "52a4a935440e8851b289db22279f16d29f576c61c63b8f23499d6fe21e7f8c3d",
+      "path": "src/modules/finance/actions/finance.ts",
+      "line": 1251,
+      "tables": ["finance_estimates"],
+      "preview": "update public.finance_estimates set status = ${nextStatus}, approval_status = ${nextApproval}, approved_at = case when ${parsed.data.decision} = 'approve' then now() else null end,"
+    },
+    {
+      "signature": "f918d230898f84a38ca2dde28a5c8f9473392c54246be3aa50bb920462f92cb4",
+      "path": "src/modules/finance/actions/finance.ts",
+      "line": 1265,
+      "tables": ["finance_invoices"],
+      "preview": "update public.finance_invoices set status = ${nextStatus}, approval_status = ${nextApproval}, approved_at = case when ${parsed.data.decision} = 'approve' then now() else null end w"
+    },
+    {
+      "signature": "489bd0df19f0bf0340c103117694195abc124d105a8d18a849800beadd37202a",
+      "path": "src/modules/finance/actions/finance.ts",
+      "line": 1281,
+      "tables": ["finance_credit_notes"],
+      "preview": "update public.finance_credit_notes set status = ${nextStatus}, approval_status = ${nextApproval}, approved_at = case when ${parsed.data.decision} = 'approve' then now() else null e"
+    },
+    {
+      "signature": "eed51279e32fffbfe12cfe25310b6fbc36b25d1dab5f8cf7bfc3508e321efd89",
+      "path": "src/modules/finance/actions/finance.ts",
+      "line": 1355,
+      "tables": ["finance_estimates"],
+      "preview": "update public.finance_estimates set client_acceptance_status = ${parsed.data.decision}, status = ${parsed.data.decision === \"accepted\" ? \"accepted\" : \"rejected\"}, accepted_at = cas"
+    },
+    {
+      "signature": "ac1f1860486f17380ed44a099e354daab38fbb232dbef00800db421963365768",
+      "path": "src/modules/finance/actions/finance.ts",
+      "line": 1504,
+      "tables": ["finance_estimates"],
+      "preview": "update public.finance_estimates set status = 'converted', converted_invoice_id = ${invoiceId}::uuid, version_number = version_number + 1 where id = ${estimate.id}::uuid"
+    },
+    {
+      "signature": "685c9c91509139f580411cdf49404eda5d272faebc851e68377a2aed84d1c0ca",
+      "path": "src/modules/finance/actions/finance.ts",
+      "line": 1584,
+      "tables": ["finance_invoice_lines"],
+      "preview": "select count(*)::integer as count from public.finance_invoice_lines where invoice_id = ${parsed.data.invoiceId}::uuid"
+    },
+    {
+      "signature": "ddadc2907c7ebb4b065f9c2ea532e3e7b6981d032ea1d92409616325336200df",
+      "path": "src/modules/finance/actions/finance.ts",
+      "line": 1675,
+      "tables": ["finance_invoices"],
+      "preview": "update public.finance_invoices set invoice_number = ${allocated}, issue_date = ${parsed.data.issueDate}::date, due_date = ${parsed.data.dueDate}::date, status = 'issued', issued_at"
+    },
+    {
+      "signature": "f4bac9dfcffbf9ef4884467e6f0aa750a96c415f76d75908625855d8dd18fe28",
+      "path": "src/modules/finance/actions/finance.ts",
+      "line": 1976,
+      "tables": ["finance_email_deliveries"],
+      "preview": "update public.finance_email_deliveries set status = 'delivered', provider_reference = ${result.providerReference ?? null}, error_code = null, sent_at = now() where id = ${delivery."
+    },
+    {
+      "signature": "0052d2904ff9491284c755f21f08c0eaa175a6f63c310d3283962b0a576d4b10",
+      "path": "src/modules/finance/actions/finance.ts",
+      "line": 2025,
+      "tables": ["finance_email_deliveries"],
+      "preview": "update public.finance_email_deliveries set status = 'failed', provider_reference = ${result.providerReference ?? null}, error_code = ${result.errorCode ?? \"email_delivery_failed\"},"
+    },
+    {
+      "signature": "0ba8fa906c06a8da57cdc63a2ab02b6a31e645e0a233ddf2c93f9e24ab7420b5",
+      "path": "src/modules/finance/actions/finance.ts",
+      "line": 2108,
+      "tables": ["finance_invoices"],
+      "preview": "update public.finance_invoices set status = 'void', voided_at = now(), void_reason = ${parsed.data.reason} where id = ${parsed.data.invoiceId}::uuid"
+    },
+    {
+      "signature": "95b7dfcab024f5ffb45cafda496adc2c5ce3b47293e3607a482d71c2a967e68e",
+      "path": "src/modules/finance/actions/finance.ts",
+      "line": 2230,
+      "tables": ["finance_invoices"],
+      "preview": "update public.finance_invoices set amount_paid_minor = amount_paid_minor + ${allocation.amountMinor}, balance_minor = balance_minor - ${allocation.amountMinor}, status = case when "
+    },
+    {
+      "signature": "230571a89a076722b777f4bc295056662c5a8de364336117964330bf23476605",
+      "path": "src/modules/finance/actions/finance.ts",
+      "line": 2349,
+      "tables": ["finance_invoices"],
+      "preview": "update public.finance_invoices set status = ${nextStatus}, viewed_at = coalesce(viewed_at, now()) where id = ${invoice.id}::uuid"
+    },
+    {
+      "signature": "2412bafce775f9fd8c94fe093a4d92cd54534f6297edfb0ab638f41caa7c23dd",
+      "path": "src/modules/finance/actions/finance.ts",
+      "line": 2360,
+      "tables": ["finance_invoices"],
+      "preview": "update public.finance_invoices set status = 'disputed', disputed_at = now(), dispute_reason = ${parsed.data.reason}, dispute_resolved_at = null, dispute_resolution_note = null wher"
+    },
+    {
+      "signature": "4e0450c30eb0050d8b4713730f3c36c0804507096bfdff7d4e5fa8eed494fcdf",
+      "path": "src/modules/finance/actions/finance.ts",
+      "line": 2383,
+      "tables": ["finance_invoices"],
+      "preview": "update public.finance_invoices set status = ${nextStatus}, dispute_resolved_at = now(), dispute_resolution_note = ${parsed.data.reason} where id = ${invoice.id}::uuid"
+    },
+    {
+      "signature": "3b3c8286b67933a4f059470926b7b6f3ad3e24658c486d232b31080de2506c05",
+      "path": "src/modules/hr/actions/attendance.ts",
+      "line": 370,
+      "tables": ["hr_attendance_corrections"],
+      "preview": "delete from public.hr_attendance_corrections where id = ${correctionId}::uuid and approval_request_id is null"
+    },
+    {
+      "signature": "5b7c764742a2e084bb04adfed6c3976204e5c74237ba791468b086186c5b726b",
+      "path": "src/modules/hr/actions/leave.ts",
+      "line": 333,
+      "tables": ["hr_leave_balances"],
+      "preview": "update public.hr_leave_balances set adjustment_days = adjustment_days + ${parsed.data.adjustmentDays}, updated_at = now() where id = ${balanceId}::uuid"
+    },
+    {
+      "signature": "94fc754dc50d6e1b0856bc95b00e09df6dd588596dbfbbaaa2b7a95e3963f529",
+      "path": "src/modules/hr/actions/leave.ts",
+      "line": 562,
+      "tables": ["hr_leave_balances"],
+      "preview": "select opening_days + accrued_days + carried_forward_days + adjustment_days - reserved_days - used_days as available_days from public.hr_leave_balances where id = ${balanceId}::uui"
+    },
+    {
+      "signature": "022e93b90ff000b9407e544deb10f4210f0440a649c00be6b245521559542c96",
+      "path": "src/modules/hr/actions/leave.ts",
+      "line": 571,
+      "tables": ["hr_leave_balances"],
+      "preview": "update public.hr_leave_balances set reserved_days = reserved_days + ${locked.requested_days}, updated_at = now() where id = ${balanceId}::uuid"
+    },
+    {
+      "signature": "5d6e2d093702b17c78f8cd40da42488e4a064b104af629e60cd1984956362235",
+      "path": "src/modules/hr/actions/leave.ts",
+      "line": 588,
+      "tables": ["hr_leave_requests"],
+      "preview": "update public.hr_leave_requests set status = 'pending', approval_request_id = ${approvalRequestId}::uuid, balance_id = ${balanceId}::uuid where id = ${draft.id}::uuid"
+    },
+    {
+      "signature": "cf7ec13faecb53597ad75aeb7edb62c59977378e6b482936edeadcd4881f1ba2",
+      "path": "src/modules/hr/actions/leave.ts",
+      "line": 677,
+      "tables": ["hr_leave_request_attachments"],
+      "preview": "delete from public.hr_leave_request_attachments where id = ${request.attachment_id}::uuid"
+    },
+    {
+      "signature": "e6320456da0b668190e16bb8460140898e97f6e9bcfd49d5c614c4f082f0af76",
+      "path": "src/modules/hr/actions/leave.ts",
+      "line": 685,
+      "tables": ["hr_leave_requests"],
+      "preview": "delete from public.hr_leave_requests where id = ${request.id}::uuid and status = 'draft'"
+    },
+    {
+      "signature": "8f3f3a72d19b18141f359182a196a5632715fca3e7cdd01c67d83852e5b42fd4",
+      "path": "src/modules/hr/actions/leave.ts",
+      "line": 715,
+      "tables": ["hr_leave_balances"],
+      "preview": "update public.hr_leave_balances set used_days = greatest(used_days - ${request.requested_days}, 0), updated_at = now() where id = ${request.balance_id}::uuid"
+    },
+    {
+      "signature": "40046229ef855e490307d66c9c749faef55d568613ff825ea4bdc6724904fd02",
+      "path": "src/modules/hr/actions/leave.ts",
+      "line": 733,
+      "tables": ["hr_leave_requests"],
+      "preview": "update public.hr_leave_requests set status = 'cancelled', cancelled_by_membership_id = ${context.membership.id}::uuid, cancelled_at = now() where id = ${request.id}::uuid and statu"
+    },
+    {
+      "signature": "3ce145c3707932238eebb1eb389c1ebc06258df14f1ac8ca3289edae04ee6101",
+      "path": "src/modules/hr/actions/offboarding.ts",
+      "line": 329,
+      "tables": ["hr_offboarding_plans"],
+      "preview": "update public.hr_offboarding_plans set separation_type = ${parsed.data.separationType}, notice_date = ${parsed.data.noticeDate}::date, last_working_date = ${parsed.data.lastWorking"
+    },
+    {
+      "signature": "a2e6afbc249efa8b8fe55ac4aade04fbcbc15d15e4cf7d162788c3948182e9bc",
+      "path": "src/modules/hr/actions/offboarding.ts",
+      "line": 424,
+      "tables": ["hr_offboarding_items"],
+      "preview": "update public.hr_offboarding_items set status = ${parsed.data.status}, assigned_membership_id = ${parsed.data.assignedMembershipId}::uuid, due_date = ${parsed.data.dueDate}::date, "
+    },
+    {
+      "signature": "5fc33d9a5bed85fc00dcca4308d52b42da0e79b15fadad663a73fd79cb9f3d5a",
+      "path": "src/modules/hr/actions/offboarding.ts",
+      "line": 576,
+      "tables": ["hr_offboarding_plans"],
+      "preview": "update public.hr_offboarding_plans set replacement_membership_id = ${parsed.data.replacementMembershipId}::uuid, updated_by_membership_id = ${context.membership.id}::uuid where id "
+    },
+    {
+      "signature": "9d09c9f593c71c962374c5c19919813ee4faa986cbe9e08f9c5c0b1e5deee84c",
+      "path": "src/modules/hr/actions/offboarding.ts",
+      "line": 659,
+      "tables": ["hr_offboarding_plans"],
+      "preview": "update public.hr_offboarding_plans set account_suspended_at = now(), updated_by_membership_id = ${context.membership.id}::uuid where id = ${parsed.data.planId}::uuid"
+    },
+    {
+      "signature": "5a6cc92dbc26a02d638c0cdda984c83746010960565e8c8a3e4dace6a1772b2b",
+      "path": "src/modules/hr/actions/offboarding.ts",
+      "line": 776,
+      "tables": ["hr_offboarding_items"],
+      "preview": "select label from public.hr_offboarding_items where offboarding_plan_id = ${parsed.data.planId}::uuid and item_key not in ('final_clearance', 'employee_archive') and status not in "
+    },
+    {
+      "signature": "d9ed8994a8ee56b83d47e6f0d0750f253d6156275d1019a7a5435ed6eb21a454",
+      "path": "src/modules/hr/actions/offboarding.ts",
+      "line": 789,
+      "tables": ["hr_offboarding_items"],
+      "preview": "update public.hr_offboarding_items set status = 'complete', completion_source = 'system', completed_at = now(), completed_by_membership_id = ${context.membership.id}::uuid, updated"
+    },
+    {
+      "signature": "1cf3e3313beacb0f3dd113d0b000f862803be4134f7c92f2427fdc2469855436",
+      "path": "src/modules/hr/actions/offboarding.ts",
+      "line": 814,
+      "tables": ["hr_offboarding_plans"],
+      "preview": "update public.hr_offboarding_plans set final_clearance_at = now(), archived_at = now(), updated_by_membership_id = ${context.membership.id}::uuid where id = ${parsed.data.planId}::"
+    },
+    {
+      "signature": "fd4ef5a1d6c9e8b6115d65ba8f093766887593aa98ade58b86d172faf3249e94",
+      "path": "src/modules/hr/actions/offboarding.ts",
+      "line": 877,
+      "tables": ["hr_offboarding_plans"],
+      "preview": "update public.hr_offboarding_plans set status = 'cancelled', cancelled_at = now(), updated_by_membership_id = ${context.membership.id}::uuid where id = ${parsed.data.planId}::uuid"
+    },
+    {
+      "signature": "6bae9a48423801c16d9bfde241bebbc426c62dd5034db54520fe4c971390cf14",
+      "path": "src/modules/hr/actions/onboarding.ts",
+      "line": 199,
+      "tables": ["hr_onboarding_plans"],
+      "preview": "update public.hr_onboarding_plans set target_start_date = ${parsed.data.targetStartDate}::date, first_day_meeting_at = ${parsed.data.firstDayMeetingAt}::timestamptz, first_day_meet"
+    },
+    {
+      "signature": "5815c91a0ebc3db48020701ed8d0b37fea552c8bb5f5f3cfdd60ead7428e9632",
+      "path": "src/modules/hr/actions/onboarding.ts",
+      "line": 304,
+      "tables": ["hr_onboarding_items"],
+      "preview": "update public.hr_onboarding_items set status = ${parsed.data.status}, assigned_membership_id = ${parsed.data.assignedMembershipId}::uuid, due_date = ${parsed.data.dueDate}::date, n"
+    },
+    {
+      "signature": "3575678155e3d42a6fe56e45dba7d145a2e4e43b41549c2270b96b105e8e6198",
+      "path": "src/modules/hr/actions/onboarding.ts",
+      "line": 505,
+      "tables": ["hr_onboarding_plans"],
+      "preview": "update public.hr_onboarding_plans set status = 'cancelled', cancelled_at = now(), completed_at = null, updated_by_membership_id = ${context.membership.id}::uuid where id = ${parsed"
+    },
+    {
+      "signature": "9f1c3d50d1b4e076130605fe891b15892d3374b211c8c4a3333a73c03de500d2",
+      "path": "src/modules/hr/server/hr-document-service.ts",
+      "line": 86,
+      "tables": ["hr_employee_documents"],
+      "preview": "update public.hr_employee_documents set status = 'superseded' where id = ${prior.id}::uuid and status = 'issued'"
+    },
+    {
+      "signature": "d692505467d5e524af484d8828918bdcb0b2f3945aa9f0b77e995662d916bb38",
+      "path": "src/modules/hr/server/supporting-documents.ts",
+      "line": 265,
+      "tables": ["hr_employee_supporting_documents"],
+      "preview": "update public.hr_employee_supporting_documents set status = 'superseded' where id = ${prior.id}::uuid and status = 'current'"
+    },
+    {
+      "signature": "25fea0013ef2a2ef84a04f611be87c6c831c698f8d579b89199f1833cd33f2d2",
+      "path": "src/modules/identity/actions/access-management.ts",
+      "line": 348,
+      "tables": ["roles"],
+      "preview": "select role.id, role.key, role.name from public.membership_roles as assignment join public.roles as role on role.id = assignment.role_id where assignment.membership_id = ${membersh"
+    },
+    {
+      "signature": "27b4ae5b45f5505686738a9c24e19ffbb3301c05bc5192221adf931e31f19204",
+      "path": "src/modules/identity/server/auth-session.ts",
+      "line": 185,
+      "tables": ["security_sessions"],
+      "preview": "update public.security_sessions set status = 'revoked', revoked_at = coalesce(revoked_at, now()), revocation_reason = coalesce(revocation_reason, 'sign_out') where id = ${parsed.id"
+    },
+    {
+      "signature": "2d64bfe96994d22490c88308ff23c1dafe8dd74c051c995b017c6e7a54dba98f",
+      "path": "src/modules/identity/server/auth-session.ts",
+      "line": 208,
+      "tables": ["security_sessions"],
+      "preview": "update public.security_sessions set status = 'revoked', revoked_at = coalesce(revoked_at, now()), revocation_reason = coalesce(revocation_reason, ${reason}) where user_id = ${userI"
+    },
+    {
+      "signature": "c7f6c3b481496e3b6fafcee4d5f812c4e266120bec467adc0511093f2023e9db",
+      "path": "src/modules/identity/server/membership-status.ts",
+      "line": 91,
+      "tables": ["roles"],
+      "preview": "select role.key from public.membership_roles as assignment join public.roles as role on role.id = assignment.role_id where assignment.membership_id = ${membership.id}::uuid"
+    },
+    {
+      "signature": "8b9d7002450bda94daff860d9294dc58327f27ef2a95c96ac4aa97822d0b222d",
+      "path": "src/modules/identity/server/membership-status.ts",
+      "line": 104,
+      "tables": ["memberships"],
+      "preview": "update public.memberships set status = ${input.status}, activated_at = case when ${input.status} = 'active' then coalesce(activated_at, now()) else activated_at end, suspended_at ="
+    },
+    {
+      "signature": "5b9592d2be736db523375da14f53a32415562778f409966a326d70bb49a9dbee",
+      "path": "src/modules/legal/actions/compliance.ts",
+      "line": 130,
+      "tables": ["legal_compliance_records"],
+      "preview": "update public.legal_compliance_records set internal_reference = ${parsed.data.internalReference}, title = ${parsed.data.title}, record_type = ${parsed.data.recordType}, responsible"
+    },
+    {
+      "signature": "019a67fe9072b0abab127f10ea3899995be1b42534a021207c038a5df4e52d6e",
+      "path": "src/modules/legal/actions/compliance.ts",
+      "line": 332,
+      "tables": ["legal_compliance_records"],
+      "preview": "update public.legal_compliance_records set status = ${nextStatus}, closure_reason = case when ${parsed.data.action} = 'close' then ${parsed.data.reason} else closure_reason end, cl"
+    },
+    {
+      "signature": "f60905c9e68ce5b4d7276ef4794f571f2ab670db0d2fffb77e81ae2254518095",
+      "path": "src/modules/legal/actions/deletion.ts",
+      "line": 471,
+      "tables": ["legal_deletion_objects", "private_files"],
+      "preview": "select object.id, object.document_id, object.document_version_id, object.private_file_id, object.sha256, object.size_bytes, object.purge_status, private_file.status as file_status,"
+    },
+    {
+      "signature": "981dea9853b199444cadc60311e998b29f50b76a1a1be0a34a1a6667a335adbf",
+      "path": "src/modules/legal/actions/deletion.ts",
+      "line": 514,
+      "tables": ["legal_deletion_requests"],
+      "preview": "update public.legal_deletion_requests set status = 'purging', execution_started_at = coalesce(execution_started_at, now()), purge_claim_token = ${claimToken}::uuid, purge_claimed_a"
+    },
+    {
+      "signature": "df7f7dbb9a50e7bdc4a33be3257052b72a790807a2fd7038ac772811aca5d680",
+      "path": "src/modules/legal/actions/deletion.ts",
+      "line": 563,
+      "tables": ["legal_deletion_requests"],
+      "preview": "select id from public.legal_deletion_requests where id = ${prepared.request.id}::uuid and status = 'purging' and purge_claim_token = ${prepared.claimToken}::uuid for update"
+    },
+    {
+      "signature": "90a5d7e4538e4ed470ac06c4fb36554c30bf055f4ade220d0d165afbdeeae79f",
+      "path": "src/modules/legal/actions/deletion.ts",
+      "line": 572,
+      "tables": ["legal_deletion_objects"],
+      "preview": "update public.legal_deletion_objects set purge_status = ${result.purged ? \"purged\" : \"failed\"}, purge_attempt_count = purge_attempt_count + 1, purged_at = ${result.purged ? new Dat"
+    },
+    {
+      "signature": "083e7907daff02bf9c27b39a8ab555bef29a5e49aac73fa668b8c5866037c6a9",
+      "path": "src/modules/legal/actions/deletion.ts",
+      "line": 583,
+      "tables": ["legal_deletion_requests"],
+      "preview": "update public.legal_deletion_requests set status = 'purge_failed', failure_code = 'object-purge-failed', purge_claim_token = null, purge_claimed_at = null, updated_at = now() where"
+    },
+    {
+      "signature": "df7f7dbb9a50e7bdc4a33be3257052b72a790807a2fd7038ac772811aca5d680",
+      "path": "src/modules/legal/actions/deletion.ts",
+      "line": 618,
+      "tables": ["legal_deletion_requests"],
+      "preview": "select id from public.legal_deletion_requests where id = ${prepared.request.id}::uuid and status = 'purging' and purge_claim_token = ${prepared.claimToken}::uuid for update"
+    },
+    {
+      "signature": "3d63d4045686efa50bfc6ea8bb6951bbda386533714a0628d7dd4dd96f3df1da",
+      "path": "src/modules/legal/actions/deletion.ts",
+      "line": 633,
+      "tables": ["legal_deletion_objects"],
+      "preview": "update public.legal_deletion_objects set purge_status = 'purged', purge_attempt_count = purge_attempt_count + 1, purged_at = coalesce(purged_at, now()), last_error_code = null, upd"
+    },
+    {
+      "signature": "14c9d516f50b98fc08b64d20427e6be4b66c6099e6f16620ab3f923b50f23d2f",
+      "path": "src/modules/legal/actions/deletion.ts",
+      "line": 667,
+      "tables": ["legal_contract_reminders"],
+      "preview": "update public.legal_contract_reminders set status = 'cancelled', acknowledged_by_membership_id = null, acknowledged_at = null, updated_at = now() where contract_id = ${prepared.req"
+    },
+    {
+      "signature": "752eeff2b8e13369dedd12ca41e962138bd0ab34aae7b00379677d01cbd942ea",
+      "path": "src/modules/legal/actions/deletion.ts",
+      "line": 693,
+      "tables": ["legal_compliance_record_reminders"],
+      "preview": "update public.legal_compliance_record_reminders set status = 'cancelled', acknowledged_by_membership_id = null, acknowledged_at = null, updated_at = now() where record_id = ${prepa"
+    },
+    {
+      "signature": "b877ddd799d20f04e97350bea61e2a163441a27a9d7f57b3acdb2a24d3b70007",
+      "path": "src/modules/legal/actions/deletion.ts",
+      "line": 708,
+      "tables": ["legal_deletion_requests"],
+      "preview": "update public.legal_deletion_requests set status = 'completed', audit_digest = ${digest}, completed_at = now(), completed_by_membership_id = ${context.membership.id}::uuid, purge_c"
+    },
+    {
+      "signature": "a9805377cef7c1b8f1f7ad5f555e29cd9fad57d593ee5093cd94cc105a0ed785",
+      "path": "src/modules/legal/actions/legal.ts",
+      "line": 187,
+      "tables": ["document_versions", "private_files"],
+      "preview": "select exists ( select 1 from public.document_versions version join public.private_files file on file.id = version.private_file_id where version.id = ${parsed.data.sourceVersionId}"
+    },
+    {
+      "signature": "c5bf28768e371484337826e74ecd8646da69b7af5f7cb4c41648909d2e699c91",
+      "path": "src/modules/legal/actions/legal.ts",
+      "line": 397,
+      "tables": ["legal_contracts"],
+      "preview": "update public.legal_contracts set current_version_id = ${versionRows[0]?.id}::uuid where id = ${rows[0].id}::uuid"
+    },
+    {
+      "signature": "31e213ef0cce9ee7303c29895e4ce49b99d03bcbf7c904a191d32df3f47c14a8",
+      "path": "src/modules/legal/actions/legal.ts",
+      "line": 491,
+      "tables": ["document_versions", "private_files"],
+      "preview": "select exists ( select 1 from public.document_versions version join public.private_files file on file.id = version.private_file_id where version.id = ${parsed.data.documentVersionI"
+    },
+    {
+      "signature": "c0deb285d54186eebb6ef6d2ab74cdad2bcd7357c879f6159a0eabdce1960a6a",
+      "path": "src/modules/legal/actions/legal.ts",
+      "line": 501,
+      "tables": ["legal_contract_versions"],
+      "preview": "select coalesce(max(version_number), 0)::integer + 1 as number from public.legal_contract_versions where contract_id = ${parsed.data.contractId}::uuid"
+    },
+    {
+      "signature": "2ae908f9e8a254d0b2a9f9d0a149b1988822024cc0385bea15376ec6a18c8160",
+      "path": "src/modules/legal/actions/legal.ts",
+      "line": 506,
+      "tables": ["legal_contract_versions"],
+      "preview": "update public.legal_contract_versions set status = 'superseded' where contract_id = ${parsed.data.contractId}::uuid and status = 'draft'"
+    },
+    {
+      "signature": "f108e6f3baef3f008c2729d5394d64c98559cb1e8fdbefac3a4a08e5460f5c3e",
+      "path": "src/modules/legal/actions/legal.ts",
+      "line": 524,
+      "tables": ["legal_contracts"],
+      "preview": "update public.legal_contracts set current_version_id = ${rows[0]?.id}::uuid, signed_version_id = ${rows[0]?.id}::uuid, signature_status = 'signed', status = case when status = 'app"
+    },
+    {
+      "signature": "3cff4fda3ac8431a1cb5fd22c0a19a2310d0f191a7447ab9bfc454597999d84a",
+      "path": "src/modules/legal/actions/legal.ts",
+      "line": 533,
+      "tables": ["legal_contracts"],
+      "preview": "update public.legal_contracts set current_version_id = ${rows[0]?.id}::uuid where id = ${parsed.data.contractId}::uuid"
+    },
+    {
+      "signature": "199c81de270aae08aaf54db545cf846e0d533ccaee3d229eeebaf805d29d2027",
+      "path": "src/modules/legal/actions/legal.ts",
+      "line": 641,
+      "tables": ["legal_contracts"],
+      "preview": "update public.legal_contracts set status = 'in_review', approval_request_id = ${approvalRequestId}::uuid where id = ${contract.id}::uuid and status = 'draft'"
+    },
+    {
+      "signature": "cc441e9e7e8364b95fc93c9c100690fd370ac1399a5ce1f97928c72341a4f65f",
+      "path": "src/modules/legal/actions/legal.ts",
+      "line": 791,
+      "tables": ["legal_contracts"],
+      "preview": "update public.legal_contracts set status = ${nextStatus}, terminated_at = case when ${nextStatus} = 'terminated' then now() else null end, termination_reason = case when ${nextStat"
+    },
+    {
+      "signature": "f31099aa96baff4f111e4b0eab751386531c954dea9c90121f7bf1cf3ea14ead",
+      "path": "src/modules/mcp/ai-governance.ts",
+      "line": 288,
+      "tables": ["automation_ai_mutation_intents"],
+      "preview": "update public.automation_ai_mutation_intents set status = ${success ? \"executed\" : \"failed\"}, executed_at = ${success ? new Date().toISOString() : null}::timestamptz, failure_code "
+    },
+    {
+      "signature": "cd7f58a230a7c0ef494f7a9c575bd6310163a6476dd2825b0533288c14ff58e4",
+      "path": "src/modules/notifications/server/delivery-queue.ts",
+      "line": 155,
+      "tables": ["notification_push_subscriptions"],
+      "preview": "update public.notification_push_subscriptions set status = 'revoked', revoked_at = now(), last_error_code = 'endpoint_reassigned' where endpoint_hash = ${hash} and membership_id <>"
+    },
+    {
+      "signature": "b4c91c409357aeda3c7a3bd6ee17d1d4df1332d83fa5b1d77d424d7d95ec045a",
+      "path": "src/modules/notifications/server/delivery-worker.ts",
+      "line": 169,
+      "tables": ["notification_push_subscriptions"],
+      "preview": "update public.notification_push_subscriptions set status = 'revoked', revoked_at = now(), last_error_code = ${errorCode} where id = ${id}::uuid"
+    },
+    {
+      "signature": "acede25df928353c3f2b845ffefde4f18dc241e4b158ead8d33a76f4ec41aa7f",
+      "path": "src/modules/notifications/server/delivery-worker.ts",
+      "line": 308,
+      "tables": ["notification_deliveries"],
+      "preview": "update public.notification_deliveries set status = ${finalOutcome === \"delivered\" ? \"delivered\" : finalOutcome === \"retry\" ? \"failed\" : finalOutcome === \"deferred\" ? \"pending\" : \"s"
+    },
+    {
+      "signature": "712f3adb06fed8d018aa2b2682f76dd1521dfa677fcb15f9ae2ae8e2d12a41ee",
+      "path": "src/modules/organization-structure/actions/organization-structure.ts",
+      "line": 167,
+      "tables": ["departments"],
+      "preview": "update public.departments set name = ${name}, code = ${parsed.data.code} where id = ${current.id}::uuid returning id, name, code, status"
+    },
+    {
+      "signature": "2cc21e057e01d2508a7bf1036fa98196ed25b67fd3df5bf40548215acdc17d67",
+      "path": "src/modules/organization-structure/actions/organization-structure.ts",
+      "line": 246,
+      "tables": ["departments"],
+      "preview": "update public.departments set status = ${parsed.data.status} where id = ${current.id}::uuid"
+    },
+    {
+      "signature": "675627e1f2febbf98537eb26d2700cc15170a3010690e03f6af39cb9431b1f77",
+      "path": "src/modules/organization-structure/actions/organization-structure.ts",
+      "line": 313,
+      "tables": ["departments"],
+      "preview": "delete from public.departments where id = ${current.id}::uuid"
+    },
+    {
+      "signature": "1b01bec14fb243b32a390f307f7afa2b69557e8d9f1efeb175de5c5215e807c9",
+      "path": "src/modules/organization-structure/actions/organization-structure.ts",
+      "line": 410,
+      "tables": ["teams"],
+      "preview": "update public.teams set name = ${name}, description = ${parsed.data.description} where id = ${current.id}::uuid returning id, name, description, status"
+    },
+    {
+      "signature": "83a7b13a5b7a7a19d13f7787bf65177acf0e52aa373973a2048efa5ad423d240",
+      "path": "src/modules/organization-structure/actions/organization-structure.ts",
+      "line": 467,
+      "tables": ["memberships"],
+      "preview": "select count(*)::integer as count from public.team_members as assignment join public.memberships as membership on membership.id = assignment.membership_id where assignment.team_id "
+    },
+    {
+      "signature": "950f6d22a4e654bc872bcaa82513c39123627d02f31c2c9572b6d47c470af44d",
+      "path": "src/modules/organization-structure/actions/organization-structure.ts",
+      "line": 477,
+      "tables": ["teams"],
+      "preview": "update public.teams set status = ${parsed.data.status} where id = ${current.id}::uuid"
+    },
+    {
+      "signature": "e1f7db4e03ac859e6b63b1d85d540d0ed3f6637bf65b95f9e23e2d5779ef9e15",
+      "path": "src/modules/organization-structure/actions/organization-structure.ts",
+      "line": 535,
+      "tables": ["teams"],
+      "preview": "delete from public.teams where id = ${current.id}::uuid"
+    },
+    {
+      "signature": "e9260d4a508eb2c71028a1d5b6fa24502d773b533acecfefb21ad3be513ba14b",
+      "path": "src/modules/organization-structure/actions/organization-structure.ts",
+      "line": 602,
+      "tables": ["memberships"],
+      "preview": "update public.memberships set department_id = ${parsed.data.departmentId}, manager_membership_id = ${parsed.data.managerMembershipId} where id = ${member.id}::uuid"
+    },
+    {
+      "signature": "41862cc08163dc548e88e64a64f6a19f4ef5366596ad755e99fc3c032d0d1a92",
+      "path": "src/modules/permissions/actions/role-editor.ts",
+      "line": 258,
+      "tables": ["roles"],
+      "preview": "update public.roles set name = ${name}, description = ${parsed.data.description} where id = ${role.id}::uuid"
+    },
+    {
+      "signature": "de33bb2b4928c0d4251ca1ed91382c98cc132c87b3f1714aaf118817d5a95a39",
+      "path": "src/modules/permissions/actions/role-editor.ts",
+      "line": 307,
+      "tables": ["memberships"],
+      "preview": "select count(*)::integer as count from public.membership_roles as assignment join public.memberships as membership on membership.id = assignment.membership_id where assignment.role"
+    },
+    {
+      "signature": "11150426988f1b3e4aef7ce067a6a8d319db9dd23a8d14958bcfa18994e1f701",
+      "path": "src/modules/permissions/actions/role-editor.ts",
+      "line": 319,
+      "tables": ["roles"],
+      "preview": "update public.roles set status = ${parsed.data.status} where id = ${role.id}::uuid"
+    },
+    {
+      "signature": "ff839c30dade0ac27d21f78207f50511ff35283440b353d0074480e749fa51c2",
+      "path": "src/modules/permissions/actions/role-editor.ts",
+      "line": 383,
+      "tables": ["roles"],
+      "preview": "delete from public.roles where id = ${role.id}::uuid"
+    },
+    {
+      "signature": "bfc67e1fac916b71607b75555916b87b13c8a4911231d0ec9890b4d8d55aa42b",
+      "path": "src/modules/private-files/server/scan-worker.ts",
+      "line": 225,
+      "tables": ["private_files"],
+      "preview": "update public.private_files set status = 'scan_failed', scan_error_code = ${errorCode.slice(0, 100)}, next_scan_at = case when ${exhausted} then null else now() + (${delay} * inter"
+    },
+    {
+      "signature": "9a896d3b9c0945b8244e4db785a0573a33c45c2965b90cac6c8059bc0e87a9c2",
+      "path": "src/modules/private-files/server/scan-worker.ts",
+      "line": 264,
+      "tables": ["private_files"],
+      "preview": "update public.private_files set status = 'rejected', retention_state = 'expired', scan_engine = ${input.engine}, scan_signature = ${input.signature ?? null}, scan_error_code = ${in"
+    },
+    {
+      "signature": "b63b2c5a2bf4da133b7d3cc04bcd532aee899013a4e242fc52f32ea595e8b1b7",
+      "path": "src/modules/private-files/server/scan-worker.ts",
+      "line": 314,
+      "tables": ["private_files"],
+      "preview": "update public.private_files set status = 'available', storage_bucket = ${PRIVATE_FILE_CLEAN_BUCKET}, storage_path = ${row.clean_target_path}, scan_engine = ${verdict.engine}, scan_"
+    },
+    {
+      "signature": "0a92ee137826bf6135faa555cdc4643adf6acfb246153d385b983bf607e57dd6",
+      "path": "src/modules/private-files/server/scan-worker.ts",
+      "line": 448,
+      "tables": ["private_files"],
+      "preview": "update public.private_files set quarantine_purged_at = coalesce(quarantine_purged_at, now()), purge_after = null, locked_at = null, lock_token = null, updated_at = now() where id ="
+    },
+    {
+      "signature": "90566f5e37087de69fb4a07d496addafcb4b03078f9f59dbdc675eabb8d07b2c",
+      "path": "src/modules/projects/actions/projects.ts",
+      "line": 253,
+      "tables": ["project_tasks", "projects"],
+      "preview": "select jsonb_build_object( 'project', jsonb_build_object( 'description', project.description, 'projectType', project.project_type, 'status', case when project.status = 'completed' "
+    },
+    {
+      "signature": "71564e3ad5ed9119c78b44d98cd8aae94ff3c4cc438084715b7bc20bb11cfce2",
+      "path": "src/modules/projects/actions/projects.ts",
+      "line": 357,
+      "tables": ["projects"],
+      "preview": "update public.projects set next_task_number = next_task_number + 1 where id = ${projectId}::uuid returning next_task_number - 1 as task_number"
+    },
+    {
+      "signature": "753cfccfbbf7e31d5b947cdacc5d7f91d3c9b356ca686d77926afbc40e648310",
+      "path": "src/modules/projects/actions/projects.ts",
+      "line": 583,
+      "tables": ["project_tasks"],
+      "preview": "select recurring_task.id from public.project_tasks as recurring_task join public.project_task_statuses as recurring_status on recurring_status.id = recurring_task.status_id where r"
+    },
+    {
+      "signature": "d3dc21c0dc9822017531d95f86ce55da980f6864c72039cd1be0fb6b726a6b50",
+      "path": "src/modules/projects/actions/projects.ts",
+      "line": 604,
+      "tables": ["projects"],
+      "preview": "update public.projects set next_task_number = next_task_number + 1 where id = ${task.project_id}::uuid returning next_task_number - 1 as task_number"
+    },
+    {
+      "signature": "36429452ec513ff62040d746f5c272e1eff5ba632107eeefa5c853627f4ea41a",
+      "path": "src/modules/projects/actions/projects.ts",
+      "line": 835,
+      "tables": ["projects"],
+      "preview": "update public.projects set name = ${parsed.data.name}, description = ${parsed.data.description}, project_type = ${parsed.data.projectType}, company_id = ${parsed.data.companyId}::u"
+    },
+    {
+      "signature": "7843dc0dfc22e9cd441be0064e7cae40aa3df8d48501cf74e6a6e1280f46cfd2",
+      "path": "src/modules/projects/actions/projects.ts",
+      "line": 939,
+      "tables": ["project_tasks"],
+      "preview": "select (${parsed.data.parentTaskId}::uuid is null or exists( select 1 from public.project_tasks as parent where parent.id = ${parsed.data.parentTaskId}::uuid and parent.project_id "
+    },
+    {
+      "signature": "d9b870f5cf1ac0e4d96deb90db1237ae5c27d43bdff038d1b4e4b302daef1e5b",
+      "path": "src/modules/projects/actions/projects.ts",
+      "line": 977,
+      "tables": ["project_tasks"],
+      "preview": "select task.id, task.task_number from public.project_tasks as task join public.project_task_statuses as status on status.id = task.status_id where task.project_id = ${project.id}::"
+    },
+    {
+      "signature": "125cf417c46e292edee60a0baa8a3489f842a6a57e14ff3e1bb2f4136325371a",
+      "path": "src/modules/projects/actions/projects.ts",
+      "line": 1011,
+      "tables": ["projects"],
+      "preview": "update public.projects set next_task_number = next_task_number + 1 where id = ${project.id}::uuid returning next_task_number - 1 as task_number"
+    },
+    {
+      "signature": "194199e4dc3c05f63d2ee07f73b2c89f62e983f6aff84609131a76386fce151d",
+      "path": "src/modules/projects/actions/projects.ts",
+      "line": 1090,
+      "tables": ["project_tasks"],
+      "preview": "select count(*)::int as count from public.project_tasks as child join public.project_task_statuses as child_status on child_status.id = child.status_id where child.parent_task_id ="
+    },
+    {
+      "signature": "88f0b4a072bf463b2c8dcd384a732fcf055c315aca3d497a6330ebeeeaf596aa",
+      "path": "src/modules/projects/actions/projects.ts",
+      "line": 1102,
+      "tables": ["project_tasks"],
+      "preview": "update public.project_tasks set status_id = ${status.id}::uuid, completed_at = case when ${status.is_terminal} then coalesce(completed_at, now()) else null end where id = ${task.id"
+    },
+    {
+      "signature": "5151260f912b6e6eb0d5924a00d47886016f1a70bcd1971505baa06475fc2c97",
+      "path": "src/modules/projects/actions/projects.ts",
+      "line": 1190,
+      "tables": ["project_tasks"],
+      "preview": "select id from public.project_tasks where id = ${parsed.data.taskId}::uuid and project_id = ${project.id}::uuid limit 1"
+    },
+    {
+      "signature": "84f60f3eb3c179e9a1484784d2a1d53ba8e6284b7fa70423bb6232b15adc66db",
+      "path": "src/modules/projects/actions/projects.ts",
+      "line": 1607,
+      "tables": ["project_tasks"],
+      "preview": "select id from public.project_tasks where id = ${parsed.data.relatedTaskId}::uuid and project_id = ${task.project_id}::uuid limit 1"
+    },
+    {
+      "signature": "692bb390b5ed237fc3a0adcb6055adfc0c6e7f6f9bedeffdc2b3317ba0037aa4",
+      "path": "src/modules/projects/actions/projects.ts",
+      "line": 1710,
+      "tables": ["project_tasks"],
+      "preview": "update public.project_tasks set recurrence_id = ${recurrenceId}::uuid where id = ${task.id}::uuid"
+    },
+    {
+      "signature": "ae634eb6bbd9123bf49e457ab75f749c4d55a564e84b77575865317a36d5cad5",
+      "path": "src/modules/projects/actions/projects.ts",
+      "line": 2113,
+      "tables": ["project_tasks"],
+      "preview": "update public.project_tasks set status_id = case when ${parsed.data.statusId}::uuid is null then status_id else ${parsed.data.statusId}::uuid end, priority = case when ${parsed.dat"
+    },
+    {
+      "signature": "a2b0bb939a0b80e3f21e1d6c2cdffd65fe31a5ce607548338d96c15ea35f46b6",
+      "path": "src/modules/projects/actions/projects.ts",
+      "line": 2126,
+      "tables": ["project_tasks"],
+      "preview": "insert into public.project_task_assignees (task_id, membership_id, assigned_by_membership_id) select task.id, ${parsed.data.assigneeMembershipId}::uuid, ${context.membership.id}::u"
+    },
+    {
+      "signature": "3acf7449741db6a313ebd4ab67216728837bf5caaca65e8e5f30755867ca2269",
+      "path": "src/modules/projects/actions/projects.ts",
+      "line": 2340,
+      "tables": ["memberships"],
+      "preview": "insert into public.project_members ( project_id, membership_id, role, hourly_cost_rate_minor, added_by_membership_id ) select ${result.id}::uuid, member.membership_id, case when me"
+    },
+    {
+      "signature": "9c708c05abbea416543f2ceec85bb301571e86fceba603a9463e51aa6cbc3ac2",
+      "path": "src/modules/projects/actions/projects.ts",
+      "line": 2471,
+      "tables": ["projects"],
+      "preview": "update public.projects set closure_status = 'requested', closure_notes = ${parsed.data.notes}, closure_requested_at = now(), closure_requested_by_membership_id = ${context.membersh"
+    },
+    {
+      "signature": "38e3b4f8c2ef4ce8f7212e93de910890671df5e709d1c9aedac9e909170303aa",
+      "path": "src/modules/projects/actions/projects.ts",
+      "line": 2520,
+      "tables": [
+        "finance_expense_project_allocations",
+        "finance_expenses",
+        "project_tasks",
+        "project_time_entries",
+        "support_tickets"
+      ],
+      "preview": "select (select count(*)::int from public.project_tasks task join public.project_task_statuses status on status.id = task.status_id where task.project_id = ${project.id}::uuid and n"
+    },
+    {
+      "signature": "6beee55dadad639f4042a64cba35144326497955040c462bd40c244bfe5738b5",
+      "path": "src/modules/projects/actions/projects.ts",
+      "line": 2578,
+      "tables": ["projects"],
+      "preview": "update public.projects set status = 'completed', closure_status = 'closed', closure_notes = ${parsed.data.notes}, closure_requested_at = coalesce(closure_requested_at, now()), clos"
+    },
+    {
+      "signature": "236268e9641108a2d8691a2f2963e2d4476be9fa043a5f429802e7ea68ba9a3d",
+      "path": "src/modules/projects/actions/projects.ts",
+      "line": 2645,
+      "tables": ["projects"],
+      "preview": "update public.projects set archived_at = case when ${shouldArchive} then now() else null end where id = ${project.id}::uuid"
+    },
+    {
+      "signature": "e525873861e22bc0cf7ed7b21cdfd5122543fd7607aeff3f6c6e3a9c0a3fab62",
+      "path": "src/modules/projects/server/projects.ts",
+      "line": 1178,
+      "tables": [
+        "finance_expense_project_allocations",
+        "finance_expenses",
+        "project_tasks",
+        "project_time_entries",
+        "support_tickets"
+      ],
+      "preview": "select (select count(*)::int from public.project_tasks task join public.project_task_statuses status on status.id = task.status_id where task.project_id = ${selectedProjectId}::uui"
+    },
+    {
+      "signature": "53f3ec8b95c719972c2e5872be2988f0ad17ae5e350c375c494de2bbba2043ee",
+      "path": "src/modules/projects/server/reminder-worker.ts",
+      "line": 101,
+      "tables": ["project_tasks"],
+      "preview": "update public.project_tasks set reminder_claimed_at = null, reminder_claim_token = null where id = ${task.id}::uuid and reminder_claim_token = ${claimToken}::uuid"
+    },
+    {
+      "signature": "7414776d2a6222cdee803d45d70fc765383a89e9541758f1a1ab58e74b61a371",
+      "path": "src/modules/projects/server/reminder-worker.ts",
+      "line": 108,
+      "tables": ["project_tasks"],
+      "preview": "update public.project_tasks set reminder_sent_at = now(), reminder_claimed_at = null, reminder_claim_token = null where id = ${task.id}::uuid and reminder_claim_token = ${claimToke"
+    },
+    {
+      "signature": "b9322f565eea8e5d66821aa86c248963e50940b5d93a848abda0ac54883c62c2",
+      "path": "src/modules/reports/actions/reports.ts",
+      "line": 133,
+      "tables": ["report_saved_view_recipients"],
+      "preview": "delete from public.report_saved_view_recipients where saved_view_id = ${rows[0].id}::uuid"
+    },
+    {
+      "signature": "14d122e21f0227086354bf7d26c9ff43ff5cb326227a31f9dc4fd6e688fdfae9",
+      "path": "src/modules/reports/actions/reports.ts",
+      "line": 362,
+      "tables": ["report_schedule_recipients"],
+      "preview": "delete from public.report_schedule_recipients where schedule_id = ${scheduleId}::uuid"
+    },
+    {
+      "signature": "0dfbf5b4fae251a0270026fc117cef962a9696d8f3587e1f9f597c52f6774837",
+      "path": "src/modules/reports/actions/reports.ts",
+      "line": 467,
+      "tables": ["report_delivery_recipients"],
+      "preview": "update public.report_delivery_recipients set status = 'cancelled', error_code = 'cancelled_by_owner' where batch_id = ${batch.id}::uuid and status in ('queued', 'failed')"
+    },
+    {
+      "signature": "0f2450d1af7300d53e782bf7c9c77d2068662c617a4e5cdff5266b97191c0ed6",
+      "path": "src/modules/reports/server/delivery-worker.ts",
+      "line": 202,
+      "tables": ["report_schedules"],
+      "preview": "update public.report_schedules set status = ${paused ? \"paused\" : \"active\"}, consecutive_failure_count = ${failures}, next_run_at = case when ${paused} then next_run_at else now() "
+    },
+    {
+      "signature": "d3b1b62337eb633159b0c85c1503413b4fbb3a78a578c8d4299a7b7870b86eb4",
+      "path": "src/modules/reports/server/delivery-worker.ts",
+      "line": 284,
+      "tables": ["report_schedules"],
+      "preview": "update public.report_schedules set last_run_at = now(), next_run_at = private.report_schedule_next_run( cadence, local_time, timezone, weekday, month_day, now() ), locked_at = null"
+    },
+    {
+      "signature": "87f69702556feba897475958510789ab3df5981b0694d0aaf6cfccb1828e75ff",
+      "path": "src/modules/reports/server/delivery-worker.ts",
+      "line": 534,
+      "tables": ["report_delivery_recipients"],
+      "preview": "select count(*)::int as total, count(*) filter (where status = 'delivered')::int as delivered, count(*) filter (where status = 'failed')::int as failed, count(*) filter (where stat"
+    },
+    {
+      "signature": "ff73bea980cf69f3269a327b789de24206c325934052002f54ab3d1033a5df55",
+      "path": "src/modules/reports/server/delivery-worker.ts",
+      "line": 572,
+      "tables": ["report_delivery_batches"],
+      "preview": "update public.report_delivery_batches set status = 'queued', send_after = coalesce(${summary.next_attempt_at}, now() + interval '1 minute'), delivered_count = ${summary.delivered},"
+    },
+    {
+      "signature": "d65e51e1caa85b5a28d0049bf2dd6ad246a3586fa0bb283c2826d5e924cdfdcd",
+      "path": "src/modules/reports/server/delivery-worker.ts",
+      "line": 592,
+      "tables": ["report_delivery_batches"],
+      "preview": "update public.report_delivery_batches set status = ${outcome}, completed_at = now(), delivered_count = ${summary.delivered}, failed_count = ${summary.failed}, suppressed_count = ${"
+    },
+    {
+      "signature": "2f7e6bde5836ae68ff59cb7c62bc3e0c0489a72b50e4c5017b75ae637210686f",
+      "path": "src/modules/reports/server/delivery-worker.ts",
+      "line": 602,
+      "tables": ["report_schedules"],
+      "preview": "update public.report_schedules set status = ${pause ? \"paused\" : \"active\"}, consecutive_failure_count = ${failures} where id = ${batch.schedule_id}::uuid"
+    },
+    {
+      "signature": "5787172a61488412d69d373e8be4ace636279293232e8c36a64f44308059dd6d",
+      "path": "src/modules/reports/server/founder-packs.ts",
+      "line": 961,
+      "tables": ["report_schedules"],
+      "preview": "select id from public.report_schedules where saved_view_id = ${viewId}::uuid and status in ('active','paused') limit 1"
+    },
+    {
+      "signature": "cf325e5aa34a08dcdb11f2bdd3f2d51a219fac8187d8d5db31fbbee01f39449b",
+      "path": "src/modules/reports/server/reports.ts",
+      "line": 843,
+      "tables": ["support_tickets"],
+      "preview": "select count(*) filter (where ticket.status not in ('resolved', 'closed'))::bigint as open_tickets, round(avg(extract(epoch from (ticket.resolved_at - ticket.created_at)) / 3600.0)"
+    },
+    {
+      "signature": "2c3ebddcb0bca10c2835da1d9a92411c0d1d6fc8e0ab9ddcb89616977163a35e",
+      "path": "src/modules/reports/server/reports.ts",
+      "line": 852,
+      "tables": ["support_ticket_categories", "support_tickets"],
+      "preview": "select coalesce(category.id::text, 'uncategorized') as id, coalesce(category.name, 'Uncategorized') as label, count(*)::bigint as count from public.support_tickets as ticket left j"
+    },
+    {
+      "signature": "b58761d8bcc353c10aecdc21ecdb53820fb5161e1a58760c40646f0416f8c124",
+      "path": "src/modules/reports/server/reports.ts",
+      "line": 861,
+      "tables": ["crm_companies", "support_tickets"],
+      "preview": "select coalesce(company.id::text, 'no-client') as id, coalesce(company.display_name, company.legal_name, 'No client') as label, count(*)::bigint as count from public.support_ticket"
+    },
+    {
+      "signature": "021dcc5bc44e82014b454b2eb5654fcf65c836cb79fa6b3c1eda8bcb2c3eba85",
+      "path": "src/modules/reports/server/reports.ts",
+      "line": 872,
+      "tables": ["memberships", "support_tickets"],
+      "preview": "select coalesce(agent.id::text, 'unassigned') as id, coalesce(nullif(auth_user.raw_user_meta_data ->> 'full_name', ''), auth_user.email, 'Unassigned') as label, count(*) filter (wh"
+    },
+    {
+      "signature": "6aec9c1a0ad02693ec31c2bc646909aa5c8a9a7d24f29f1c88064590f8fa97db",
+      "path": "src/modules/security/actions/security.ts",
+      "line": 214,
+      "tables": ["security_sessions"],
+      "preview": "update public.security_sessions set status = 'revoked', revoked_at = now(), revoked_by_membership_id = ${context.membership.id}::uuid, revocation_reason = ${parsed.data.reason} whe"
+    },
+    {
+      "signature": "968da5bdc3008c4fd5aca77362d32fcd42d169a33029b896bf0997c0b601a047",
+      "path": "src/modules/security/actions/security.ts",
+      "line": 405,
+      "tables": ["security_incidents"],
+      "preview": "update public.security_incidents set status = ${parsed.data.status}, containment_summary = nullif(${parsed.data.containmentSummary}, ''), communication_status = ${parsed.data.commu"
+    },
+    {
+      "signature": "562bee8e6694002f1b4b29b34858f8f87eba480893f6919c1c0e0ffcc43bd8b5",
+      "path": "src/modules/support/actions/support.ts",
+      "line": 268,
+      "tables": ["support_tickets"],
+      "preview": "update public.support_tickets set category_id = ${parsed.data.categoryId}::uuid, priority = ${parsed.data.priority}, assigned_agent_membership_id = ${parsed.data.assignedAgentMembe"
+    },
+    {
+      "signature": "b98ac5bac137a6e4042cbd0e16babcc584919ca948faa546c68b7592fce7db47",
+      "path": "src/modules/support/actions/support.ts",
+      "line": 400,
+      "tables": ["support_tickets"],
+      "preview": "update public.support_tickets set first_responded_at = case when ${isAgentReply} and first_responded_at is null then now() else first_responded_at end, status = case when ${publicR"
+    },
+    {
+      "signature": "a84a92f7c4dfe68da4a8975dc99803b12ff09c0a433d63301678b1a1b1dd8935",
+      "path": "src/modules/support/actions/support.ts",
+      "line": 416,
+      "tables": ["support_ticket_watchers"],
+      "preview": "select distinct membership_id from ( select ${ticket.created_by_membership_id}::uuid as membership_id union all select ${ticket.assigned_agent_membership_id}::uuid union all select"
+    },
+    {
+      "signature": "5e0acc1f2cc2f81ffa4160501a345520d13d7d0484edcbd60fea60e99bec9b18",
+      "path": "src/modules/support/actions/support.ts",
+      "line": 530,
+      "tables": ["support_tickets"],
+      "preview": "update public.support_tickets set status = 'resolved', resolved_at = now(), closed_at = null, resolution_summary = ${parsed.data.resolutionSummary}, waiting_total_seconds = waiting"
+    },
+    {
+      "signature": "1d5ef2b2147664c51c00265a8c955d4b52d025bf40196c1fa3a1a4c09f22a1d1",
+      "path": "src/modules/support/actions/support.ts",
+      "line": 541,
+      "tables": ["support_tickets"],
+      "preview": "update public.support_tickets set status = 'closed', closed_at = now(), last_activity_at = now() where id = ${parsed.data.ticketId}::uuid"
+    },
+    {
+      "signature": "15e9d9e7d859e2108366aa61012bf7e801283ec4939bf6b2b214fea6137dcb74",
+      "path": "src/modules/support/actions/support.ts",
+      "line": 546,
+      "tables": ["support_tickets"],
+      "preview": "update public.support_tickets set status = 'open', closed_at = null, reopened_count = reopened_count + 1, last_activity_at = now() where id = ${parsed.data.ticketId}::uuid"
+    },
+    {
+      "signature": "f986e4e673fef71d7c4feff40945bdddf13f85752be295c37ac0f9d98d9f84bf",
+      "path": "src/modules/support/actions/support.ts",
+      "line": 712,
+      "tables": ["support_tickets"],
+      "preview": "update public.support_tickets set satisfaction_score = ${parsed.data.score}, satisfaction_comment = ${parsed.data.comment}, last_activity_at = now() where id = ${parsed.data.ticket"
+    },
+    {
+      "signature": "b4a40d862b67811704898652ec97f0786e7ca3801526eb25508516a160e99b00",
+      "path": "src/modules/support/server/support.ts",
+      "line": 319,
+      "tables": ["support_ticket_messages"],
+      "preview": "select message.id, message.ticket_id, message.message_type, message.body, private.membership_display_name(message.created_by_membership_id) as author_name, message.created_at::text"
+    },
+    {
+      "signature": "c5404b1905e37232e1c327b61a8e6681f7e13da7cec0575ce191f78661575e6c",
+      "path": "src/modules/support/server/support.ts",
+      "line": 330,
+      "tables": ["support_ticket_watchers"],
+      "preview": "select watcher.ticket_id, watcher.membership_id, private.membership_display_name(watcher.membership_id) as name from public.support_ticket_watchers watcher where watcher.ticket_id "
+    },
+    {
+      "signature": "8f35e13728572c90bb09703fd5217ded59258f67b99a2634c4dad6a4936a4863",
+      "path": "src/modules/support/server/support.ts",
+      "line": 356,
+      "tables": ["support_ticket_events"],
+      "preview": "select event.id, event.ticket_id, event.event_type, case when event.actor_membership_id is null then null else private.membership_display_name(event.actor_membership_id) end as act"
+    },
+    {
+      "signature": "4238d13341bcd45f3a1e55f6e991313a818f9923369e90b0fc84e8b31399a948",
+      "path": "src/modules/vendors/actions/vendors.ts",
+      "line": 485,
+      "tables": ["vendor_category_links"],
+      "preview": "delete from public.vendor_category_links where vendor_id = ${vendorId}::uuid"
+    },
+    {
+      "signature": "14abc59b2638b828024877e3eb271eb3196e1ebe576798b2a8898243d21c090d",
+      "path": "src/modules/vendors/actions/vendors.ts",
+      "line": 607,
+      "tables": ["vendor_contacts"],
+      "preview": "update public.vendor_contacts set is_primary = false where vendor_id = ${parsed.data.vendorId}::uuid and status = 'active'"
+    },
+    {
+      "signature": "f2f273df4cca72d2b075fe27bd8b4419539bb0701c6839300851425335332cde",
+      "path": "src/modules/vendors/actions/vendors.ts",
+      "line": 1145,
+      "tables": ["procurement_purchase_requests"],
+      "preview": "update public.procurement_purchase_requests set status = 'sourcing' where id = ${parsed.data.purchaseRequestId}::uuid and status = 'approved'"
+    },
+    {
+      "signature": "e40866a9962655a526d5af36c0b29a58fe4379c74589a760dc287d6430d99e41",
+      "path": "src/modules/vendors/actions/vendors.ts",
+      "line": 1229,
+      "tables": ["procurement_vendor_quotations"],
+      "preview": "update public.procurement_vendor_quotations set status = case when id = ${parsed.data.quotationId}::uuid then 'selected' else 'rejected' end where purchase_request_id = ${parsed.da"
+    },
+    {
+      "signature": "301de3b436ad4e41a07cdb1930d8677812a100e06c028127d5a39e0b764dbbe1",
+      "path": "src/modules/vendors/actions/vendors.ts",
+      "line": 1235,
+      "tables": ["procurement_purchase_requests"],
+      "preview": "update public.procurement_purchase_requests set status = 'sourcing', selected_vendor_id = ${quotation.vendor_id}::uuid, selected_quotation_id = ${parsed.data.quotationId}::uuid whe"
+    },
+    {
+      "signature": "d3c0e1f9db1d97cfa53148fc04f8211af5ddd19fd3afef998c1f00de8457a152",
+      "path": "src/modules/vendors/actions/vendors.ts",
+      "line": 1380,
+      "tables": ["procurement_purchase_requests"],
+      "preview": "update public.procurement_purchase_requests set status = 'ordered' where id = ${parsed.data.purchaseRequestId}::uuid"
+    },
+    {
+      "signature": "105d4ea6c30fb57beafb293851d8344c518f2a69c141a66eaf9910215cda6cef",
+      "path": "src/modules/vendors/actions/vendors.ts",
+      "line": 1492,
+      "tables": [
+        "procurement_goods_receipt_items",
+        "procurement_goods_receipts",
+        "procurement_purchase_order_items"
+      ],
+      "preview": "with locked_items as materialized ( select item.id, item.quantity from public.procurement_purchase_order_items item where item.purchase_order_id = ${parsed.data.purchaseOrderId}::u"
+    },
+    {
+      "signature": "f4bbd68e909fa87f6d3e2dbd048ff728312e64fad31690a41f9096a681a01754",
+      "path": "src/modules/vendors/actions/vendors.ts",
+      "line": 1555,
+      "tables": [
+        "procurement_goods_receipt_items",
+        "procurement_goods_receipts",
+        "procurement_purchase_order_items"
+      ],
+      "preview": "select bool_and(received_quantity >= quantity) as complete from ( select item.quantity, coalesce(sum(case when receipt.status <> 'rejected' and receipt_item.condition <> 'rejected'"
+    },
+    {
+      "signature": "8ef7a1fd582c1094c9ef1d0232b73df4b7fcafaa9210a0d74de495ddff78a170",
+      "path": "src/modules/vendors/actions/vendors.ts",
+      "line": 1576,
+      "tables": ["procurement_purchase_orders"],
+      "preview": "update public.procurement_purchase_orders set status = ${nextStatus} where id = ${parsed.data.purchaseOrderId}::uuid"
+    },
+    {
+      "signature": "b93a8979a9b97996195d123012cf13e947b188d357ebf983b2e4f1ec8d7d9bf9",
+      "path": "src/modules/vendors/actions/vendors.ts",
+      "line": 1580,
+      "tables": ["procurement_purchase_requests"],
+      "preview": "update public.procurement_purchase_requests set status = ${nextStatus} where id = ${order.purchase_request_id}::uuid"
+    },
+    {
+      "signature": "d1f9df3bb6c6523997231257be1b4cc44e8c336c06183dbcc5a0dc630b1fdfa6",
+      "path": "src/modules/vendors/actions/vendors.ts",
+      "line": 1919,
+      "tables": ["procurement_vendor_bills"],
+      "preview": "update public.procurement_vendor_bills set status = ${parsed.data.status}, payment_reference = ${parsed.data.paymentReference}, paid_at = case when ${parsed.data.status} = 'paid' t"
+    },
+    {
+      "signature": "82e1cb374b0aebcea32da04d5df26bab651b35a8dec36382920c45bbcfc1da25",
+      "path": "src/modules/vendors/server/vendors.ts",
+      "line": 491,
+      "tables": ["vendor_contacts"],
+      "preview": "select id, vendor_id, name, role_title, email, phone, is_primary, status from public.vendor_contacts where vendor_id = any(${vendorIds}::uuid[]) order by is_primary desc, name"
+    },
+    {
+      "signature": "036fec9968abbc5a062eba8170bba71ede56fa492834b519ff00a6d48975ff89",
+      "path": "src/modules/vendors/server/vendors.ts",
+      "line": 510,
+      "tables": ["vendor_categories", "vendor_category_links"],
+      "preview": "select link.vendor_id, category.id, category.name from public.vendor_category_links link join public.vendor_categories category on category.id = link.category_id where link.vendor_"
+    },
+    {
+      "signature": "23cae97c3b80af98e93ef55c61e9255448645a2011e56ca2ba2f33395d698fe0",
+      "path": "src/modules/vendors/server/vendors.ts",
+      "line": 519,
+      "tables": ["vendor_financial_profiles"],
+      "preview": "select vendor_id, tax_country_code, tax_identifier, tax_registration_name, bank_name, bank_account_name, bank_account_last_four, bank_routing_reference, payment_instructions from p"
+    },
+    {
+      "signature": "e602f8cfee019f60b435bd9afbec6e4cd044730b0115683b2062930e03197965",
+      "path": "src/modules/vendors/server/vendors.ts",
+      "line": 540,
+      "tables": ["legal_contracts", "vendor_contract_links"],
+      "preview": "select link.vendor_id, link.id, link.contract_id, contract.title, link.relationship_type from public.vendor_contract_links link join public.legal_contracts contract on contract.id "
+    },
+    {
+      "signature": "6efc94506401399bf25c4260f02a0b0545f5d02df1c7666250b69c861b2483ca",
+      "path": "src/modules/vendors/server/vendors.ts",
+      "line": 584,
+      "tables": ["vendor_notes"],
+      "preview": "select note.vendor_id, note.id, note.note_type, note.rating, note.content, private.membership_display_name(note.created_by_membership_id) as created_by_name, note.created_at::text "
+    },
+    {
+      "signature": "f222e25afe07fc96847b3043186b9de1bcf826bea8c410130b290f1d413f8121",
+      "path": "src/modules/vendors/server/vendors.ts",
+      "line": 604,
+      "tables": ["vendor_events"],
+      "preview": "select event.vendor_id, event.id, event.event_type, case when event.actor_membership_id is null then null else private.membership_display_name(event.actor_membership_id) end as act"
+    },
+    {
+      "signature": "894207f3a5a6eef726aa01edc9fa54c145be922704882fe639726b85447de012",
+      "path": "src/modules/vendors/server/vendors.ts",
+      "line": 689,
+      "tables": ["procurement_purchase_request_items"],
+      "preview": "select purchase_request_id, id, description, specifications, quantity, unit, estimated_unit_price_minor from public.procurement_purchase_request_items where purchase_request_id = a"
+    },
+    {
+      "signature": "b04a9c64f1efd2dedb81b483e00d9997325a7fa28b1e6ff3b72faca3bd106694",
+      "path": "src/modules/vendors/server/vendors.ts",
+      "line": 709,
+      "tables": ["documents", "procurement_vendor_quotations", "vendors"],
+      "preview": "select quotation.purchase_request_id, quotation.id, quotation.vendor_id, vendor.display_name as vendor_name, quotation.quotation_reference, quotation.quoted_on::text, quotation.val"
+    },
+    {
+      "signature": "d629753dbc1d6f358e766750ba82214b254ed8e2d031aa176be2a0f14e759526",
+      "path": "src/modules/vendors/server/vendors.ts",
+      "line": 815,
+      "tables": [
+        "procurement_goods_receipt_items",
+        "procurement_goods_receipts",
+        "procurement_purchase_order_items"
+      ],
+      "preview": "select item.purchase_order_id, item.id, item.description, item.quantity, item.unit, item.unit_price_minor, coalesce(sum(case when receipt.status <> 'rejected' and receipt_item.cond"
+    },
+    {
+      "signature": "9bc5b2c4cd417645bfb0e467bcfcbd4da4f87a9b11038ae786d84817e8353d1e",
+      "path": "src/modules/vendors/server/vendors.ts",
+      "line": 842,
+      "tables": ["procurement_goods_receipts"],
+      "preview": "select receipt.purchase_order_id, receipt.id, receipt.receipt_number, receipt.received_at::text, receipt.delivery_reference, receipt.status, receipt.notes, private.membership_displ"
+    },
+    {
+      "signature": "48825e19eef83e0c5fcdbadbab9dd25863dcf3af7bf4777cc60ba5dc55be3f1d",
+      "path": "src/modules/vendors/server/vendors.ts",
+      "line": 865,
+      "tables": ["procurement_goods_receipt_items", "procurement_purchase_order_items"],
+      "preview": "select receipt_item.goods_receipt_id, receipt_item.purchase_order_item_id, item.description, receipt_item.quantity_received, receipt_item.condition, receipt_item.notes from public."
+    },
+    {
+      "signature": "c17d973e7574efc03fccd5b724a56c2d155ee1076139f34aea62b40e03f32531",
+      "path": "src/modules/vendors/server/vendors.ts",
+      "line": 885,
+      "tables": ["documents", "procurement_vendor_bills"],
+      "preview": "select bill.purchase_order_id, bill.id, bill.bill_reference, bill.invoice_date::text, bill.due_date::text, bill.subtotal_minor, bill.tax_minor, bill.total_minor, bill.currency, bil"
+    },
+    {
+      "signature": "15aa653ea22c4753dada56049b183e4ae90c162bdf9e5ca29a60e9185b66f818",
+      "path": "src/modules/vendors/server/vendors.ts",
+      "line": 955,
+      "tables": ["procurement_events"],
+      "preview": "select event.purchase_order_id, event.id, event.event_type, case when event.actor_membership_id is null then null else private.membership_display_name(event.actor_membership_id) en"
+    }
+  ]
+}
