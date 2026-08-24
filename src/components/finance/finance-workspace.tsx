@@ -26,6 +26,7 @@ import {
   Undo2,
 } from "lucide-react";
 
+import { CreateQueryDetails } from "@/components/shell/create-query-details";
 import { Button } from "@/components/ui/button";
 import { getDateTimeFormatter } from "@/lib/intl-formatters";
 import { ExpensesSection } from "@/components/finance/expenses-section";
@@ -79,11 +80,8 @@ import type {
   FinancePayment,
   FinanceWorkspaceData,
 } from "@/modules/finance/server/finance";
-
 const initialState: FinanceActionState = { status: "idle" };
-
 type FinanceTab = FinanceWorkspaceData["filters"]["tab"];
-
 type EditableLine = {
   key: string;
   catalogItemId: string;
@@ -93,7 +91,6 @@ type EditableLine = {
   discountPercent: string;
   taxPercent: string;
 };
-
 function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -103,22 +100,18 @@ function plusDays(date: string, days: number): string {
   value.setUTCDate(value.getUTCDate() + days);
   return value.toISOString().slice(0, 10);
 }
-
 function minorToInput(amount: number, currency: string): string {
   const places = currencyMinorUnits(currency);
   return (amount / 10 ** places).toFixed(places);
 }
-
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
-
 function percentFromBps(bps: number): string {
   return (bps / 100).toFixed(2).replace(/\.00$/, "");
 }
-
 function newLine(key: string): EditableLine {
   return {
     key,
@@ -130,7 +123,6 @@ function newLine(key: string): EditableLine {
     taxPercent: "0",
   };
 }
-
 function toneForStatus(status: string): "success" | "warning" | "error" | "info" | "neutral" {
   if (["approved", "accepted", "paid", "reconciled"].includes(status)) return "success";
   if (["pending_approval", "sent", "viewed", "partially_paid", "matched"].includes(status))
@@ -139,7 +131,6 @@ function toneForStatus(status: string): "success" | "warning" | "error" | "info"
   if (["rejected", "void", "cancelled", "credited"].includes(status)) return "error";
   return "neutral";
 }
-
 function ActionMessage({ state }: { state: FinanceActionState }) {
   if (state.status === "idle") return null;
   return (
@@ -148,7 +139,6 @@ function ActionMessage({ state }: { state: FinanceActionState }) {
     </p>
   );
 }
-
 function Summary({ data }: { data: FinanceWorkspaceData }) {
   const summary = data.summary;
   if (data.filters.tab === "reports" && data.capabilities.canViewReports) {
@@ -990,7 +980,7 @@ function EstimateCreateForm({ data }: { data: FinanceWorkspaceData }) {
   const issueDate = today();
   const [currency, setCurrency] = useState(data.defaultCurrency);
   return (
-    <details className="finance-create-panel">
+    <CreateQueryDetails className="finance-create-panel" target="estimate">
       <summary>
         <Plus size={16} aria-hidden="true" /> Create estimate
       </summary>
@@ -1031,7 +1021,7 @@ function EstimateCreateForm({ data }: { data: FinanceWorkspaceData }) {
         </div>
         <ActionMessage state={state} />
       </form>
-    </details>
+    </CreateQueryDetails>
   );
 }
 
@@ -1176,7 +1166,7 @@ function InvoiceCreateForm({ data }: { data: FinanceWorkspaceData }) {
   const issueDate = today();
   const [currency, setCurrency] = useState(data.defaultCurrency);
   return (
-    <details className="finance-create-panel">
+    <CreateQueryDetails className="finance-create-panel" target="invoice">
       <summary>
         <Plus size={16} aria-hidden="true" /> Create invoice draft
       </summary>
@@ -1244,7 +1234,7 @@ function InvoiceCreateForm({ data }: { data: FinanceWorkspaceData }) {
         </div>
         <ActionMessage state={state} />
       </form>
-    </details>
+    </CreateQueryDetails>
   );
 }
 
@@ -1963,7 +1953,7 @@ function PaymentCreateForm({ data }: { data: FinanceWorkspaceData }) {
   const [state, action, pending] = useActionState(createPaymentAction, initialState);
   const allocationJson = JSON.stringify(invoiceId ? [{ invoiceId, amount }] : []);
   return (
-    <details className="finance-create-panel">
+    <CreateQueryDetails className="finance-create-panel" target="payment">
       <summary>
         <Plus size={16} aria-hidden="true" /> Record payment
       </summary>
@@ -2038,7 +2028,7 @@ function PaymentCreateForm({ data }: { data: FinanceWorkspaceData }) {
         </div>
         <ActionMessage state={state} />
       </form>
-    </details>
+    </CreateQueryDetails>
   );
 }
 

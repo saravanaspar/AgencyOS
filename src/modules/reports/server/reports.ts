@@ -1156,7 +1156,7 @@ export async function getReportsWorkspaceDataForContext(
         support: result.support,
         legal: result.legal,
         comparisonRevenueMinor: result.priorRevenue,
-        currency: organization.default_currency,
+        currency: result.organization.default_currency,
       }),
       crm: result.crm,
       projects: result.projects,

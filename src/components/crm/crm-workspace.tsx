@@ -875,10 +875,14 @@ function flattenLeadExtraFields(
 
 function CreateLeadForm({ data }: { data: CrmWorkspaceData }) {
   const [state, action, pending] = useActionState(createLeadAction, initialState);
+  const searchParams = useSearchParams();
   const firstStage = data.stages.find((stage) => stage.isActive)?.id ?? "";
 
   return (
-    <details className="crm-create-panel" open={data.leads.length === 0}>
+    <details
+      className="crm-create-panel"
+      open={data.leads.length === 0 || searchParams.get("create") === "lead"}
+    >
       <summary>
         <Plus size={16} aria-hidden="true" /> Create lead
       </summary>
@@ -964,8 +968,9 @@ function CreateLeadForm({ data }: { data: CrmWorkspaceData }) {
 
 function CreateCompanyForm({ data }: { data: CrmWorkspaceData }) {
   const [state, action, pending] = useActionState(createCompanyAction, initialState);
+  const searchParams = useSearchParams();
   return (
-    <details className="crm-create-panel">
+    <details className="crm-create-panel" open={searchParams.get("create") === "company"}>
       <summary>
         <Plus size={16} aria-hidden="true" /> Create company
       </summary>

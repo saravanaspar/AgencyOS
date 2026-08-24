@@ -180,6 +180,7 @@ export function validateAndNormalizeHrTemplateHtml(input: string): {
 
   const $ = cheerio.load(input, { xmlMode: false });
   $("*").each((_, element) => {
+    if (!("tagName" in element) || typeof element.tagName !== "string") return;
     const tagName = element.tagName.toLowerCase();
     if (!allowedElements.has(tagName)) {
       throw new Error(`hr-document-template-blocked-element:${tagName}`);

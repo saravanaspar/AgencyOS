@@ -3199,6 +3199,64 @@ Expected focused coverage:
 - `tests/unit/security-hardening-contract.test.ts` validates privileged MFA, HTTP-only cookie handling, session enforcement, reauthentication boundaries, rate limits, headers, RLS/evidence contracts, and synchronized operational runbooks.
 - `database/tests/final_security_operational_readiness.test.sql` validates security tables, sensitive permissions, RLS, append-only triggers, membership-driven revocation, and safe authenticated grants.
 
+
+### Security-control closure patch — agent-runnable focused regression
+
+These checks are safe for a coding/test agent to run because they inspect repository enforcement, execute unit/static gates, or use an explicitly configured non-production database. They **do not** certify that a real infrastructure restore occurred.
+
+Run the focused source and security checks:
+
+```bash
+npm run db:check
+npm run security:mutation-boundaries
+npm run security:sensitive-content
+npm test -- --run \
+  tests/unit/security-control-closure-contract.test.ts \
+  tests/unit/finance-reports-contract.test.ts
+```
+
+Pass when all of the following are true:
+
+- Finance estimate, invoice, credit-note, and expense submissions reuse the shared Approval engine instead of a parallel finance approve/reject path.
+- Finance approval definitions carry normalized monetary amounts into the shared `minimumAmount` / `maximumAmount` conditions and finance-controlled definitions cannot enable self-approval.
+- Estimates, invoices, credit notes, and expenses link to `approval_request_id`; issuing a finance document or starting expense payment cannot bypass a completed approved shared request.
+- HR bulk report export requires both the shared `reports.export.create` gate and the sensitive `hr.report.export` permission; Owner and HR Manager receive the dedicated grant while Employee does not.
+- The sensitive-content guard rejects unsafe raw-HTML rendering paths, preserves the existing HR template allowlist, and prevents medical fields from silently entering the general HR model without a dedicated `hr.medical.*` boundary.
+- The restore verifier exists as verification of an **already restored isolated environment** and never fabricates provider restore evidence.
+
+Verify the restore harness fails closed when an agent tries to run it without explicit isolated-drill identity:
+
+```bash
+if npm run security:restore-drill:verify; then
+  echo "FAIL: restore verifier ran without explicit drill flags"
+  exit 1
+else
+  echo "PASS: restore verifier refused an unqualified run"
+fi
+```
+
+Expected: non-zero exit with guidance requiring `AGENCYOS_RESTORE_DRILL=1` and the isolated restore identifiers. It must also refuse `NODE_ENV=production`.
+
+When a configured non-production PostgreSQL test database is available, the agent can additionally run:
+
+```bash
+npm run db:status
+npm run db:test
+```
+
+Confirm `database/tests/security_control_closure.test.sql` passes its 16 pgTAP assertions covering shared-approval linkage/triggers, no-self-approval enforcement, issue/payment guards, HR export permission registration, intended role grants, and absence of an Employee default grant.
+
+If a seeded non-production browser environment is available, ask the browser agent to verify the runtime path:
+
+1. Create or use a Finance approval policy with self-approval disabled and an amount threshold; submit an invoice or expense that matches the policy.
+2. Confirm the resulting request appears in the shared `/approvals` workspace and the requester cannot approve their own controlled transaction.
+3. Attempt invoice issue or expense payment before the shared request is approved; confirm the server refuses it even if stale UI still exposes an action.
+4. Approve as the eligible different member and confirm Finance synchronizes to the approved state and the controlled next action becomes available.
+5. Open Reports as an HR Manager and confirm an authorized HR export succeeds. Repeat as Employee or a role missing `hr.report.export` and confirm both the UI capability and direct export request are denied.
+6. Repeat with a foreign-organization identifier and confirm the request fails without exposing another tenant's approval, HR, or finance data.
+
+Agent boundary: the agent may test the restore verifier's fail-closed behavior and may run it against a genuine isolated restored environment supplied by operators. It must **not** mark the production-like restore control complete merely because repository tests or the verifier pass.
+
 ### MFA and session workflow
 
 1. Sign in as a privileged member with password assurance only. Confirm workspace access redirects to `/mfa` before module authorization.
@@ -3428,6 +3486,154 @@ npm run db:test
 ```
 
 Confirm pgTAP includes `advanced_reports.test.sql`.
+
+
+### Founder next-phase reporting patch — agent-runnable focused regression
+
+This regression pack covers the no-migration founder-reporting update: client concentration risk, the centralized metric-definition catalogue, and KPI source drill-down. It intentionally reuses the existing Reports, Finance, CRM, Founder Daily/Weekly, snapshot, and `href` models.
+
+Run the focused unit/source contracts:
+
+```bash
+npm test -- --run \
+  tests/unit/founder-next-phase-reports.test.ts \
+  tests/unit/advanced-reports.test.ts \
+  tests/unit/crm.test.ts \
+  tests/unit/reports.test.ts \
+  tests/unit/reports-dashboard-contract.test.ts
+```
+
+Then run the repository gates most likely to catch a reporting-scope regression:
+
+```bash
+npm run typecheck
+npm run db:check
+npm run security:tenant-scope
+npm run security:mutation-boundaries
+```
+
+Pass when all of the following are true:
+
+- Executive metric definitions come from the shared metric catalogue and expose meaning, formula, source entities, currency treatment, and caveats instead of duplicating prose across Founder/Reports surfaces.
+- The catalogue includes the executive summary, Founder Daily, Founder Weekly, and client-concentration keys exercised by `founder-next-phase-reports.test.ts`.
+- Revenue concentration uses issued invoice evidence, receivables concentration uses open issued balances, and pipeline concentration uses probability-weighted open CRM opportunities.
+- Concentration is calculated in separate ISO-currency slices; incompatible currencies are never summed into one denominator or percentage.
+- CRM concentration continues to use the existing permission-scope helper so restricted users cannot broaden pipeline visibility through Reports.
+- Largest-client and top-three shares are derived from the same authorized source rows and source links preserve the applicable date, currency, scope, and client/prospect filters.
+- Reports reuse the existing `ReportMetric.href` / founder-row `href` mechanism; no parallel drill-down API or alternate source-record model is introduced.
+- Finance drill-down scopes continue applying the requested `from` / `to` period for issued revenue, receivables, overdue balances, expected issue, and expected collection views.
+- Founder Weekly forward metrics really use the next-week window (`+7` through `+14` days) and CRM forecast links open the reachable forecast tab with open-opportunity scope.
+
+When a seeded non-production browser environment is available, ask the browser agent to perform this acceptance flow:
+
+1. Seed or identify at least two clients with same-currency issued revenue/receivables plus at least one record in another currency. Add open CRM opportunities with known probabilities and currencies.
+2. Open `/reports`, select Finance, and locate **Client concentration risk**.
+3. Confirm Revenue, Receivables, and Weighted pipeline are shown in separate currency slices and display both **Largest** and **Top 3** percentages.
+4. Compute one slice independently from the visible seeded records. Confirm the displayed largest-client and top-three percentages match the authorized source amounts and do not include the other currency.
+5. Click an individual concentration entry and **Open all source records**. Confirm the destination is the existing Finance or CRM workspace and the URL/filter state preserves the intended currency, period, source scope, and client/prospect where applicable.
+6. Remove CRM visibility for part of the seeded pipeline and refresh Reports. Confirm the restricted pipeline evidence disappears from both the concentration denominator and drill-down results rather than merely being hidden in the UI.
+7. Expand **Definition** for representative Overview, concentration, Founder Daily, and Founder Weekly metrics. Confirm each shows Meaning, Formula, Sources, Currency, and any Caveats from the shared catalogue.
+8. Use **Open source** on representative executive metrics and confirm the link reaches the exact owning records instead of a generic dashboard when a bounded source view exists.
+9. Place known dated records in the current week and next week, open Weekly Review, and confirm next-week issue/collection metrics include only the forward window rather than reusing the current week.
+10. If snapshot/PDF/CSV dependencies are configured, generate an authorized report snapshot and confirm metric definitions and source-record references survive document generation without leaking records outside the viewer's current permissions.
+
+Negative checks the agent should include:
+
+- A user without Finance report access receives no finance concentration data.
+- A user without CRM visibility cannot recover hidden pipeline amounts from concentration totals, percentages, snapshot output, MCP output, or source links.
+- A single client name differing only by normalization/case does not create separate concentration buckets when the implementation's normalization rules treat it as the same party.
+- Empty authorized source sets render the existing empty state and do not produce `NaN`, division-by-zero percentages, fake zero-currency slices, or broken source links.
+- The founder-reporting patch introduces no new database migration, analytics table, free-form SQL surface, or currency-conversion assumption.
+
+
+### Founder execution-layer patch — agent-runnable focused regression
+
+This no-migration patch extends four existing systems rather than creating parallel ones: the AI/MCP workspace, Cmd/Ctrl+K command palette, shared notification pipeline, and JSONB project-template blueprint.
+
+Run the focused source contracts first:
+
+```bash
+npm test -- --run \
+  tests/unit/founder-next-phase-execution.test.ts \
+  tests/unit/ai-mcp-production-contract.test.ts \
+  tests/unit/automation-ai-contract.test.ts \
+  tests/unit/notifications.test.ts \
+  tests/unit/projects.test.ts \
+  tests/unit/projects-ui-contract.test.ts
+```
+
+Then run the repository gates:
+
+```bash
+npm run typecheck
+npm run db:check
+npm run security:tenant-scope
+npm run security:mutation-boundaries
+npm run security:sensitive-content
+```
+
+No database migration is introduced by this patch. Pass when all of the following are true:
+
+- Executive Analyst is a mode of the existing AI workspace, not a second agent stack. It must apply organization AI governance first and then an exact read-only MCP allowlist.
+- Every Executive Analyst tool has `readOnlyHint: true`; no calendar/create/update/delete/approval-decision tool, free-form SQL tool, shell command, or arbitrary HTTP fetch capability is exposed in that mode.
+- The Executive Analyst can retrieve the centralized metric-definition catalogue through the existing Reports permission boundary and can reuse authorized Dashboard, Reports, CRM, Projects, Finance, Approvals, HR, Assets, Vendors, Support, Contract, and Compliance reads.
+- Cmd/Ctrl+K actions are filtered by the same permission catalogue used by the destination modules. A hidden/unauthorized create action must not be discoverable just because the user can open the palette.
+- Global Create commands deep-link into the existing create surfaces; they do not introduce a parallel mutation endpoint or bypass the destination action's normal authorization/Zod validation.
+- Scheduled contract reminders reuse `legal_contract_reminders`; scheduled licence reminders reuse `legal_compliance_record_reminders`; delivery reuses `enqueueNotification`, user preferences, dedupe keys, and the existing delivery queue.
+- Re-running the automation worker does not generate another baseline contract/licence notification for a reminder that already has its reminder-specific dedupe evidence.
+- Project task assignment emits the existing `assignment` notification only after a new assignee row is actually inserted and does not notify a member for assigning a task to themselves.
+- Project templates continue using the existing JSONB blueprint and now capture/replay project labels, task-label links, checklist definitions, task dependencies, and active recurring-work rules.
+- Existing/legacy templates that do not contain the richer optional blueprint fields still instantiate successfully.
+- Template replay deliberately does not copy watchers, private attachments, or document sets; those contain membership/file-access semantics that require a separate explicit design.
+
+When a seeded non-production browser environment is available, ask the browser agent to perform these acceptance flows.
+
+#### Executive Analyst
+
+1. Sign in as a founder/manager with AI plus Reports/Finance/CRM/Projects access, open the existing AI workspace, and switch **Mode** to **Executive analyst**.
+2. Ask “Which clients create the most concentration risk, and why?” Confirm the answer uses authorized report/CRM/finance evidence and explains the metric using the canonical definition rather than inventing a formula.
+3. Ask “Why did margin decline?” with seeded comparison data. Confirm the answer distinguishes the available invoiced/accounting semantics and says evidence is insufficient when recognized-revenue or bank-cash data is absent.
+4. Inspect visible tool traces and confirm every Executive Analyst call is a read operation.
+5. Ask the analyst to create an invoice, update a project, send a notification, or approve a request. It must refuse/explain that Executive mode is read-only; no mutation tool should be callable.
+6. Remove Finance or CRM from the organization's allowed AI modules and repeat an analysis that needs that source. Confirm the tool is absent and the analyst reports missing evidence rather than bypassing policy.
+7. Sign in as a lower-scope member and confirm hidden CRM/project/HR/legal records cannot be recovered through Executive Analyst output.
+
+#### Global Create / command palette
+
+1. Press Cmd/Ctrl+K and confirm the existing palette contains an **Actions** section in addition to Modules and authorized record search.
+2. As a user with the applicable permissions, execute Create lead, Create client, Create project, Create task, Create invoice, Record payment, Record expense, Add vendor, Upload document, Create ticket, Add contract, and Add asset. Confirm each command opens the existing destination surface/form rather than a new mutation UI.
+3. Execute Open overdue invoices, Review projects at risk, and Generate or review reports. Confirm the existing filtered destination is used.
+4. Remove one create permission while retaining module view access. Reopen the palette and confirm the corresponding create action is absent while the module remains navigable.
+5. Attempt the destination mutation directly after permission removal and confirm the existing server-side authorization still denies it; palette filtering is convenience, not the security boundary.
+
+#### Notification gap closure
+
+1. Create an active legal contract with a responsible owner and a pending renewal/expiry reminder due today. Run the existing automation worker. Confirm the owner receives one `contract_expiry` notification linked to Legal.
+2. Run the worker again without changing the reminder. Confirm the baseline reminder notification is not duplicated.
+3. Create an active Legal compliance record of type `licence` with a due renewal/expiry reminder. Run the worker and confirm one `licence_expiry` notification reaches the responsible owner.
+4. Verify a non-licence compliance record does not incorrectly generate a `licence_expiry` notification from this built-in path.
+5. Assign a project task to another active project member. Confirm one `assignment` notification is created with the project/task source metadata and project deep link.
+6. Repeat the same add without removing the assignee and confirm no new assignment notification is emitted. Assign a task to yourself and confirm no self-notification is created.
+7. Deactivate/restrict a target member and verify tenant/membership constraints prevent cross-organization or invalid-recipient notification behavior.
+
+#### Richer reusable project templates
+
+1. Create a source project with at least two labels, task-label assignments, two checklist items with required/optional status, two tasks with a dependency, and one active task recurrence.
+2. Save the existing project as a reusable template, then create a new project from that template with a different start date.
+3. Confirm phases, milestones, tasks, labels, label assignments, checklist order/required flags, dependency relationship, and recurring interval/count are reproduced.
+4. Confirm task and recurrence dates are shifted from the new project anchor rather than copying the source project's absolute dates.
+5. Duplicate the source project through the existing duplicate path and confirm it receives the same enriched blueprint behavior.
+6. Confirm completed checklist state is **not** copied as completed; the template recreates checklist definitions as fresh work.
+7. Confirm source task watchers and private attachments/documents are not copied to the new project.
+8. Instantiate a template created before this patch (no `labels`, `checklist`, `recurrence`, or `dependencies` keys) and confirm it still succeeds with the original phases/milestones/tasks behavior.
+
+Negative checks the agent should include:
+
+- Executive Analyst cannot expose a mutation tool even when the organization's normal AI policy allows low-risk mutations.
+- Global Create never makes an action visible without all of its required permissions.
+- Reminder delivery never crosses organization boundaries and does not infer licence reminders from unrelated compliance-record types.
+- A malformed/legacy optional template section is bounded or skipped rather than causing unbounded inserts; label/checklist/dependency/recurrence replay remains subject to the existing database tenant and read-only project triggers.
+- This patch introduces no second AI provider stack, command API, notification store, project-template table, or new database migration.
 
 ### Saved-view and builder workflow
 

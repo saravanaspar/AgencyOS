@@ -20,6 +20,7 @@ import {
 import { calendarFiltersSchema } from "@/modules/calendar/schemas/calendar";
 import { getCalendarWorkspaceData } from "@/modules/calendar/server/calendar";
 import { getDashboardWorkspaceData } from "@/modules/dashboard/server/dashboard";
+import { reportsMetricDefinitionsMcpTool } from "@/modules/mcp/tools/reports-metric-definitions";
 import { modulePermissionKeys } from "@/modules/permissions/module-access";
 import {
   reportsPermissionKeys,
@@ -193,9 +194,7 @@ import {
   toolRequiresAiApproval,
 } from "@/modules/mcp/ai-governance";
 import type { CurrentPermissionContext } from "@/modules/permissions/server/effective-permissions";
-
 export const AGENCYOS_MCP_PROTOCOL_VERSION = "2025-11-25";
-
 export class McpToolError extends Error {
   constructor(
     message: string,
@@ -210,16 +209,13 @@ export class McpToolError extends Error {
     this.name = "McpToolError";
   }
 }
-
 type JsonSchema = Record<string, unknown>;
-
 type ToolAnnotations = {
   readOnlyHint?: boolean;
   destructiveHint?: boolean;
   idempotentHint?: boolean;
   openWorldHint?: boolean;
 };
-
 export interface AgencyOsMcpToolDescriptor {
   name: string;
   title: string;
@@ -227,7 +223,6 @@ export interface AgencyOsMcpToolDescriptor {
   inputSchema: JsonSchema;
   annotations?: ToolAnnotations;
 }
-
 interface AgencyOsMcpToolDefinition extends AgencyOsMcpToolDescriptor {
   requiredPermissions: readonly string[];
   requiredAnyPermissions?: readonly string[];
@@ -531,6 +526,7 @@ export const AGENCYOS_MCP_TOOLS: readonly AgencyOsMcpToolDefinition[] = [
       return unwrapResult(await getReportsWorkspaceData(parseReportsFilters(input)));
     },
   },
+  reportsMetricDefinitionsMcpTool,
   {
     name: "agencyos.automation.get_workspace",
     title: "Read automation workspace",

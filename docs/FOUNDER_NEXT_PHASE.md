@@ -54,9 +54,9 @@ Current Overview, Founder Daily, and Founder Weekly metrics expose source links 
 
 Executive metric semantics now live in one reusable catalogue with meaning, formula, source entities, currency rules, and caveats. The catalogue explicitly distinguishes invoiced revenue from recognized revenue, recorded cash from bank cash, operational obligations from paid costs, and probability-weighted pipeline from contracted revenue. The same definitions are rendered in the report UI and included in CSV/PDF report documents.
 
-### Global Create and command palette
+### Global Create and command palette — IMPLEMENTED
 
-Add a keyboard-first command surface for high-frequency actions such as create lead/client/project/task/invoice/expense/vendor/document/ticket, record payment, open overdue invoices, view projects at risk, generate reports, and jump to records.
+The existing Cmd/Ctrl+K palette now includes permission-filtered high-frequency actions for lead/client/project/task creation, finance documents and payments, expenses, vendors, documents, tickets, contracts, assets, overdue invoices, at-risk projects, and reports. Commands deep-link into the existing authorized create surfaces rather than introducing a second creation framework.
 
 ## P2 — Reporting and distribution
 
@@ -77,15 +77,15 @@ Each destination must preserve per-recipient authorization and idempotency. Do n
 
 ## P2 — Notification and approval completeness
 
-Finish remaining domain notifications such as assignment, mention, general task due, leave status, contract/licence expiry, asset return, support reply, and security alerts where a domain does not already emit them.
+Current notification-gap closure is implemented for project-task assignment and scheduled contract/licence reminders by reusing the existing notification queue, preferences, dedupe keys, external-delivery scheduler, and legal reminder records. Asset return, support reply, general task-due, security, approval-request, and approval-decision notifications already use that same pipeline. A future explicit mention feature should emit the existing `mention` category only when structured mention semantics exist; do not infer recipients from free-form names.
 
 Finish explicit approval bindings and threshold policies for all controlled domains that need them, especially estimates, invoices, credit notes, contracts, document publication, leave, expenses, and salary changes. Reuse the shared approval engine; do not create domain-specific parallel approval systems.
 
 ## P2 — Project and operating depth
 
-### Richer reusable project templates
+### Richer reusable project templates — CORE DEPTH IMPLEMENTED
 
-The current release supports reusable project structure and duplication. Later template depth can include labels, checklists, dependencies, watchers, recurring-work rules, document sets, and richer relative-date policies when real reuse cases justify them.
+The existing JSONB project blueprint now captures and replays project labels, task-label assignments, task checklists, inter-task dependencies, and recurring-work rules in addition to phases, milestones, tasks, and relative dates. Existing templates remain backward compatible. Watchers and document sets are deliberately excluded because they carry membership identity and file-access semantics that should not be copied blindly across projects.
 
 ### Bank reconciliation integration
 
@@ -99,9 +99,9 @@ Defer until hiring is an active operational pain. Keep it small: requisition, ca
 
 ## P3 — AI and maintainability
 
-### Executive analyst
+### Executive analyst — IMPLEMENTED
 
-Build a permission-filtered read/analysis capability that can answer questions such as “why did margin decline?” or “which clients create the most collection risk?” from the same report/forecast/profitability primitives. Avoid free-form SQL, arbitrary HTTP, or unrestricted mutation tools.
+The existing AI workspace now has an Executive Analyst mode with a strict read-only MCP allowlist layered on top of organization AI policy and per-tool authorization. It can read the dashboard, reports, canonical metric definitions, CRM, projects, finance, approvals, HR, assets, vendors, support, contracts, and compliance data that the current member is permitted to see. The mode has no mutation tools, free-form SQL, or arbitrary HTTP capability and is instructed to ground KPI explanations in the centralized metric catalogue and source evidence.
 
 ### Large-module refactoring
 

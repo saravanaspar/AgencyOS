@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 
 import { ProjectActionMessage } from "@/components/projects/project-action-message";
+import { CreateQueryDetails } from "@/components/shell/create-query-details";
 import {
   ProjectAlternateView,
   ProjectLifecyclePanel,
@@ -61,9 +62,7 @@ import type {
 } from "@/modules/projects/server/projects";
 import { getDateTimeFormatter } from "@/lib/intl-formatters";
 import { currencyMinorUnits, formatMinorMoney } from "@/modules/finance/calculations";
-
 const initialState: ProjectActionState = { status: "idle" };
-
 function buildProjectHref(data: ProjectsWorkspaceData, projectId: string): string {
   const parameters = new URLSearchParams();
   if (data.filters.q) parameters.set("q", data.filters.q);
@@ -76,7 +75,6 @@ function buildProjectHref(data: ProjectsWorkspaceData, projectId: string): strin
   parameters.set("project", projectId);
   return `/projects?${parameters.toString()}`;
 }
-
 function SummaryCards({ data }: { data: ProjectsWorkspaceData }) {
   return (
     <section className="project-summary" aria-label="Project overview">
@@ -103,7 +101,6 @@ function SummaryCards({ data }: { data: ProjectsWorkspaceData }) {
     </section>
   );
 }
-
 function savedFilterHref(
   filters: ProjectsWorkspaceData["savedFilters"][number]["filters"],
 ): string {
@@ -117,7 +114,6 @@ function savedFilterHref(
   if (filters.group !== "none") parameters.set("group", filters.group);
   return `/projects${parameters.size ? `?${parameters.toString()}` : ""}`;
 }
-
 function ProjectSavedFilterTools({ data }: { data: ProjectsWorkspaceData }) {
   const [saveState, saveAction, savePending] = useActionState(
     saveProjectFilterAction,
@@ -160,7 +156,6 @@ function ProjectSavedFilterTools({ data }: { data: ProjectsWorkspaceData }) {
     </div>
   );
 }
-
 function ProjectFilters({ data }: { data: ProjectsWorkspaceData }) {
   return (
     <section className="project-filter-stack">
@@ -242,7 +237,6 @@ function ProjectFilters({ data }: { data: ProjectsWorkspaceData }) {
     </section>
   );
 }
-
 function MyTasksPanel({ data }: { data: ProjectsWorkspaceData }) {
   if (!data.myTasks.length) return null;
   return (
@@ -265,12 +259,10 @@ function MyTasksPanel({ data }: { data: ProjectsWorkspaceData }) {
     </details>
   );
 }
-
 function minorToInput(value: number | null, currency: string): string {
   if (value === null) return "";
   return String(value / 10 ** currencyMinorUnits(currency));
 }
-
 function ProjectCommercialFields({ project }: { project?: ProjectSummary }) {
   const [billingMethod, setBillingMethod] = useState(project?.billingMethod ?? "none");
   const currency = project?.currency ?? "USD";
@@ -354,7 +346,6 @@ function ProjectCommercialFields({ project }: { project?: ProjectSummary }) {
     </>
   );
 }
-
 function CreateProjectDialogForm({
   data,
   onCancel,
@@ -367,7 +358,6 @@ function CreateProjectDialogForm({
   const [state, action, pending] = useActionState(createProjectAction, initialState);
   const [projectType, setProjectType] = useState<"client" | "internal">("client");
   const nameInputRef = useRef<HTMLInputElement>(null);
-
   useEffect(() => {
     nameInputRef.current?.focus();
   }, []);
@@ -491,8 +481,14 @@ function CreateProjectDialogForm({
   );
 }
 
-function CreateProjectForm({ data }: { data: ProjectsWorkspaceData }) {
-  const [open, setOpen] = useState(false);
+function CreateProjectForm({
+  data,
+  openFromCommand = false,
+}: {
+  data: ProjectsWorkspaceData;
+  openFromCommand?: boolean;
+}) {
+  const [open, setOpen] = useState(openFromCommand);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const router = useRouter();
 
@@ -629,7 +625,13 @@ function projectGroupLabel(
   return "Projects";
 }
 
-function ProjectList({ data }: { data: ProjectsWorkspaceData }) {
+function ProjectList({
+  data,
+  openCreateProject = false,
+}: {
+  data: ProjectsWorkspaceData;
+  openCreateProject?: boolean;
+}) {
   const grouped = new Map<string, ProjectSummary[]>();
   for (const project of data.projects) {
     const label = projectGroupLabel(project, data.filters.group);
@@ -642,7 +644,7 @@ function ProjectList({ data }: { data: ProjectsWorkspaceData }) {
           <h2>Projects</h2>
           <p>{data.projects.length} visible</p>
         </div>
-        {data.capabilities.canCreateProjects ? <CreateProjectForm data={data} /> : null}
+        {data.capabilities.canCreateProjects ? <CreateProjectForm data={data} openFromCommand={openCreateProject} /> : null}
       </header>
       <CreateFromTemplatePanel data={data} />
       <div className="project-list">
@@ -860,7 +862,7 @@ function CreateTaskForm({
   const defaultStatus =
     data.statuses.find((status) => status.slug === "backlog") ?? data.statuses[0];
   return (
-    <details className="project-inline-panel project-inline-panel--task">
+<CreateQueryDetails className="project-inline-panel project-inline-panel--task" target="task">
       <summary>
         <Plus size={15} aria-hidden="true" /> Create task
       </summary>
@@ -959,7 +961,7 @@ function CreateTaskForm({
         </Button>
         <ProjectActionMessage state={state} />
       </form>
-    </details>
+    </CreateQueryDetails>
   );
 }
 
@@ -1559,7 +1561,13 @@ function ProjectWorkspaceDetail({ data }: { data: ProjectsWorkspaceData }) {
   );
 }
 
-export function ProjectsWorkspace({ data }: { data: ProjectsWorkspaceData }) {
+export function ProjectsWorkspace({
+  data,
+  openCreateProject = false,
+}: {
+  data: ProjectsWorkspaceData;
+  openCreateProject?: boolean;
+}) {
   const router = useRouter();
   const scanRefreshCountRef = useRef(0);
   const hasPendingFileScan = data.tasks.some((task) =>
@@ -1594,7 +1602,7 @@ export function ProjectsWorkspace({ data }: { data: ProjectsWorkspaceData }) {
       <MyTasksPanel data={data} />
       <ProjectFilters data={data} />
       <div className="projects-layout">
-        <ProjectList data={data} />
+        <ProjectList data={data} openCreateProject={openCreateProject} />
         <ProjectWorkspaceDetail data={data} />
       </div>
       <section className="project-workflow-note">

@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   BadgeCheck,
   CalendarClock,
@@ -584,6 +585,10 @@ export function LegalWorkspace({
   accessReviewData: LegalAccessReviewWorkspaceData | null;
 }) {
   const [showCreate, setShowCreate] = useState(false);
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("create") === "contract") setShowCreate(true);
+  }, [searchParams]);
   const stats = useMemo(
     () => [
       { label: "Visible contracts", value: data.summary.total, icon: Scale },

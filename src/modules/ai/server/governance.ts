@@ -90,6 +90,31 @@ export function filterToolsForAiPolicy(
   });
 }
 
+const EXECUTIVE_ANALYSIS_TOOL_ALLOWLIST = new Set([
+  "agencyos.dashboard.get_workspace",
+  "agencyos.reports.get_workspace",
+  "agencyos.reports.get_metric_definitions",
+  "agencyos.crm.get_workspace",
+  "agencyos.approvals.get_workspace",
+  "agencyos.projects.get_workspace",
+  "agencyos.hr.get_workspace",
+  "agencyos.assets.search_assets",
+  "agencyos.vendors.search_procurement",
+  "agencyos.support.search_tickets",
+  "agencyos.legal.search_contracts",
+  "agencyos.legal.search_compliance_records",
+  "agencyos.finance.get_workspace",
+]);
+
+export function filterToolsForExecutiveAnalysis(
+  tools: AgencyOsMcpToolDescriptor[],
+): AgencyOsMcpToolDescriptor[] {
+  return tools.filter(
+    (tool) =>
+      tool.annotations?.readOnlyHint === true && EXECUTIVE_ANALYSIS_TOOL_ALLOWLIST.has(tool.name),
+  );
+}
+
 export async function recordAiProviderEvent(input: {
   context: CurrentPermissionContext;
   provider: AiProvider;

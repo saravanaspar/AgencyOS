@@ -1,7 +1,7 @@
 "use client";
 
 import { FileUp } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import type { DocumentWorkspaceData } from "@/modules/documents/server/documents
 
 export function DocumentUploadForm({ data }: { data: DocumentWorkspaceData }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
   const [entityType, setEntityType] = useState<DocumentEntityType | "">("");
@@ -50,7 +51,7 @@ export function DocumentUploadForm({ data }: { data: DocumentWorkspaceData }) {
   }
 
   return (
-    <details className="document-create-panel">
+    <details className="document-create-panel" open={searchParams.get("create") === "document"}>
       <summary>
         <FileUp size={17} aria-hidden="true" /> Upload document
       </summary>

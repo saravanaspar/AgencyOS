@@ -6,7 +6,7 @@ import { isAllowedApplicationOrigin } from "@/lib/server/request-origin";
 import { structuredLog } from "@/lib/server/observability";
 import { incrementMetric, observeMetric } from "@/lib/server/runtime-metrics";
 import { getRequestSecurityContextFromRequest } from "@/lib/server/request-context";
-import { aiProviders } from "@/modules/ai/ai";
+import { aiModes, aiProviders } from "@/modules/ai/ai";
 import { runAgencyOsAgent } from "@/modules/ai/server/agent";
 import { modulePermissionKeys } from "@/modules/permissions/module-access";
 import {
@@ -20,6 +20,7 @@ export const dynamic = "force-dynamic";
 const requestSchema = z.object({
   provider: z.enum(aiProviders),
   model: z.string().trim().min(2).max(100),
+  mode: z.enum(aiModes).default("operations"),
   messages: z
     .array(
       z.object({
@@ -79,6 +80,7 @@ export async function POST(request: Request) {
     structuredLog("info", "ai.request.succeeded", {
       requestId,
       provider: parsed.data.provider,
+      mode: parsed.data.mode,
       durationMs: Date.now() - startedAt,
     });
     return NextResponse.json(result, {
@@ -93,6 +95,7 @@ export async function POST(request: Request) {
     structuredLog("error", "ai.request.failed", {
       requestId,
       provider: parsed.data.provider,
+      mode: parsed.data.mode,
       durationMs: Date.now() - startedAt,
       error,
     });

@@ -4,12 +4,19 @@ import { revalidatePath } from "next/cache";
 import type { Sql, TransactionSql } from "postgres";
 
 import { getDatabaseClient } from "@/integrations/postgres/database";
+import { enqueueNotification } from "@/modules/notifications/server/notifications";
 import { parseMoneyToMinor } from "@/modules/finance/calculations";
 import { authorizeCurrentUser } from "@/modules/permissions/server/authorization";
 import type { CurrentPermissionContext } from "@/modules/permissions/server/effective-permissions";
 import type { PermissionScope } from "@/modules/permissions/permission-scopes";
 import { projectPermissionKeys, type ProjectBillingMethod } from "@/modules/projects/projects";
 import { writeProjectAuditEvent } from "@/modules/projects/server/project-audit";
+import {
+  captureProjectBlueprint,
+  instantiateProjectBlueprint,
+  ProjectBlueprintError,
+  type ProjectBlueprint,
+} from "@/modules/projects/server/project-blueprints";
 import {
   projectArchiveSchema,
   projectBulkTaskUpdateSchema,
@@ -201,184 +208,6 @@ async function insertProjectRecord(
   return { id, code };
 }
 
-interface ProjectBlueprint {
-  project: {
-    description: string | null;
-    projectType: "client" | "internal";
-    status: "planned" | "active" | "on_hold" | "cancelled";
-    priority: "low" | "normal" | "high" | "urgent";
-    visibility: "organization" | "members" | "private";
-    currency: string;
-    billingMethod: ProjectBillingMethod;
-    budgetMinor: number | null;
-    hourlyRateMinor: number | null;
-    fixedPriceMinor: number | null;
-    retainerAmountMinor: number | null;
-    durationDays: number | null;
-    estimatedCompletionOffsetDays: number | null;
-  };
-  phases: Array<{
-    name: string;
-    description: string | null;
-    position: number;
-    status: "planned" | "active" | "completed" | "cancelled";
-    startOffsetDays: number | null;
-    dueOffsetDays: number | null;
-  }>;
-  milestones: Array<{
-    name: string;
-    description: string | null;
-    phaseName: string | null;
-    dueOffsetDays: number | null;
-    status: "open" | "completed" | "cancelled";
-  }>;
-  tasks: Array<{
-    title: string;
-    description: string | null;
-    statusSlug: string;
-    priority: "low" | "normal" | "high" | "urgent";
-    phaseName: string | null;
-    milestoneName: string | null;
-    startOffsetDays: number | null;
-    dueOffsetDays: number | null;
-    reminderOffsetMinutes: number | null;
-    estimatedMinutes: number | null;
-  }>;
-}
-
-async function captureProjectBlueprint(
-  sql: QuerySql,
-  projectId: string,
-): Promise<ProjectBlueprint> {
-  const rows = await sql<{ blueprint: ProjectBlueprint }[]>`
-    select jsonb_build_object(
-      'project', jsonb_build_object(
-        'description', project.description,
-        'projectType', project.project_type,
-        'status', case when project.status = 'completed' then 'planned' else project.status end,
-        'priority', project.priority,
-        'visibility', project.visibility,
-        'currency', project.currency,
-        'billingMethod', project.billing_method,
-        'budgetMinor', project.budget_minor,
-        'hourlyRateMinor', project.hourly_rate_minor,
-        'fixedPriceMinor', project.fixed_price_minor,
-        'retainerAmountMinor', project.retainer_amount_minor,
-        'durationDays', case when project.start_date is not null and project.due_date is not null then project.due_date - project.start_date else null end,
-        'estimatedCompletionOffsetDays', case when project.start_date is not null and project.estimated_completion_date is not null then project.estimated_completion_date - project.start_date else null end
-      ),
-      'phases', coalesce((select jsonb_agg(jsonb_build_object(
-        'name', phase.name, 'description', phase.description, 'position', phase.position,
-        'status', case when phase.status = 'completed' then 'planned' else phase.status end,
-        'startOffsetDays', case when project.start_date is not null and phase.start_date is not null then phase.start_date - project.start_date else null end,
-        'dueOffsetDays', case when project.start_date is not null and phase.due_date is not null then phase.due_date - project.start_date else null end
-      ) order by phase.position) from public.project_phases phase where phase.project_id = project.id), '[]'::jsonb),
-      'milestones', coalesce((select jsonb_agg(jsonb_build_object(
-        'name', milestone.name, 'description', milestone.description, 'phaseName', phase.name,
-        'dueOffsetDays', case when project.start_date is not null and milestone.due_date is not null then milestone.due_date - project.start_date else null end,
-        'status', case when milestone.status = 'completed' then 'open' else milestone.status end
-      ) order by milestone.created_at) from public.project_milestones milestone
-        left join public.project_phases phase on phase.id = milestone.phase_id
-        where milestone.project_id = project.id), '[]'::jsonb),
-      'tasks', coalesce((select jsonb_agg(jsonb_build_object(
-        'title', task.title, 'description', task.description, 'statusSlug', status.slug,
-        'priority', task.priority, 'phaseName', phase.name, 'milestoneName', milestone.name,
-        'startOffsetDays', case when project.start_date is not null and task.start_date is not null then task.start_date - project.start_date else null end,
-        'dueOffsetDays', case when project.start_date is not null and task.due_date is not null then task.due_date - project.start_date else null end,
-        'reminderOffsetMinutes', case when task.reminder_at is not null and task.due_date is not null then extract(epoch from (task.reminder_at - task.due_date::timestamp))::int / 60 else null end,
-        'estimatedMinutes', task.estimated_minutes
-      ) order by task.task_number) from public.project_tasks task
-        join public.project_task_statuses status on status.id = task.status_id
-        left join public.project_phases phase on phase.id = task.phase_id
-        left join public.project_milestones milestone on milestone.id = task.milestone_id
-        where task.project_id = project.id and not status.is_cancelled), '[]'::jsonb)
-    ) as blueprint
-    from public.projects project where project.id = ${projectId}::uuid
-  `;
-  const blueprint = rows[0]?.blueprint;
-  if (
-    !blueprint ||
-    !blueprint.project ||
-    !Array.isArray(blueprint.phases) ||
-    !Array.isArray(blueprint.milestones) ||
-    !Array.isArray(blueprint.tasks)
-  ) {
-    throw new ProjectActionError("Project structure could not be captured.");
-  }
-  return blueprint;
-}
-
-async function instantiateProjectBlueprint(
-  sql: TransactionSql,
-  context: CurrentPermissionContext,
-  projectId: string,
-  startDate: string | null,
-  blueprint: ProjectBlueprint,
-): Promise<void> {
-  const phaseIds = new Map<string, string>();
-  for (const phase of blueprint.phases.slice(0, 100)) {
-    const phaseRows = await sql<{ id: string }[]>`
-      insert into public.project_phases (
-        project_id, name, description, position, status, start_date, due_date, created_by_membership_id
-      ) values (
-        ${projectId}::uuid, ${phase.name.slice(0, 120)}, ${phase.description}, ${phase.position},
-        ${phase.status === "completed" ? "planned" : phase.status},
-        case when ${startDate}::date is null or ${phase.startOffsetDays}::int is null then null else ${startDate}::date + ${phase.startOffsetDays}::int end,
-        case when ${startDate}::date is null or ${phase.dueOffsetDays}::int is null then null else ${startDate}::date + ${phase.dueOffsetDays}::int end,
-        ${context.membership.id}::uuid
-      ) returning id
-    `;
-    if (phaseRows[0]) phaseIds.set(phase.name, phaseRows[0].id);
-  }
-
-  const milestoneIds = new Map<string, string>();
-  for (const milestone of blueprint.milestones.slice(0, 200)) {
-    const milestoneRows = await sql<{ id: string }[]>`
-      insert into public.project_milestones (
-        project_id, phase_id, name, description, due_date, status, created_by_membership_id
-      ) values (
-        ${projectId}::uuid, ${milestone.phaseName ? (phaseIds.get(milestone.phaseName) ?? null) : null}::uuid,
-        ${milestone.name.slice(0, 160)}, ${milestone.description},
-        case when ${startDate}::date is null or ${milestone.dueOffsetDays}::int is null then null else ${startDate}::date + ${milestone.dueOffsetDays}::int end,
-        ${milestone.status === "completed" ? "open" : milestone.status}, ${context.membership.id}::uuid
-      ) returning id
-    `;
-    if (milestoneRows[0]) milestoneIds.set(milestone.name, milestoneRows[0].id);
-  }
-
-  const statusRows = await sql<{ id: string; slug: string }[]>`
-    select id, slug from public.project_task_statuses where project_id = ${projectId}::uuid
-  `;
-  const statusIds = new Map(statusRows.map((row) => [row.slug, row.id]));
-  const defaultStatusId = statusIds.get("backlog") ?? statusRows[0]?.id;
-  if (!defaultStatusId) throw new ProjectActionError("Template project has no task workflow.");
-
-  for (const task of blueprint.tasks.slice(0, 1000)) {
-    const numberRows = await sql<{ task_number: number }[]>`
-      update public.projects set next_task_number = next_task_number + 1
-      where id = ${projectId}::uuid returning next_task_number - 1 as task_number
-    `;
-    const taskNumber = numberRows[0]?.task_number;
-    if (!taskNumber) throw new ProjectActionError("Template task number could not be allocated.");
-    await sql`
-      insert into public.project_tasks (
-        organization_id, project_id, task_number, title, description, status_id, priority,
-        phase_id, milestone_id, start_date, due_date, reminder_at, estimated_minutes,
-        created_by_membership_id, created_by
-      ) values (
-        ${context.membership.organizationId}::uuid, ${projectId}::uuid, ${taskNumber},
-        ${task.title.slice(0, 240)}, ${task.description}, ${statusIds.get(task.statusSlug) ?? defaultStatusId}::uuid,
-        ${task.priority}, ${task.phaseName ? (phaseIds.get(task.phaseName) ?? null) : null}::uuid,
-        ${task.milestoneName ? (milestoneIds.get(task.milestoneName) ?? null) : null}::uuid,
-        case when ${startDate}::date is null or ${task.startOffsetDays}::int is null then null else ${startDate}::date + ${task.startOffsetDays}::int end,
-        case when ${startDate}::date is null or ${task.dueOffsetDays}::int is null then null else ${startDate}::date + ${task.dueOffsetDays}::int end,
-        case when ${startDate}::date is null or ${task.dueOffsetDays}::int is null or ${task.reminderOffsetMinutes}::int is null then null
-          else (${startDate}::date + ${task.dueOffsetDays}::int)::timestamp + make_interval(mins => ${task.reminderOffsetMinutes}::int) end,
-        ${task.estimatedMinutes}, ${context.membership.id}::uuid, ${context.user.id}::uuid
-      )
-    `;
-  }
-}
 
 interface ProjectMutationRow {
   id: string;
@@ -523,7 +352,9 @@ function assertProjectWritable(project: ProjectMutationRow): void {
 }
 
 function actionFailure(error: unknown, fallback: string): ProjectActionState {
-  if (error instanceof ProjectActionError) return errorState(error.message);
+  if (error instanceof ProjectActionError || error instanceof ProjectBlueprintError) {
+    return errorState(error.message);
+  }
 
   const databaseError = error && typeof error === "object" ? error : null;
   const detail = (key: string): string | null => {
@@ -1232,7 +1063,13 @@ export async function saveProjectTaskAssigneeAction(
   try {
     const context = await authorize([projectPermissionKeys.taskAssign]);
     const database = getDatabaseClient();
-    await database.begin(async (sql) => {
+    const assignmentNotification = await database.begin(async (sql) => {
+      let notification: {
+        taskId: string;
+        projectId: string;
+        taskNumber: number;
+        title: string;
+      } | null = null;
       const task = await getTaskForMutation(
         sql,
         context,
@@ -1252,7 +1089,7 @@ export async function saveProjectTaskAssigneeAction(
       }
 
       if (parsed.data.operation === "add") {
-        await sql`
+        const inserted = await sql<{ task_id: string }[]>`
           insert into public.project_task_assignees (
             task_id, membership_id, assigned_by_membership_id
           ) values (
@@ -1260,7 +1097,16 @@ export async function saveProjectTaskAssigneeAction(
             ${context.membership.id}::uuid
           )
           on conflict do nothing
+          returning task_id
         `;
+        if (inserted[0] && parsed.data.membershipId !== context.membership.id) {
+          notification = {
+            taskId: task.id,
+            projectId: task.project_id,
+            taskNumber: task.task_number,
+            title: task.title,
+          };
+        }
       } else {
         await sql`
           delete from public.project_task_assignees
@@ -1275,7 +1121,28 @@ export async function saveProjectTaskAssigneeAction(
         entityId: task.id,
         metadata: { membershipId: parsed.data.membershipId },
       });
+      return notification;
     });
+    if (assignmentNotification) {
+      await enqueueNotification({
+        organizationId: context.membership.organizationId,
+        recipientMembershipId: parsed.data.membershipId,
+        category: "assignment",
+        severity: "info",
+        title: `Task assigned: #${assignmentNotification.taskNumber} ${assignmentNotification.title}`.slice(0, 160),
+        message: "A project task has been assigned to you.",
+        deepLink: `/projects?project=${assignmentNotification.projectId}`,
+        sourceModule: "projects",
+        sourceEntityType: "project_task",
+        sourceEntityId: assignmentNotification.taskId,
+        dedupeKey: `project-task-assignment:${assignmentNotification.taskId}:${parsed.data.membershipId}`,
+        metadata: {
+          projectId: assignmentNotification.projectId,
+          taskNumber: assignmentNotification.taskNumber,
+        },
+        createdByMembershipId: context.membership.id,
+      });
+    }
     refreshProjects();
     return successState(parsed.data.operation === "add" ? "Assignee added." : "Assignee removed.");
   } catch (error) {
@@ -2175,7 +2042,7 @@ export async function saveProjectTemplateAction(
         parsed.data.projectId,
         projectPermissionKeys.projectView,
       );
-      const blueprint = await captureProjectBlueprint(sql, project.id);
+      const blueprint = await captureProjectBlueprint(sql, project.id, context.membership.organizationId);
       await sql`
         insert into public.project_templates (
           organization_id, name, description, blueprint, created_by_membership_id
@@ -2306,7 +2173,7 @@ export async function duplicateProjectAction(
         parsed.data.projectId,
         projectPermissionKeys.projectView,
       );
-      const blueprint = await captureProjectBlueprint(sql, source.id);
+      const blueprint = await captureProjectBlueprint(sql, source.id, context.membership.organizationId);
       const ownerMembershipId = context.permissions.has(projectPermissionKeys.projectAssign)
         ? source.owner_membership_id
         : context.membership.id;

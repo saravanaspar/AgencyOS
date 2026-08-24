@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 
 import { VendorActionMessage } from "@/components/vendors/vendors-action-message";
+import { CreateQueryDetails } from "@/components/shell/create-query-details";
 import { toDateTimeLocalValue } from "@/lib/date-time-local";
 import { getDateTimeFormatter, getNumberFormatter } from "@/lib/intl-formatters";
 import {
@@ -48,7 +49,6 @@ import {
   vendorStatusLabels,
   vendorStatuses,
 } from "@/modules/vendors/vendors";
-
 const initialState: VendorActionState = { status: "idle", message: "" };
 const dateFormatter = getDateTimeFormatter("en", { dateStyle: "medium", timeZone: "UTC" });
 const dateTimeFormatter = getDateTimeFormatter("en", {
@@ -60,7 +60,6 @@ const numberFormatter = getNumberFormatter("en", { maximumFractionDigits: 2 });
 const paymentStatuses = vendorBillStatuses.filter((status) =>
   ["disputed", "partially_paid", "paid", "void"].includes(status),
 );
-
 function formatDate(value: string | null): string {
   return value ? dateFormatter.format(new Date(`${value.slice(0, 10)}T00:00:00.000Z`)) : "—";
 }
@@ -94,7 +93,6 @@ function CategoryForm() {
     </form>
   );
 }
-
 function VendorFields({ data, vendor }: { data: VendorWorkspaceData; vendor?: VendorSummary }) {
   const activeCategories = data.categories.filter((category) => category.status === "active");
   return (
@@ -303,7 +301,6 @@ function VendorFields({ data, vendor }: { data: VendorWorkspaceData; vendor?: Ve
     </>
   );
 }
-
 function VendorForm({ data, vendor }: { data: VendorWorkspaceData; vendor?: VendorSummary }) {
   const [state, action, pending] = useActionState(saveVendorAction, initialState);
   return (
@@ -318,7 +315,6 @@ function VendorForm({ data, vendor }: { data: VendorWorkspaceData; vendor?: Vend
     </form>
   );
 }
-
 function VendorOperations({ data, vendor }: { data: VendorWorkspaceData; vendor: VendorSummary }) {
   const [contactState, contactAction, contactPending] = useActionState(
     addVendorContactAction,
@@ -448,7 +444,6 @@ function VendorOperations({ data, vendor }: { data: VendorWorkspaceData; vendor:
     </div>
   );
 }
-
 function PurchaseRequestForm({ data }: { data: VendorWorkspaceData }) {
   const [state, action, pending] = useActionState(createPurchaseRequestAction, initialState);
   return (
@@ -517,7 +512,6 @@ function PurchaseRequestForm({ data }: { data: VendorWorkspaceData }) {
     </form>
   );
 }
-
 function RequestActions({
   data,
   request,
@@ -693,7 +687,6 @@ function RequestActions({
     </div>
   );
 }
-
 function PurchaseOrderActions({
   data,
   order,
@@ -853,7 +846,6 @@ function PurchaseOrderActions({
     </div>
   );
 }
-
 function BillApprovalForm({ bill }: { bill: PurchaseOrderSummary["bills"][number] }) {
   const [state, action, pending] = useActionState(submitVendorBillApprovalAction, initialState);
   if (!bill.canSubmitApproval) return null;
@@ -867,7 +859,6 @@ function BillApprovalForm({ bill }: { bill: PurchaseOrderSummary["bills"][number
     </form>
   );
 }
-
 function BillPaymentForm({ bill }: { bill: PurchaseOrderSummary["bills"][number] }) {
   const [state, action, pending] = useActionState(updateVendorBillPaymentAction, initialState);
   if (!bill.canManagePayment || !["approved", "partially_paid", "disputed"].includes(bill.status)) {
@@ -897,7 +888,6 @@ function BillPaymentForm({ bill }: { bill: PurchaseOrderSummary["bills"][number]
     </form>
   );
 }
-
 function VendorSummary({ data }: { data: VendorWorkspaceData }) {
   return (
     <section className="vendor-summary-grid" aria-label="Vendor and procurement summary">
@@ -945,10 +935,10 @@ function VendorCreatePanel({ data }: { data: VendorWorkspaceData }) {
         </details>
       ) : null}
       {data.capabilities.canCreateVendor ? (
-        <details>
+        <CreateQueryDetails target="vendor">
           <summary>Register vendor</summary>
           <VendorForm data={data} />
-        </details>
+        </CreateQueryDetails>
       ) : null}
       {data.capabilities.canCreateRequest ? (
         <details>

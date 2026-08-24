@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 
 import { AssetActionMessage } from "@/components/assets/assets-action-message";
+import { CreateQueryDetails } from "@/components/shell/create-query-details";
 import { toDateTimeLocalValue } from "@/lib/date-time-local";
 import { getDateTimeFormatter, getNumberFormatter } from "@/lib/intl-formatters";
 import {
@@ -42,7 +43,6 @@ import {
   assetRequestTypes,
   assetRequestTypeLabels,
 } from "@/modules/assets/assets";
-
 const initialState: AssetActionState = { status: "idle", message: "" };
 const editableAssetStatuses = [
   "ordered",
@@ -60,24 +60,19 @@ const dateTimeFormatter = getDateTimeFormatter("en", {
   timeZone: "UTC",
 });
 const integerFormatter = getNumberFormatter("en", { maximumFractionDigits: 0 });
-
 function dateOnly(value: string | null): string {
   return value ? value.slice(0, 10) : "";
 }
-
 function formatDate(value: string | null): string {
   return value ? dateFormatter.format(new Date(`${value.slice(0, 10)}T00:00:00.000Z`)) : "—";
 }
-
 function formatDateTime(value: string | null): string {
   return value ? dateTimeFormatter.format(new Date(value)) : "—";
 }
-
 function formatMoneyMinor(value: number | null, currency: string): string {
   if (value === null) return "—";
   return `${currency} ${integerFormatter.format(value / 100)}`;
 }
-
 function AssetCategoryForm() {
   const [state, action, pending] = useActionState(createAssetCategoryAction, initialState);
   return (
@@ -109,7 +104,6 @@ function AssetCategoryForm() {
     </form>
   );
 }
-
 function MetadataFields({
   data,
   asset,
@@ -329,7 +323,6 @@ function MetadataFields({
     </>
   );
 }
-
 function CreateAssetForm({ data }: { data: AssetWorkspaceData }) {
   const [state, action, pending] = useActionState(createAssetAction, initialState);
   return (
@@ -348,7 +341,6 @@ function CreateAssetForm({ data }: { data: AssetWorkspaceData }) {
     </form>
   );
 }
-
 function UpdateAssetForm({ asset, data }: { asset: AssetSummary; data: AssetWorkspaceData }) {
   const [state, action, pending] = useActionState(updateAssetAction, initialState);
   return (
@@ -364,7 +356,6 @@ function UpdateAssetForm({ asset, data }: { asset: AssetSummary; data: AssetWork
     </form>
   );
 }
-
 function AssignmentControls({ asset, data }: { asset: AssetSummary; data: AssetWorkspaceData }) {
   const [assignState, assignAction, assigning] = useActionState(assignAssetAction, initialState);
   const [ackState, ackAction, acknowledging] = useActionState(acknowledgeAssetAction, initialState);
@@ -498,7 +489,6 @@ function AssignmentControls({ asset, data }: { asset: AssetSummary; data: AssetW
     </form>
   );
 }
-
 function ConditionForm({ asset }: { asset: AssetSummary }) {
   const [state, action, pending] = useActionState(recordAssetConditionAction, initialState);
   return (
@@ -1268,10 +1258,10 @@ export function AssetsWorkspace({ data }: { data: AssetWorkspaceData }) {
         </details>
       ) : null}
       {data.capabilities.canCreate ? (
-        <details className="asset-admin-panel">
+        <CreateQueryDetails className="asset-admin-panel" target="asset">
           <summary>Register an asset</summary>
           <CreateAssetForm data={data} />
-        </details>
+        </CreateQueryDetails>
       ) : null}
       <section className="asset-register" aria-label="Asset register">
         {data.assets.length ? (

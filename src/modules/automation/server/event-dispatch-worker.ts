@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 
 import { getDatabaseClient } from "@/integrations/postgres/database";
 import { automationRetryDelaySeconds } from "@/modules/automation/automation";
+import { enqueueNotification } from "@/modules/notifications/server/notifications";
 import {
   AutomationHandlerError,
   executeAutomationHandler,
@@ -58,6 +59,18 @@ function boundedResultHash(value: Record<string, unknown>): string {
   return sha256(serialized);
 }
 
+interface DueLegalNotificationRow {
+  organization_id: string;
+  recipient_membership_id: string;
+  entity_id: string;
+  reminder_id: string;
+  reminder_type: "expiry" | "renewal";
+  remind_on: string;
+  internal_reference: string;
+  title: string;
+  counterparty_name?: string;
+}
+
 async function enqueueDueContractEvents(): Promise<number> {
   const database = getDatabaseClient();
   const result = await database<{ inserted: number }[]>`
@@ -76,6 +89,7 @@ async function enqueueDueContractEvents(): Promise<number> {
         jsonb_build_object(
           'contractId', contract.id,
           'internalReference', contract.internal_reference,
+          'title', contract.title,
           'reminderId', reminder.id,
           'reminderType', reminder.reminder_type,
           'remindOn', reminder.remind_on,
@@ -98,6 +112,124 @@ async function enqueueDueContractEvents(): Promise<number> {
     select count(*)::integer as inserted from inserted
   `;
   return result[0]?.inserted ?? 0;
+}
+
+async function enqueueDueContractNotifications(): Promise<number> {
+  const database = getDatabaseClient();
+  const reminders = await database<DueLegalNotificationRow[]>`
+    select
+      reminder.organization_id,
+      contract.responsible_owner_membership_id as recipient_membership_id,
+      contract.id as entity_id,
+      reminder.id as reminder_id,
+      reminder.reminder_type,
+      reminder.remind_on::text,
+      contract.internal_reference,
+      contract.title,
+      contract.counterparty_name
+    from public.legal_contract_reminders as reminder
+    join public.legal_contracts as contract on contract.id = reminder.contract_id
+    join public.memberships as owner
+      on owner.id = contract.responsible_owner_membership_id
+     and owner.organization_id = reminder.organization_id
+     and owner.status = 'active'
+    where reminder.status = 'pending'
+      and reminder.reminder_type in ('renewal', 'expiry')
+      and reminder.remind_on <= current_date
+      and contract.status in ('approved', 'awaiting_signature', 'active')
+      and not exists (
+        select 1 from public.notifications as notification
+        where notification.organization_id = reminder.organization_id
+          and notification.recipient_membership_id = contract.responsible_owner_membership_id
+          and notification.dedupe_key = 'legal-contract-reminder:' || reminder.id::text
+      )
+    order by reminder.remind_on, reminder.id
+    limit 200
+  `;
+  const results = await Promise.allSettled(
+    reminders.map((reminder) =>
+      enqueueNotification({
+        organizationId: reminder.organization_id,
+        recipientMembershipId: reminder.recipient_membership_id,
+        category: "contract_expiry",
+        severity: "warning",
+        title: `Contract ${reminder.reminder_type} due: ${reminder.internal_reference}`,
+        message: `${reminder.title} — ${reminder.counterparty_name ?? "counterparty"}. Review by ${reminder.remind_on}.`,
+        deepLink: "/legal",
+        sourceModule: "legal",
+        sourceEntityType: "contract",
+        sourceEntityId: reminder.entity_id,
+        dedupeKey: `legal-contract-reminder:${reminder.reminder_id}`,
+        metadata: {
+          reminderId: reminder.reminder_id,
+          reminderType: reminder.reminder_type,
+          remindOn: reminder.remind_on,
+          internalReference: reminder.internal_reference,
+        },
+        createdByMembershipId: null,
+      }),
+    ),
+  );
+  return results.filter((result) => result.status === "fulfilled" && Boolean(result.value)).length;
+}
+
+async function enqueueDueLicenceNotifications(): Promise<number> {
+  const database = getDatabaseClient();
+  const reminders = await database<DueLegalNotificationRow[]>`
+    select
+      reminder.organization_id,
+      record.responsible_owner_membership_id as recipient_membership_id,
+      record.id as entity_id,
+      reminder.id as reminder_id,
+      reminder.reminder_type,
+      reminder.remind_on::text,
+      record.internal_reference,
+      record.title
+    from public.legal_compliance_record_reminders as reminder
+    join public.legal_compliance_records as record on record.id = reminder.record_id
+    join public.memberships as owner
+      on owner.id = record.responsible_owner_membership_id
+     and owner.organization_id = reminder.organization_id
+     and owner.status = 'active'
+    where reminder.status = 'pending'
+      and reminder.reminder_type in ('renewal', 'expiry')
+      and reminder.remind_on <= current_date
+      and record.record_type = 'licence'
+      and record.status = 'active'
+      and not exists (
+        select 1 from public.notifications as notification
+        where notification.organization_id = reminder.organization_id
+          and notification.recipient_membership_id = record.responsible_owner_membership_id
+          and notification.dedupe_key = 'legal-licence-reminder:' || reminder.id::text
+      )
+    order by reminder.remind_on, reminder.id
+    limit 200
+  `;
+  const results = await Promise.allSettled(
+    reminders.map((reminder) =>
+      enqueueNotification({
+        organizationId: reminder.organization_id,
+        recipientMembershipId: reminder.recipient_membership_id,
+        category: "licence_expiry",
+        severity: "warning",
+        title: `Licence ${reminder.reminder_type} due: ${reminder.internal_reference}`,
+        message: `${reminder.title}. Review by ${reminder.remind_on}.`,
+        deepLink: "/legal",
+        sourceModule: "legal",
+        sourceEntityType: "legal_compliance_record",
+        sourceEntityId: reminder.entity_id,
+        dedupeKey: `legal-licence-reminder:${reminder.reminder_id}`,
+        metadata: {
+          reminderId: reminder.reminder_id,
+          reminderType: reminder.reminder_type,
+          remindOn: reminder.remind_on,
+          internalReference: reminder.internal_reference,
+        },
+        createdByMembershipId: null,
+      }),
+    ),
+  );
+  return results.filter((result) => result.status === "fulfilled" && Boolean(result.value)).length;
 }
 
 async function routeDomainEvents(): Promise<{ events: number; dispatches: number }> {
@@ -411,6 +543,8 @@ async function routeAndClaimDispatches(contractSeedCount: number): Promise<{
 
 export async function runAutomationDispatchWorker(): Promise<{
   contractEvents: number;
+  contractNotifications: number;
+  licenceNotifications: number;
   routedEvents: number;
   createdDispatches: number;
   claimed: number;
@@ -419,7 +553,11 @@ export async function runAutomationDispatchWorker(): Promise<{
   deadLettered: number;
   stale: number;
 }> {
-  const contractEvents = await enqueueDueContractEvents();
+  const [contractEvents, contractNotifications, licenceNotifications] = await Promise.all([
+    enqueueDueContractEvents(),
+    enqueueDueContractNotifications(),
+    enqueueDueLicenceNotifications(),
+  ]);
   const { routed, claimed } = await routeAndClaimDispatches(contractEvents);
   const outcomes = await Promise.all(
     claimed.map(async (row) => {
@@ -442,6 +580,8 @@ export async function runAutomationDispatchWorker(): Promise<{
 
   return {
     contractEvents,
+    contractNotifications,
+    licenceNotifications,
     routedEvents: routed.events,
     createdDispatches: routed.dispatches,
     claimed: claimed.length,

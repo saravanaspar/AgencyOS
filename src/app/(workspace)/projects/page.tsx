@@ -44,7 +44,7 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
           </p>
         </div>
       </section>
-      <ProjectsWorkspace data={result.data} />
+      <ProjectsWorkspace key={firstValue(raw.create) ?? "default"} data={result.data} openCreateProject={firstValue(raw.create) === "project"} />
     </div>
   );
 }

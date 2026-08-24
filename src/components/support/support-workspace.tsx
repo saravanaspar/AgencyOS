@@ -688,7 +688,7 @@ export function SupportWorkspace({ data }: { data: SupportWorkspaceData }) {
         </article>
       </section>
 
-      <section className="settings-panel support-create-panel">
+      <section className="settings-panel support-create-panel" id="create-ticket">
         <header>
           <div>
             <h2>Create support ticket</h2>

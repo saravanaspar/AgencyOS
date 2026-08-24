@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useActionState, useMemo, useRef, useState } from "react";
 import {
   BadgeDollarSign,
@@ -148,6 +148,7 @@ function CategoryStatusControl({
 
 function ExpenseCreateForm({ data }: { data: FinanceWorkspaceData }) {
   const [state, action, pending] = useActionState(createExpenseAction, initialState);
+  const searchParams = useSearchParams();
   const [expenseType, setExpenseType] = useState<(typeof expenseTypes)[number]>("employee");
   const [currency, setCurrency] = useState(data.defaultCurrency);
   const [amount, setAmount] = useState("0.00");
@@ -176,7 +177,7 @@ function ExpenseCreateForm({ data }: { data: FinanceWorkspaceData }) {
   }
 
   return (
-    <details className="finance-create-panel">
+    <details className="finance-create-panel" open={searchParams.get("create") === "expense"}>
       <summary>
         <Plus size={16} aria-hidden="true" /> Record expense
       </summary>

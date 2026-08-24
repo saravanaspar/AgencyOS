@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Database, Search, X } from "lucide-react";
+import { ArrowRight, Database, Plus, Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import type { NavigationGroup } from "@/lib/navigation";
+import { getAuthorizedGlobalCommandActions } from "@/modules/module-registry";
 import {
   globalSearchKindLabels,
   type GlobalSearchResponse,
@@ -13,17 +14,32 @@ import {
 
 interface CommandPaletteProps {
   groups: NavigationGroup[];
+  permissions: string[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function CommandPalette({ groups, open, onOpenChange }: CommandPaletteProps) {
+export function CommandPalette({ groups, permissions, open, onOpenChange }: CommandPaletteProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [records, setRecords] = useState<GlobalSearchResultItem[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const actionResults = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    const actions = getAuthorizedGlobalCommandActions(new Set(permissions));
+    if (!normalized) return actions.slice(0, 8);
+    return actions
+      .filter((action) =>
+        [action.label, action.module, ...action.keywords]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalized),
+      )
+      .slice(0, 8);
+  }, [permissions, query]);
 
   const navigationResults = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -85,7 +101,7 @@ export function CommandPalette({ groups, open, onOpenChange }: CommandPalettePro
     close();
   }
 
-  const hasResults = navigationResults.length > 0 || records.length > 0;
+  const hasResults = actionResults.length > 0 || navigationResults.length > 0 || records.length > 0;
 
   return (
     <dialog
@@ -130,6 +146,29 @@ export function CommandPalette({ groups, open, onOpenChange }: CommandPalettePro
         </div>
 
         <div className="command-results" role="listbox" aria-label="Search results">
+          {actionResults.length > 0 ? (
+            <section className="command-section">
+              <h3>Actions</h3>
+              {actionResults.map((action) => (
+                <button
+                  className="command-result"
+                  key={action.id}
+                  type="button"
+                  onClick={() => navigate(action.href)}
+                >
+                  <span className="command-result__icon">
+                    <Plus aria-hidden="true" size={18} />
+                  </span>
+                  <span>
+                    <strong>{action.label}</strong>
+                    <small>{action.module}</small>
+                  </span>
+                  <ArrowRight aria-hidden="true" size={16} />
+                </button>
+              ))}
+            </section>
+          ) : null}
+
           {navigationResults.length > 0 ? (
             <section className="command-section">
               <h3>Modules</h3>

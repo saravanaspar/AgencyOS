@@ -307,7 +307,12 @@ export function WorkspaceShell({
         <main className="workspace__content">{children}</main>
       </div>
 
-      <CommandPalette groups={authorizedGroups} open={commandOpen} onOpenChange={setCommandOpen} />
+      <CommandPalette
+        groups={authorizedGroups}
+        permissions={permissions}
+        open={commandOpen}
+        onOpenChange={setCommandOpen}
+      />
     </div>
   );
 }

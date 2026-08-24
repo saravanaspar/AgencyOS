@@ -1,4 +1,13 @@
-import { modulePermissionKeys } from "@/modules/permissions/module-access";
+import { assetPermissionKeys } from "@/modules/assets/assets";
+import { crmPermissionKeys } from "@/modules/crm/crm";
+import { documentPermissionKeys } from "@/modules/documents/documents";
+import { financePermissionKeys } from "@/modules/finance/finance";
+import { legalPermissionKeys } from "@/modules/legal/legal";
+import { hasRequiredPermissions, modulePermissionKeys } from "@/modules/permissions/module-access";
+import { projectPermissionKeys } from "@/modules/projects/projects";
+import { reportsPermissionKeys } from "@/modules/reports/reports";
+import { supportPermissionKeys } from "@/modules/support/support";
+import { vendorPermissionKeys } from "@/modules/vendors/vendors";
 
 export interface ModuleDefinition {
   label: string;
@@ -188,3 +197,38 @@ export const moduleRegistry: Record<string, ModuleDefinition> = {
     primaryAction: "Open organization settings",
   },
 };
+
+
+export interface GlobalCommandAction {
+  id: string;
+  label: string;
+  module: string;
+  href: string;
+  keywords: readonly string[];
+  requiredPermissions: readonly string[];
+}
+
+export const globalCommandActions: readonly GlobalCommandAction[] = [
+  { id: "crm.create-lead", label: "Create lead", module: "CRM", href: "/crm?create=lead", keywords: ["new lead", "opportunity", "sales"], requiredPermissions: [modulePermissionKeys.crm, crmPermissionKeys.leadCreate] },
+  { id: "crm.create-client", label: "Create client", module: "CRM", href: "/crm?create=company", keywords: ["new client", "company", "customer"], requiredPermissions: [modulePermissionKeys.crm, crmPermissionKeys.companyCreate] },
+  { id: "projects.create-project", label: "Create project", module: "Projects", href: "/projects?create=project", keywords: ["new project", "delivery"], requiredPermissions: [modulePermissionKeys.projects, projectPermissionKeys.projectCreate] },
+  { id: "projects.create-task", label: "Create task", module: "Projects", href: "/projects?create=task", keywords: ["new task", "work item"], requiredPermissions: [modulePermissionKeys.projects, projectPermissionKeys.taskCreate] },
+  { id: "finance.create-estimate", label: "Create estimate", module: "Finance", href: "/finance?tab=estimates&create=estimate", keywords: ["quote", "proposal", "estimate"], requiredPermissions: [modulePermissionKeys.finance, financePermissionKeys.estimateCreate] },
+  { id: "finance.create-invoice", label: "Create invoice", module: "Finance", href: "/finance?tab=invoices&create=invoice", keywords: ["invoice draft", "bill client"], requiredPermissions: [modulePermissionKeys.finance, financePermissionKeys.invoiceCreate] },
+  { id: "finance.record-payment", label: "Record payment", module: "Finance", href: "/finance?tab=payments&create=payment", keywords: ["payment", "cash received"], requiredPermissions: [modulePermissionKeys.finance, financePermissionKeys.paymentCreate] },
+  { id: "finance.record-expense", label: "Record expense", module: "Finance", href: "/finance?tab=expenses&create=expense", keywords: ["expense", "cost", "reimbursement"], requiredPermissions: [modulePermissionKeys.finance, financePermissionKeys.expenseCreate] },
+  { id: "vendors.create-vendor", label: "Add vendor", module: "Vendors", href: "/vendors?create=vendor", keywords: ["supplier", "vendor"], requiredPermissions: [modulePermissionKeys.vendors, vendorPermissionKeys.create] },
+  { id: "documents.upload", label: "Upload document", module: "Documents", href: "/documents?create=document", keywords: ["file", "document", "upload"], requiredPermissions: [modulePermissionKeys.documents, documentPermissionKeys.create] },
+  { id: "support.create-ticket", label: "Create ticket", module: "Support", href: "/support#create-ticket", keywords: ["support", "issue", "ticket"], requiredPermissions: [modulePermissionKeys.support, supportPermissionKeys.create] },
+  { id: "legal.create-contract", label: "Add contract", module: "Legal", href: "/legal?create=contract", keywords: ["contract", "agreement", "legal"], requiredPermissions: [modulePermissionKeys.legal, legalPermissionKeys.create] },
+  { id: "assets.create-asset", label: "Add asset", module: "Assets", href: "/assets?create=asset", keywords: ["asset", "equipment", "inventory"], requiredPermissions: [modulePermissionKeys.assets, assetPermissionKeys.create] },
+  { id: "finance.overdue", label: "Open overdue invoices", module: "Finance", href: "/finance?tab=invoices&status=overdue", keywords: ["collections", "receivables", "overdue"], requiredPermissions: [modulePermissionKeys.finance, financePermissionKeys.invoiceView] },
+  { id: "projects.risk", label: "Review projects at risk", module: "Projects", href: "/projects?group=health&sort=due", keywords: ["risk", "late", "delivery"], requiredPermissions: [modulePermissionKeys.projects, projectPermissionKeys.projectView] },
+  { id: "reports.open", label: "Generate or review reports", module: "Reports", href: "/reports", keywords: ["report", "founder daily", "weekly review", "export"], requiredPermissions: [modulePermissionKeys.reports, reportsPermissionKeys.workspace] },
+] as const;
+
+export function getAuthorizedGlobalCommandActions(permissions: ReadonlySet<string>): GlobalCommandAction[] {
+  return globalCommandActions.filter((action) =>
+    hasRequiredPermissions(permissions, action.requiredPermissions),
+  );
+}

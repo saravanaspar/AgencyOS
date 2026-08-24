@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import type {
   AiChatMessage,
   AiChatResponse,
+  AiMode,
   AiProvider,
   AiProviderOption,
   AiToolTrace,
@@ -20,6 +21,7 @@ interface DisplayMessage extends AiChatMessage {
 export function AiWorkspace({ providers }: { providers: AiProviderOption[] }) {
   const firstConfigured = providers.find((provider) => provider.configured) ?? providers[0];
   const [provider, setProvider] = useState<AiProvider>(firstConfigured.id);
+  const [mode, setMode] = useState<AiMode>("operations");
   const activeProvider = useMemo(
     () => providers.find((candidate) => candidate.id === provider) ?? providers[0],
     [provider, providers],
@@ -34,6 +36,13 @@ export function AiWorkspace({ providers }: { providers: AiProviderOption[] }) {
     const option = providers.find((candidate) => candidate.id === next);
     setProvider(next);
     setModel(option?.models[0] ?? "");
+    setError(null);
+  }
+
+  function changeMode(next: AiMode) {
+    if (next === mode) return;
+    setMode(next);
+    setMessages([]);
     setError(null);
   }
 
@@ -54,6 +63,7 @@ export function AiWorkspace({ providers }: { providers: AiProviderOption[] }) {
         body: JSON.stringify({
           provider,
           model,
+          mode,
           messages: nextMessages
             .slice(-12)
             .map(({ role, content: text }) => ({ role, content: text })),
@@ -87,6 +97,13 @@ export function AiWorkspace({ providers }: { providers: AiProviderOption[] }) {
           <p>Choose a configured provider. Keys stay on the server.</p>
         </div>
         <label className="field">
+          <span>Mode</span>
+          <select value={mode} onChange={(event) => changeMode(event.target.value as AiMode)}>
+            <option value="operations">Operations assistant</option>
+            <option value="executive">Executive analyst</option>
+          </select>
+        </label>
+        <label className="field">
           <span>Provider</span>
           <select
             value={provider}
@@ -111,9 +128,11 @@ export function AiWorkspace({ providers }: { providers: AiProviderOption[] }) {
         <div className="ai-workspace__trust">
           <ShieldCheck size={18} aria-hidden="true" />
           <div>
-            <strong>Permission-bound tools</strong>
+            <strong>{mode === "executive" ? "Read-only executive tools" : "Permission-bound tools"}</strong>
             <span>
-              Every MCP call is authorized again. Sensitive mutations still require approval.
+              {mode === "executive"
+                ? "Executive analysis only receives an explicit allow-list of read tools and the canonical KPI catalogue."
+                : "Every MCP call is authorized again. Sensitive mutations still require approval."}
             </span>
           </div>
         </div>
@@ -122,8 +141,8 @@ export function AiWorkspace({ providers }: { providers: AiProviderOption[] }) {
       <div className="ai-workspace__conversation">
         <div className="ai-workspace__toolbar">
           <div>
-            <strong>{activeProvider.label}</strong>
-            <span>{model}</span>
+            <strong>{mode === "executive" ? "Executive analyst" : activeProvider.label}</strong>
+            <span>{activeProvider.label} · {model}</span>
           </div>
           <Button
             variant="ghost"
@@ -142,10 +161,11 @@ export function AiWorkspace({ providers }: { providers: AiProviderOption[] }) {
           {!messages.length ? (
             <div className="ai-workspace__empty">
               <Bot size={28} aria-hidden="true" />
-              <h2>Ask about current operations</h2>
+              <h2>{mode === "executive" ? "Analyze the business" : "Ask about current operations"}</h2>
               <p>
-                Read the dashboard, search authorized records, review reports, manage calendar
-                events, or inspect and update automations.
+                {mode === "executive"
+                  ? "Ask why a KPI moved, which clients create concentration risk, what is driving margin or collections, or which decisions need attention. Executive mode is read-only."
+                  : "Read the dashboard, search authorized records, review reports, manage calendar events, or inspect and update automations."}
               </p>
             </div>
           ) : (
@@ -208,7 +228,11 @@ export function AiWorkspace({ providers }: { providers: AiProviderOption[] }) {
                 event.currentTarget.form?.requestSubmit();
               }
             }}
-            placeholder="Ask about your dashboard, calendar, reports, automation, or records"
+            placeholder={
+              mode === "executive"
+                ? "Ask why a KPI moved, what is driving risk, or where to focus next"
+                : "Ask about your dashboard, calendar, reports, automation, or records"
+            }
             maxLength={12_000}
             rows={3}
             disabled={pending || !activeProvider.configured}
