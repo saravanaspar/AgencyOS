@@ -1,6 +1,7 @@
 # AgencyOS Architecture Decisions
 
-Production uses `compose.coolify.yaml`: disposable web/worker and operations images surround private
+Production uses `compose.coolify.yaml` for bundled services or `compose.coolify.cloud.yaml` for
+hosted PostgreSQL, Redis, and runtime B2: disposable web/worker and operations images surround private
 PostgreSQL, authenticated Redis, MinIO, ClamAV, and PostgreSQL-backed Vaultwarden. Stateful data
 stays in stable named volumes; encrypted off-host B2 snapshots are the disaster-recovery boundary.
 

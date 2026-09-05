@@ -4,6 +4,10 @@ import { cp, lstat, mkdir, readdir, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  redactedObjectStorageDescriptor,
+  resolveObjectStorageLocation,
+} from "../../src/integrations/object-storage/config.mjs";
 import { backupConfiguration, postgresEnvironment } from "./config.mjs";
 import { prepareLocalRepository, publishRepository } from "./repository.mjs";
 import {
@@ -29,13 +33,14 @@ function parseReason(args) {
   return value;
 }
 
-function minioEnvironment(configuration) {
-  const endpoint = new URL(configuration.minioEndpoint);
+function objectStorageEnvironment(configuration) {
+  const source = configuration.objectStorage;
+  const endpoint = new URL(source.endpoint);
   if (!["http:", "https:"].includes(endpoint.protocol) || endpoint.username || endpoint.password) {
     throw new Error("MINIO_ENDPOINT must be a credential-free HTTP or HTTPS URL.");
   }
-  const username = encodeURIComponent(configuration.minioRootUser);
-  const password = encodeURIComponent(configuration.minioRootPassword);
+  const username = encodeURIComponent(source.accessKey);
+  const password = encodeURIComponent(source.secretKey);
   return {
     MC_HOST_agencyos: `${endpoint.protocol}//${username}:${password}@${endpoint.host}`,
   };
@@ -101,35 +106,50 @@ async function captureDatabase(url, label, target, timeoutMs) {
   return { bytes: metadata.size, sha256: await sha256File(target) };
 }
 
-async function captureMinio(configuration, target) {
-  const environment = minioEnvironment(configuration);
-  await checkedCommand({
-    command: "mc",
-    args: ["ready", "agencyos"],
-    env: environment,
-    timeoutMs: 60_000,
-  });
-  const inventory = [];
-  for (const bucket of SOURCE_BUCKETS) {
-    const bucketTarget = join(target, bucket);
-    await mkdir(bucketTarget, { recursive: true, mode: 0o700 });
-    await checkedCommand({
+export async function captureObjectStorage(
+  configuration,
+  target,
+  { runCommand = checkedCommand } = {},
+) {
+  const environment = objectStorageEnvironment(configuration);
+  if (configuration.objectStorage.provider === "minio") {
+    await runCommand({
       command: "mc",
-      args: ["mirror", "--preserve", `agencyos/${bucket}`, bucketTarget],
+      args: ["ready", "agencyos"],
+      env: environment,
+      timeoutMs: 60_000,
+    });
+  }
+  const inventory = [];
+  for (const logicalBucket of SOURCE_BUCKETS) {
+    const location = resolveObjectStorageLocation(configuration.objectStorage, logicalBucket);
+    const bucketTarget = join(target, logicalBucket);
+    await mkdir(bucketTarget, { recursive: true, mode: 0o700 });
+    const source = `agencyos/${location.physicalBucket}${location.physicalKey ? `/${location.physicalKey}` : ""}`;
+    await runCommand({
+      command: "mc",
+      args: ["mirror", "--preserve", source, bucketTarget],
       env: environment,
       timeoutMs: configuration.commandTimeoutMs,
     });
-    const listing = await checkedCommand({
+    const listing = await runCommand({
       command: "mc",
-      args: ["ls", "--recursive", "--versions", "--json", `agencyos/${bucket}`],
+      args: ["ls", "--recursive", "--versions", "--json", source],
       env: environment,
       timeoutMs: configuration.commandTimeoutMs,
     });
     for (const item of parseJsonLines(listing.stdoutText)) {
       if (item.status === "success" && item.type !== "folder") {
+        const rawKey = String(item.key ?? "").replace(/^\/+/, "");
+        const key = location.prefix
+          ? rawKey.startsWith(`${location.prefix}/`)
+            ? rawKey.slice(location.prefix.length + 1)
+            : rawKey
+          : rawKey;
+        if (!key || key === location.prefix) continue;
         inventory.push({
-          bucket,
-          key: String(item.key ?? ""),
+          bucket: logicalBucket,
+          key,
           versionId: item.versionId ? String(item.versionId) : null,
           etag: item.etag ? String(item.etag) : null,
           size: Number(item.size ?? 0),
@@ -199,11 +219,13 @@ export async function runBackup({ environment = process.env, reason = "scheduled
     );
     const vaultwardenDatabase = await captureDatabase(
       configuration.vaultwardenDatabaseUrl,
-      "VAULTWARDEN_DATABASE_URL",
+      configuration.objectStorage.mode === "cloud"
+        ? "VAULTWARDEN_DATABASE_ADMIN_URL"
+        : "VAULTWARDEN_DATABASE_URL",
       join(runDirectory, "databases", "vaultwarden.dump"),
       configuration.commandTimeoutMs,
     );
-    const minioInventory = await captureMinio(configuration, join(runDirectory, "minio"));
+    const minioInventory = await captureObjectStorage(configuration, join(runDirectory, "minio"));
     const vaultwardenInventory = await captureVaultwarden(
       configuration,
       join(runDirectory, "vaultwarden-data"),
@@ -213,7 +235,7 @@ export async function runBackup({ environment = process.env, reason = "scheduled
       .update(JSON.stringify({ minioInventory, vaultwardenInventory }))
       .digest("hex");
     const manifest = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       runId,
       reason,
       releaseId: configuration.releaseId,
@@ -222,6 +244,10 @@ export async function runBackup({ environment = process.env, reason = "scheduled
       consistency: "component-consistent; no cross-store transaction is claimed",
       databases: { agencyos: agencyDatabase, vaultwarden: vaultwardenDatabase },
       minio: { objects: minioInventory.length },
+      objectStorage: {
+        ...redactedObjectStorageDescriptor(configuration.objectStorage),
+        objects: minioInventory.length,
+      },
       vaultwardenData: { files: vaultwardenInventory.length },
       inventorySha256: inventoryHash,
     };

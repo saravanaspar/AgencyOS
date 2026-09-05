@@ -1,20 +1,31 @@
-# Coolify production stack. Configure all ${NAME:?message} values in Coolify before first deploy.
+# Coolify hosted-data-plane stack. Select this file only after creating the hosted resources.
+# PostgreSQL (Neon-compatible), Redis (Upstash-compatible), and runtime object storage are external.
 # Route the AgencyOS domain to gateway:8080 and the vault domain to vaultwarden:8080.
-# Never run `docker compose down -v` and never change AGENCYOS_VOLUME_PREFIX after first boot.
+
+x-object-storage-environment: &object-storage-environment
+  AGENCYOS_INFRA_MODE: cloud
+  OBJECT_STORAGE_PROVIDER: b2
+  OBJECT_STORAGE_ENDPOINT: ${OBJECT_STORAGE_ENDPOINT:?Set the mutable runtime B2 S3 HTTPS endpoint}
+  OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:?Set the runtime B2 region}
+  OBJECT_STORAGE_QUARANTINE_BUCKET: ${OBJECT_STORAGE_QUARANTINE_BUCKET:?Set the runtime bucket}
+  OBJECT_STORAGE_QUARANTINE_PREFIX: ${OBJECT_STORAGE_QUARANTINE_PREFIX:-private-file-quarantine}
+  OBJECT_STORAGE_PRIVATE_FILES_BUCKET: ${OBJECT_STORAGE_PRIVATE_FILES_BUCKET:?Set the runtime bucket}
+  OBJECT_STORAGE_PRIVATE_FILES_PREFIX: ${OBJECT_STORAGE_PRIVATE_FILES_PREFIX:-private-files}
+  OBJECT_STORAGE_PROJECT_ATTACHMENTS_BUCKET: ${OBJECT_STORAGE_PROJECT_ATTACHMENTS_BUCKET:?Set the runtime bucket}
+  OBJECT_STORAGE_PROJECT_ATTACHMENTS_PREFIX: ${OBJECT_STORAGE_PROJECT_ATTACHMENTS_PREFIX:-project-attachments}
+  OBJECT_STORAGE_DOCUMENT_TEMPLATES_BUCKET: ${OBJECT_STORAGE_DOCUMENT_TEMPLATES_BUCKET:?Set the runtime bucket}
+  OBJECT_STORAGE_DOCUMENT_TEMPLATES_PREFIX: ${OBJECT_STORAGE_DOCUMENT_TEMPLATES_PREFIX:-document-templates}
 
 x-app-environment: &app-environment
+  <<: *object-storage-environment
   NODE_ENV: production
-  AGENCYOS_INFRA_MODE: local
-  OBJECT_STORAGE_PROVIDER: minio
   APP_URL: ${APP_URL:?Set the public AgencyOS HTTPS URL}
   NEXT_PUBLIC_APP_URL: ${APP_URL:?Set the public AgencyOS HTTPS URL}
-  DATABASE_URL: ${DATABASE_URL:?Set the private AgencyOS PostgreSQL URL}
+  DATABASE_URL: ${DATABASE_URL:?Set the pooled TLS AgencyOS PostgreSQL URL}
   DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-8}
-  REDIS_URL: ${REDIS_URL:?Set redis://default:PASSWORD@redis:6379/0}
-  MINIO_ENDPOINT: http://minio:9000
-  MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?Set a non-root MinIO application access key}
-  MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?Set a non-root MinIO application secret}
-  MINIO_REGION: ${MINIO_REGION:-us-east-1}
+  REDIS_URL: ${REDIS_URL:?Set the authenticated native rediss URL}
+  OBJECT_STORAGE_ACCESS_KEY_ID: ${OBJECT_STORAGE_ACCESS_KEY_ID:?Set the runtime B2 key ID}
+  OBJECT_STORAGE_SECRET_ACCESS_KEY: ${OBJECT_STORAGE_SECRET_ACCESS_KEY:?Set the runtime B2 application key}
   PRIVATE_FILE_SCANNER_URL: clamav://clamav:3310
   REDIS_REQUIRED: "1"
   MINIO_REQUIRED: "1"
@@ -51,7 +62,7 @@ x-app-environment: &app-environment
   PIPEDRIVE_OAUTH_CLIENT_SECRET: ${PIPEDRIVE_OAUTH_CLIENT_SECRET:-}
 
 x-app-service: &app-service
-  image: ${AGENCYOS_IMAGE:?Set AGENCYOS_IMAGE to an immutable application digest (name@sha256:...)}
+  image: ${AGENCYOS_IMAGE:?Set an immutable application digest (name@sha256:...)}
   environment: *app-environment
   restart: unless-stopped
   read_only: true
@@ -65,22 +76,23 @@ x-app-service: &app-service
   stop_grace_period: 30s
   pids_limit: 256
 
-x-operations-environment: &operations-environment
+x-backup-environment: &backup-environment
+  <<: *object-storage-environment
   NODE_ENV: production
-  AGENCYOS_INFRA_MODE: local
-  OBJECT_STORAGE_PROVIDER: minio
-  AGENCYOS_OPERATIONS_IMAGE: ${AGENCYOS_OPERATIONS_IMAGE:?Set the immutable operations digest (name@sha256:...)}
+  AGENCYOS_OPERATIONS_IMAGE: ${AGENCYOS_OPERATIONS_IMAGE:?Set the immutable operations digest}
   AGENCYOS_RELEASE_ID: ${AGENCYOS_RELEASE_ID:-manual-first-deploy}
-  DATABASE_ADMIN_URL: ${DATABASE_ADMIN_URL:?Set the direct private AgencyOS PostgreSQL URL}
-  VAULTWARDEN_DATABASE_URL: ${VAULTWARDEN_DATABASE_URL:?Set the private Vaultwarden PostgreSQL URL}
-  MINIO_ENDPOINT: http://minio:9000
-  MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set the MinIO root user}
-  MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set the MinIO root password}
-  B2_ENDPOINT: ${B2_ENDPOINT:?Set the Backblaze B2 S3 HTTPS endpoint}
-  B2_BUCKET: ${B2_BUCKET:?Set the Object-Lock-enabled B2 bucket}
+  DATABASE_ADMIN_URL: ${DATABASE_ADMIN_URL:?Set the direct TLS AgencyOS PostgreSQL URL}
+  VAULTWARDEN_DATABASE_ADMIN_URL: ${VAULTWARDEN_DATABASE_ADMIN_URL:?Set the direct TLS Vaultwarden PostgreSQL URL}
+  OBJECT_STORAGE_ACCESS_KEY_ID: ${OBJECT_STORAGE_ACCESS_KEY_ID:?Set the runtime key ID for separation validation}
+  OBJECT_STORAGE_BACKUP_ACCESS_KEY_ID: ${OBJECT_STORAGE_BACKUP_ACCESS_KEY_ID:?Set the runtime-bucket read key ID}
+  OBJECT_STORAGE_BACKUP_SECRET_ACCESS_KEY: ${OBJECT_STORAGE_BACKUP_SECRET_ACCESS_KEY:?Set the runtime-bucket read key}
+  B2_ENDPOINT: ${B2_ENDPOINT:?Set the immutable backup B2 S3 HTTPS endpoint}
+  B2_BUCKET: ${B2_BUCKET:?Set the separate Object-Lock-enabled backup bucket}
   B2_PREFIX: ${B2_PREFIX:-agencyos/restic}
   B2_REGION: ${B2_REGION:-us-west-004}
-  RESTIC_PASSWORD: ${RESTIC_PASSWORD:?Set and separately escrow the restic repository password}
+  B2_WRITER_KEY_ID: ${B2_WRITER_KEY_ID:?Set the non-delete backup writer key ID}
+  B2_WRITER_APPLICATION_KEY: ${B2_WRITER_APPLICATION_KEY:?Set the backup writer application key}
+  RESTIC_PASSWORD: ${RESTIC_PASSWORD:?Set and separately escrow the Restic password}
   BACKUP_HOST: ${BACKUP_HOST:-agencyos-production}
   BACKUP_HOUR_UTC: ${BACKUP_HOUR_UTC:-2}
   BACKUP_MAINTENANCE_HOUR_UTC: ${BACKUP_MAINTENANCE_HOUR_UTC:-5}
@@ -92,7 +104,7 @@ x-operations-environment: &operations-environment
   BACKUP_FAILURE_WEBHOOK_SECRET: ${BACKUP_FAILURE_WEBHOOK_SECRET:-}
 
 x-operations-service: &operations-service
-  image: ${AGENCYOS_OPERATIONS_IMAGE:?Set AGENCYOS_OPERATIONS_IMAGE to an immutable operations digest (name@sha256:...)}
+  image: ${AGENCYOS_OPERATIONS_IMAGE:?Set an immutable operations digest (name@sha256:...)}
   read_only: true
   tmpfs:
     - /tmp:size=134217728,mode=1777
@@ -105,86 +117,6 @@ x-operations-service: &operations-service
   cpus: 0.75
 
 services:
-  postgres:
-    build:
-      context: .
-      dockerfile: Containerfile.postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${AGENCYOS_POSTGRES_USER:-agencyos}
-      POSTGRES_PASSWORD: ${AGENCYOS_POSTGRES_PASSWORD:?Set a 32+ character PostgreSQL password}
-      POSTGRES_DB: ${AGENCYOS_POSTGRES_DB:-agencyos}
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    networks:
-      - private
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 5s
-      retries: 30
-      start_period: 15s
-    stop_grace_period: 60s
-    shm_size: 256m
-    pids_limit: 256
-    mem_limit: 1g
-    cpus: 1.0
-
-  redis:
-    image: docker.io/library/redis:7.4.10-alpine@sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2
-    command: ["sh", "/usr/local/lib/agencyos/start-redis.sh"]
-    restart: unless-stopped
-    environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set a URL-safe 32+ character Redis password}
-      REDISCLI_AUTH: ${REDIS_PASSWORD:?Set a URL-safe 32+ character Redis password}
-      REDIS_MAXMEMORY: ${REDIS_MAXMEMORY:-192mb}
-    volumes:
-      - redis-data:/data
-      - ./deploy/redis/start-redis.sh:/usr/local/lib/agencyos/start-redis.sh:ro
-    tmpfs:
-      - /run/agencyos-redis:size=1048576,mode=0700
-    networks:
-      - private
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 30
-      start_period: 10s
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    pids_limit: 128
-    mem_limit: 256m
-    cpus: 0.25
-    stop_grace_period: 30s
-
-  minio:
-    image: docker.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
-    command: ["server", "/data"]
-    restart: unless-stopped
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set the MinIO root user}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set the MinIO root password}
-      MINIO_BROWSER: "off"
-    volumes:
-      - minio-data:/data
-    networks:
-      - private
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/ready"]
-      interval: 10s
-      timeout: 5s
-      retries: 30
-      start_period: 20s
-    security_opt:
-      - no-new-privileges:true
-    pids_limit: 256
-    mem_limit: 512m
-    cpus: 0.5
-    stop_grace_period: 30s
-
   clamav:
     image: docker.io/clamav/clamav:1.5.3-debian13-slim@sha256:741e6c447241220e0792a901befcaec1d55a755c5097fc9cd88d7fd8be251a5c
     restart: unless-stopped
@@ -206,36 +138,38 @@ services:
     cpus: 1.0
     stop_grace_period: 45s
 
-  bootstrap:
+  cloud-preflight:
     <<: *operations-service
-    command: ["node", "scripts/operations/bootstrap-production.mjs"]
+    command: ["node", "scripts/operations/validate-cloud-production.mjs"]
     restart: "no"
     environment:
+      <<: *object-storage-environment
       NODE_ENV: production
-      AGENCYOS_INFRA_MODE: local
-      OBJECT_STORAGE_PROVIDER: minio
-      DATABASE_CONTROL_URL: ${DATABASE_CONTROL_URL:?Set the private PostgreSQL control URL}
-      VAULTWARDEN_DATABASE_USER: ${VAULTWARDEN_DATABASE_USER:-vaultwarden}
-      VAULTWARDEN_DATABASE_NAME: ${VAULTWARDEN_DATABASE_NAME:-vaultwarden}
-      VAULTWARDEN_DATABASE_PASSWORD: ${VAULTWARDEN_DATABASE_PASSWORD:?Set a stable 32+ character password}
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set the MinIO root user}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set the MinIO root password}
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?Set a non-root MinIO application access key}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?Set a non-root MinIO application secret}
+      DATABASE_URL: ${DATABASE_URL:?Set the pooled TLS AgencyOS PostgreSQL URL}
+      DATABASE_ADMIN_URL: ${DATABASE_ADMIN_URL:?Set the direct TLS AgencyOS PostgreSQL URL}
+      VAULTWARDEN_DATABASE_URL: ${VAULTWARDEN_DATABASE_URL:?Set the Vaultwarden PostgreSQL URL}
+      VAULTWARDEN_DATABASE_ADMIN_URL: ${VAULTWARDEN_DATABASE_ADMIN_URL:?Set its direct dump URL}
+      REDIS_URL: ${REDIS_URL:?Set the authenticated native rediss URL}
+      OBJECT_STORAGE_ACCESS_KEY_ID: ${OBJECT_STORAGE_ACCESS_KEY_ID:?Set the runtime B2 key ID}
+      OBJECT_STORAGE_SECRET_ACCESS_KEY: ${OBJECT_STORAGE_SECRET_ACCESS_KEY:?Set the runtime B2 application key}
+      OBJECT_STORAGE_BACKUP_ACCESS_KEY_ID: ${OBJECT_STORAGE_BACKUP_ACCESS_KEY_ID:?Set the source-read key ID}
+      B2_ENDPOINT: ${B2_ENDPOINT:?Set the immutable backup endpoint}
+      B2_BUCKET: ${B2_BUCKET:?Set the separate immutable backup bucket}
+      B2_WRITER_KEY_ID: ${B2_WRITER_KEY_ID:?Set the immutable backup writer key ID}
+      PRIVATE_FILE_SCANNER_URL: clamav://clamav:3310
+      AGENCYOS_TRUST_PRIVATE_SERVICE_NETWORK: "1"
     depends_on:
-      postgres:
-        condition: service_healthy
-      minio:
+      clamav:
         condition: service_healthy
     networks:
       - private
+      - egress
 
   vaultwarden:
     image: docker.io/vaultwarden/server:1.34.3@sha256:84fd8a47f58d79a1ad824c27be0a9492750c0fa5216b35c749863093bfa3c3d7
     restart: unless-stopped
     environment:
-      DATABASE_URL: ${VAULTWARDEN_DATABASE_URL:?Set the private Vaultwarden PostgreSQL URL}
+      DATABASE_URL: ${VAULTWARDEN_DATABASE_URL:?Set the hosted Vaultwarden PostgreSQL URL}
       DOMAIN: ${VAULTWARDEN_URL:?Set the public Vaultwarden HTTPS URL}
       SIGNUPS_ALLOWED: ${VAULTWARDEN_SIGNUPS_ALLOWED:-false}
       INVITATIONS_ALLOWED: ${VAULTWARDEN_INVITATIONS_ALLOWED:-false}
@@ -247,10 +181,8 @@ services:
     expose:
       - "8080"
     depends_on:
-      bootstrap:
+      cloud-preflight:
         condition: service_completed_successfully
-      postgres:
-        condition: service_healthy
     networks:
       - private
       - egress
@@ -271,10 +203,7 @@ services:
     <<: *operations-service
     command: ["node", "scripts/backup/run-backup.mjs", "--reason=predeploy"]
     restart: "no"
-    environment:
-      <<: *operations-environment
-      B2_WRITER_KEY_ID: ${B2_WRITER_KEY_ID:?Set the non-delete B2 writer key ID}
-      B2_WRITER_APPLICATION_KEY: ${B2_WRITER_APPLICATION_KEY:?Set the non-delete B2 writer key}
+    environment: *backup-environment
     volumes:
       - backup-state:/state
       - restic-cache:/cache
@@ -282,12 +211,11 @@ services:
       - backup-stage:/stage
       - vaultwarden-data:/vaultwarden-data:ro
     depends_on:
-      bootstrap:
+      cloud-preflight:
         condition: service_completed_successfully
       vaultwarden:
         condition: service_healthy
     networks:
-      - private
       - egress
 
   migrate:
@@ -295,20 +223,20 @@ services:
     command: ["node", "scripts/operations/release-gate.mjs"]
     restart: "no"
     environment:
-      DATABASE_URL: ${DATABASE_URL:?Set the private AgencyOS PostgreSQL URL}
-      DATABASE_ADMIN_URL: ${DATABASE_ADMIN_URL:?Set the direct private AgencyOS PostgreSQL URL}
+      NODE_ENV: production
+      AGENCYOS_INFRA_MODE: cloud
+      DATABASE_URL: ${DATABASE_URL:?Set the pooled TLS AgencyOS PostgreSQL URL}
+      DATABASE_ADMIN_URL: ${DATABASE_ADMIN_URL:?Set the direct TLS AgencyOS PostgreSQL URL}
       AGENCYOS_RELEASE_ID: ${AGENCYOS_RELEASE_ID:-manual-first-deploy}
       AGENCYOS_OPERATIONS_IMAGE: ${AGENCYOS_OPERATIONS_IMAGE:?Set the immutable operations digest}
       AGENCYOS_RELEASE_STATUS_DIR: /release-status
     volumes:
       - release-status:/release-status
     depends_on:
-      postgres:
-        condition: service_healthy
       predeploy-backup:
         condition: service_completed_successfully
     networks:
-      - private
+      - egress
 
   app:
     <<: *app-service
@@ -318,10 +246,6 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
-      redis:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
       clamav:
         condition: service_healthy
     networks:
@@ -398,10 +322,7 @@ services:
     <<: *operations-service
     command: ["node", "scripts/backup/scheduler.mjs"]
     restart: unless-stopped
-    environment:
-      <<: *operations-environment
-      B2_WRITER_KEY_ID: ${B2_WRITER_KEY_ID:?Set the non-delete B2 writer key ID}
-      B2_WRITER_APPLICATION_KEY: ${B2_WRITER_APPLICATION_KEY:?Set the non-delete B2 writer key}
+    environment: *backup-environment
     volumes:
       - backup-state:/state
       - restic-cache:/cache
@@ -412,7 +333,6 @@ services:
       predeploy-backup:
         condition: service_completed_successfully
     networks:
-      - private
       - egress
     healthcheck:
       test: ["CMD", "node", "scripts/backup/health.mjs"]
@@ -426,14 +346,24 @@ services:
     command: ["node", "scripts/backup/scheduler.mjs", "--maintenance"]
     restart: unless-stopped
     environment:
-      <<: *operations-environment
-      B2_MAINTENANCE_KEY_ID: ${B2_MAINTENANCE_KEY_ID:?Set the read-only B2 maintenance key ID}
-      B2_MAINTENANCE_APPLICATION_KEY: ${B2_MAINTENANCE_APPLICATION_KEY:?Set the maintenance B2 key}
+      NODE_ENV: production
+      AGENCYOS_INFRA_MODE: cloud
+      B2_ENDPOINT: ${B2_ENDPOINT:?Set the immutable backup endpoint}
+      B2_BUCKET: ${B2_BUCKET:?Set the immutable backup bucket}
+      B2_PREFIX: ${B2_PREFIX:-agencyos/restic}
+      B2_REGION: ${B2_REGION:-us-west-004}
+      B2_MAINTENANCE_KEY_ID: ${B2_MAINTENANCE_KEY_ID:?Set the read-only maintenance key ID}
+      B2_MAINTENANCE_APPLICATION_KEY: ${B2_MAINTENANCE_APPLICATION_KEY:?Set its application key}
+      RESTIC_PASSWORD: ${RESTIC_PASSWORD:?Set and escrow the Restic password}
       BACKUP_KEEP_DAILY: ${BACKUP_KEEP_DAILY:-7}
       BACKUP_KEEP_WEEKLY: ${BACKUP_KEEP_WEEKLY:-4}
       BACKUP_KEEP_MONTHLY: ${BACKUP_KEEP_MONTHLY:-12}
       BACKUP_KEEP_YEARLY: ${BACKUP_KEEP_YEARLY:-1}
       BACKUP_PRUNE_ENABLED: ${BACKUP_PRUNE_ENABLED:-0}
+      BACKUP_COMMAND_TIMEOUT_MS: ${BACKUP_COMMAND_TIMEOUT_MS:-3600000}
+      BACKUP_MAINTENANCE_HOUR_UTC: ${BACKUP_MAINTENANCE_HOUR_UTC:-5}
+      BACKUP_JITTER_MINUTES: ${BACKUP_JITTER_MINUTES:-20}
+      BACKUP_MAX_AGE_HOURS: ${BACKUP_MAX_AGE_HOURS:-30}
     volumes:
       - backup-state:/state
       - restic-cache:/cache
@@ -457,12 +387,6 @@ networks:
     driver: bridge
 
 volumes:
-  postgres-data:
-    name: ${AGENCYOS_VOLUME_PREFIX:-agencyos-production}-postgres-v1
-  redis-data:
-    name: ${AGENCYOS_VOLUME_PREFIX:-agencyos-production}-redis-v1
-  minio-data:
-    name: ${AGENCYOS_VOLUME_PREFIX:-agencyos-production}-minio-v1
   clamav-signatures:
     name: ${AGENCYOS_VOLUME_PREFIX:-agencyos-production}-clamav-signatures-v1
   vaultwarden-data:

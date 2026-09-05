@@ -1,8 +1,9 @@
 # Coolify production deployment
 
-This runbook deploys AgencyOS as one Coolify Docker Compose resource. Code containers are
-replaceable; PostgreSQL, Redis, MinIO, ClamAV signatures, Vaultwarden, backup state/cache/staging,
-and migration evidence use stable named volumes.
+This runbook deploys AgencyOS as one Coolify Docker Compose resource. Choose
+`compose.coolify.yaml` for bundled local services or `compose.coolify.cloud.yaml` for hosted
+PostgreSQL, Redis, and B2-compatible runtime storage. Both retain the same logical object names,
+release gate, backup history, Vaultwarden data, ClamAV signatures, and migration evidence.
 
 > **Data-loss boundary:** choose `AGENCYOS_VOLUME_PREFIX` once. Never rename it, delete the Coolify
 > resource together with storage, or run `docker compose down -v`. Named volumes survive routine
@@ -23,8 +24,9 @@ Start with 4 vCPU and 80 GiB only for very small data; increase disk as measured
 3. Create the private, Object-Lock-enabled B2 bucket and split credentials described in
    [BACKUP_RECOVERY.md](BACKUP_RECOVERY.md). Configure Coolify's own instance backup to a different
    prefix and escrow its `APP_KEY` plus the restic password offline.
-4. Add the repository as a Docker Compose resource using `compose.coolify.yaml`. Disable automatic
-   branch deployments.
+4. Add the repository as a Docker Compose resource using `compose.coolify.yaml` (local) or
+   `compose.coolify.cloud.yaml` (cloud). Set its matching mode/provider variables. Disable automatic
+   branch deployments. Switching a populated stack requires a verified data cutover.
 5. Generate independent URL-safe secrets with `openssl rand -hex 32`. Generate the two stable
    application encryption keys with `openssl rand -base64 32`.
 6. Enter every `${NAME:?message}` variable in Coolify using `.env.example` only as a placeholder
@@ -46,6 +48,15 @@ The Compose opt-in permits plaintext transport only for authenticated `redis:637
 `minio:9000`, and `clamav:3310` on its `internal: true` network. Remote Redis/MinIO endpoints still
 require TLS. All external runtime images are digest-pinned; the custom PostgreSQL build starts from
 a pinned image and includes pgTAP required by historical migrations.
+
+### Hosted/cloud mode
+
+Create separate AgencyOS and Vaultwarden Neon-compatible databases, authenticated native TLS
+Redis, one mutable B2 runtime bucket, and a different Object-Lock-enabled B2 backup bucket. Use a
+pooled AgencyOS URL only for `DATABASE_URL`; migrations and dumps require direct TLS URLs. Map the
+four logical storage roles to non-overlapping prefixes (or separate buckets). Cloud preflight tests
+database identities, Redis, ClamAV, and write/read/delete access before backup or migration. It
+does not create provider resources.
 
 ## Protected GitHub release environment
 
@@ -77,11 +88,17 @@ reads them back, pins Coolify's source commit, starts one deployment, polls it, 
 health/security headers plus the running application's baked-in commit revision. It also tests
 Chromium PDF creation inside the built runtime image before publishing.
 
-Each deployment then fails closed through this sequence: PostgreSQL/MinIO health; idempotent
-Vaultwarden-database and MinIO-identity bootstrap; Vaultwarden health; mandatory encrypted
-pre-deploy backup; existing advisory-locked/checksum-verified migrations plus status/doctor; then
-web, worker, and gateway startup. The operations digest changes each release so Coolify recreates
-the one-shot gates. Prove that behavior with the staging Coolify version.
+Each local-mode deployment fails closed through this sequence: PostgreSQL, Redis, MinIO, and
+ClamAV health; idempotent Vaultwarden-database and MinIO-identity bootstrap; Vaultwarden health;
+mandatory encrypted pre-deploy backup; existing advisory-locked/checksum-verified migrations plus
+status/doctor; then web, worker, and gateway startup.
+
+Each cloud-mode deployment instead waits for local ClamAV, runs the cloud preflight against the
+paired Neon runtime/admin URLs, authenticated Upstash `rediss://` URL, and mutable B2 runtime
+bucket, then waits for Vaultwarden and runs the same backup and migration gates before app startup.
+There is no local PostgreSQL, Redis, or MinIO container in cloud mode. The operations digest
+changes each release so Coolify recreates the one-shot gates. Prove the selected sequence with the
+staging Coolify version.
 
 For the first Vaultwarden account only, temporarily set `VAULTWARDEN_SIGNUPS_ALLOWED=true`, create
 the owner, then immediately set it to `false` and redeploy. Keep the admin token empty unless its UI

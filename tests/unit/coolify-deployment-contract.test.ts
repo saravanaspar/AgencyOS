@@ -13,6 +13,44 @@ import {
 const root = process.cwd();
 const source = (path: string) => readFileSync(join(root, path), "utf8");
 
+function topLevelEntries(yaml: string, section: string): Map<string, string> {
+  const lines = yaml.split(/\r?\n/);
+  const sectionStart = lines.findIndex((line) => line === `${section}:`);
+  if (sectionStart < 0) throw new Error(`Missing ${section} section.`);
+  const entries = new Map<string, string>();
+  let current: string | null = null;
+  let body: string[] = [];
+  const commit = () => {
+    if (current) entries.set(current, body.join("\n"));
+  };
+  for (const line of lines.slice(sectionStart + 1)) {
+    if (/^\S/.test(line)) break;
+    const match = line.match(/^  ([a-zA-Z0-9_-]+):(?:\s.*)?$/);
+    if (match) {
+      commit();
+      current = match[1];
+      body = [];
+    } else if (current) {
+      body.push(line);
+    }
+  }
+  commit();
+  return entries;
+}
+
+function dependencies(serviceBody: string): string[] {
+  const lines = serviceBody.split(/\r?\n/);
+  const start = lines.findIndex((line) => line === "    depends_on:");
+  if (start < 0) return [];
+  const result: string[] = [];
+  for (const line of lines.slice(start + 1)) {
+    if (!line.startsWith("      ")) break;
+    const match = line.match(/^      ([a-zA-Z0-9_-]+):/);
+    if (match) result.push(match[1]);
+  }
+  return result;
+}
+
 describe("Coolify deployment contract", () => {
   it("ships the complete private persistent stack without host-published ports", () => {
     const compose = source("compose.coolify.yaml");
@@ -49,6 +87,98 @@ describe("Coolify deployment contract", () => {
     ]) {
       expect(compose).toContain(`\${AGENCYOS_VOLUME_PREFIX:-agencyos-production}-${suffix}`);
     }
+  });
+
+  it("ships a hosted-data-plane stack without local data services or volumes", () => {
+    const compose = source("compose.coolify.cloud.yaml");
+    const expectedServices = [
+      "clamav",
+      "cloud-preflight",
+      "vaultwarden",
+      "predeploy-backup",
+      "migrate",
+      "app",
+      "worker",
+      "gateway",
+      "backup",
+      "backup-maintenance",
+    ];
+    const services = topLevelEntries(compose, "services");
+    expect([...services.keys()]).toEqual(expectedServices);
+    for (const [service, body] of services) {
+      for (const dependency of dependencies(body)) {
+        expect(services.has(dependency), `${service} depends on missing ${dependency}`).toBe(true);
+        expect(["postgres", "redis", "minio", "bootstrap"]).not.toContain(dependency);
+      }
+    }
+    expect([...topLevelEntries(compose, "volumes").keys()]).toEqual([
+      "clamav-signatures",
+      "vaultwarden-data",
+      "backup-state",
+      "restic-cache",
+      "restic-repository",
+      "backup-stage",
+      "release-status",
+    ]);
+    expect(compose).not.toMatch(/^\s+ports:/m);
+    expect(compose).not.toContain("/var/run/docker.sock");
+    expect(compose).toContain("AGENCYOS_INFRA_MODE: cloud");
+    expect(compose).toContain("OBJECT_STORAGE_PROVIDER: b2");
+    expect(compose).toContain("BACKUP_KEEP_DAILY: ${BACKUP_KEEP_DAILY:-7}");
+    expect(compose).toContain("BACKUP_KEEP_WEEKLY: ${BACKUP_KEEP_WEEKLY:-4}");
+    expect(compose).toContain("BACKUP_KEEP_MONTHLY: ${BACKUP_KEEP_MONTHLY:-12}");
+    expect(compose).toContain("BACKUP_KEEP_YEARLY: ${BACKUP_KEEP_YEARLY:-1}");
+    expect(compose).toContain("BACKUP_PRUNE_ENABLED: ${BACKUP_PRUNE_ENABLED:-0}");
+  });
+
+  it("keeps every local service and persistent volume identity backward compatible", () => {
+    const compose = source("compose.coolify.yaml");
+    expect([...topLevelEntries(compose, "services").keys()]).toEqual([
+      "postgres",
+      "redis",
+      "minio",
+      "clamav",
+      "bootstrap",
+      "vaultwarden",
+      "predeploy-backup",
+      "migrate",
+      "app",
+      "worker",
+      "gateway",
+      "backup",
+      "backup-maintenance",
+    ]);
+    expect([...topLevelEntries(compose, "volumes").keys()]).toEqual([
+      "postgres-data",
+      "redis-data",
+      "minio-data",
+      "clamav-signatures",
+      "vaultwarden-data",
+      "backup-state",
+      "restic-cache",
+      "restic-repository",
+      "backup-stage",
+      "release-status",
+    ]);
+    for (const [service, body] of topLevelEntries(compose, "services")) {
+      for (const dependency of dependencies(body)) {
+        expect(
+          topLevelEntries(compose, "services").has(dependency),
+          `${service} depends on missing ${dependency}`,
+        ).toBe(true);
+      }
+    }
+    expect(compose).toContain("BACKUP_KEEP_DAILY: ${BACKUP_KEEP_DAILY:-7}");
+    expect(compose).toContain("BACKUP_KEEP_WEEKLY: ${BACKUP_KEEP_WEEKLY:-4}");
+    expect(compose).toContain("BACKUP_KEEP_MONTHLY: ${BACKUP_KEEP_MONTHLY:-12}");
+    expect(compose).toContain("BACKUP_KEEP_YEARLY: ${BACKUP_KEEP_YEARLY:-1}");
+    expect(compose).toContain("BACKUP_PRUNE_ENABLED: ${BACKUP_PRUNE_ENABLED:-0}");
+  });
+
+  it("keeps the legacy three-service production manifest on explicit local defaults", () => {
+    const compose = source("compose.production.yaml");
+    expect(compose).toContain("AGENCYOS_INFRA_MODE: ${AGENCYOS_INFRA_MODE:-local}");
+    expect(compose).toContain("OBJECT_STORAGE_PROVIDER: ${OBJECT_STORAGE_PROVIDER:-minio}");
   });
 
   it("requires immutable release images and pins all bundled external images", () => {

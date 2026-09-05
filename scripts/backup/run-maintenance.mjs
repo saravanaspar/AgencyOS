@@ -8,10 +8,10 @@ import { localRepository } from "./repository.mjs";
 import { atomicPrivateJson, checkedCommand, redactDiagnostic, withFlock } from "./process.mjs";
 
 function retention(environment) {
-  const daily = boundedInteger("BACKUP_KEEP_DAILY", 35, 35, 3650, environment);
-  const weekly = boundedInteger("BACKUP_KEEP_WEEKLY", 8, 8, 520, environment);
-  const monthly = boundedInteger("BACKUP_KEEP_MONTHLY", 12, 12, 240, environment);
-  const yearly = boundedInteger("BACKUP_KEEP_YEARLY", 3, 1, 100, environment);
+  const daily = boundedInteger("BACKUP_KEEP_DAILY", 7, 1, 3650, environment);
+  const weekly = boundedInteger("BACKUP_KEEP_WEEKLY", 4, 1, 520, environment);
+  const monthly = boundedInteger("BACKUP_KEEP_MONTHLY", 12, 1, 240, environment);
+  const yearly = boundedInteger("BACKUP_KEEP_YEARLY", 1, 1, 100, environment);
   return { daily, weekly, monthly, yearly };
 }
 
@@ -38,8 +38,6 @@ export async function runMaintenance({ environment = process.env, mode = "weekly
         command: "restic",
         args: [
           "forget",
-          "--keep-within",
-          "35d",
           "--group-by",
           "host",
           "--keep-daily",

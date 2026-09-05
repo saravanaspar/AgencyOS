@@ -2,7 +2,11 @@ import "server-only";
 
 import * as Minio from "minio";
 
-import { getMinioEnv } from "@/lib/validation/env";
+import {
+  objectStorageConfiguration,
+  resolveObjectStorageLocation,
+  type ObjectStorageConfiguration,
+} from "@/integrations/object-storage/config.mjs";
 
 export const MINIO_QUARANTINE_BUCKET = "private-file-quarantine";
 export const MINIO_PRIVATE_BUCKET = "private-files";
@@ -76,9 +80,11 @@ export function parseMinioEndpoint(endpoint: string): {
 }
 
 export function getMinioConfiguration(): MinioConfiguration {
-  const environment = getMinioEnv();
+  const environment = objectStorageConfiguration();
   return {
-    ...parseMinioEndpoint(environment.endpoint),
+    endPoint: environment.hostname,
+    port: environment.port,
+    useSSL: environment.useSSL,
     accessKey: environment.accessKey,
     secretKey: environment.secretKey,
     region: environment.region || DEFAULT_REGION,
@@ -118,10 +124,21 @@ export function isMinioNotFoundError(error: unknown): boolean {
 export async function putMinioObject(input: PutMinioObjectInput): Promise<void> {
   assertMinioObjectLocation(input.bucket, input.objectName);
   if (!Buffer.isBuffer(input.body)) throw new Error("minio-object-body-invalid");
-  await getMinioClient().putObject(input.bucket, input.objectName, input.body, input.body.length, {
-    "Content-Type": input.contentType,
-    "Cache-Control": input.cacheControl ?? "private, no-store",
-  });
+  const location = resolveObjectStorageLocation(
+    objectStorageConfiguration() as ObjectStorageConfiguration,
+    input.bucket,
+    input.objectName,
+  );
+  await getMinioClient().putObject(
+    location.physicalBucket,
+    location.physicalKey,
+    input.body,
+    input.body.length,
+    {
+      "Content-Type": input.contentType,
+      "Cache-Control": input.cacheControl ?? "private, no-store",
+    },
+  );
 }
 
 export async function readMinioObject(
@@ -139,7 +156,12 @@ export async function readMinioObject(
   const chunks: Buffer[] = [];
   let size = 0;
   try {
-    stream = await getMinioClient().getObject(bucket, objectName);
+    const location = resolveObjectStorageLocation(
+      objectStorageConfiguration() as ObjectStorageConfiguration,
+      bucket,
+      objectName,
+    );
+    stream = await getMinioClient().getObject(location.physicalBucket, location.physicalKey);
     for await (const chunk of stream) {
       const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
       size += buffer.length;
@@ -159,7 +181,12 @@ export async function readMinioObject(
 export async function removeMinioObject(bucket: string, objectName: string): Promise<void> {
   assertMinioObjectLocation(bucket, objectName);
   try {
-    await getMinioClient().removeObject(bucket, objectName);
+    const location = resolveObjectStorageLocation(
+      objectStorageConfiguration() as ObjectStorageConfiguration,
+      bucket,
+      objectName,
+    );
+    await getMinioClient().removeObject(location.physicalBucket, location.physicalKey);
   } catch (error) {
     if (!isMinioNotFoundError(error)) throw error;
   }
@@ -168,7 +195,12 @@ export async function removeMinioObject(bucket: string, objectName: string): Pro
 export async function minioObjectExists(bucket: string, objectName: string): Promise<boolean> {
   assertMinioObjectLocation(bucket, objectName);
   try {
-    await getMinioClient().statObject(bucket, objectName);
+    const location = resolveObjectStorageLocation(
+      objectStorageConfiguration() as ObjectStorageConfiguration,
+      bucket,
+      objectName,
+    );
+    await getMinioClient().statObject(location.physicalBucket, location.physicalKey);
     return true;
   } catch (error) {
     if (isMinioNotFoundError(error)) return false;

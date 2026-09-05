@@ -1,280 +1,86 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-05T04:00:37.440847+00:00",
-  "baseArchive": "AgencyOS.zip",
-  "baseArchiveSha256": "67004930e5da7c595d126a26879bde287caf5981b8a038f78fe14a8fd4ed1429",
-  "files": [
-    {
-      "path": ".containerignore",
-      "operation": "replace",
-      "sha256": "65d2586defe9539bdfee1858a172ba61c0671e46347508ffc1d4e7479673969d"
-    },
-    {
-      "path": ".dockerignore",
-      "operation": "add",
-      "sha256": "6708ca1327651ea58ebea16fbbe105e713d3a1c5bfb436cd163e7df0bb10e150"
-    },
-    {
-      "path": ".env.example",
-      "operation": "replace",
-      "sha256": "20bbc8908289ba259695304f80cec4342790ee22ca290e00954d43d611df58dc"
-    },
-    {
-      "path": ".github/workflows/release.yml",
-      "operation": "replace",
-      "sha256": "b65ecdd4a8551d238d489dcc3f9ead80d916c1cb35f807a1613e71d36d929c1f"
-    },
-    {
-      "path": ".gitignore",
-      "operation": "replace",
-      "sha256": "a6d548b06010bf535555b8bb4fc463d734505edc0e8c38df5809fe4b4e6eb541"
-    },
-    {
-      "path": "Containerfile",
-      "operation": "replace",
-      "sha256": "9914bb81011ec78e009aff5a70f2de8f31c410ac9ed59d8b33c926c57ef3286e"
-    },
-    {
-      "path": "Containerfile.operations",
-      "operation": "add",
-      "sha256": "7820f9ed7ddcd7516b479b99e6489d5af491b6cc10659a841596a4a036b71a94"
-    },
-    {
-      "path": "README.md",
-      "operation": "replace",
-      "sha256": "00101f99b724204f52958dd1ce5474f84f5f104cf731f2895022b63822cf12a2"
-    },
-    {
-      "path": "TEST.md",
-      "operation": "replace",
-      "sha256": "98ecf5bc82aa69fa8545abe7a755e92135f1c81819f781d9a88e474337a82374"
-    },
-    {
-      "path": "compose.coolify.yaml",
-      "operation": "add",
-      "sha256": "da6023cb421991485686e62f49cea185e70a6e81dd3d97ece119510a07e06f72"
-    },
-    {
-      "path": "deploy/README.md",
-      "operation": "replace",
-      "sha256": "c68ddbf08240b1cdcd56f59aa03f19fd801604d30dcf0c9b4f489eb2c7c6c929"
-    },
-    {
-      "path": "deploy/minio/agencyos-app-policy.json",
-      "operation": "add",
-      "sha256": "1e3ddac8e084adee4c74a46f2aef8e059e7cb4f29095b32b5d74e1ff5ac8326c"
-    },
-    {
-      "path": "deploy/redis/start-redis.sh",
-      "operation": "add",
-      "sha256": "2aabc1769f3fbca6ef58583863c0552ef3b474269814a52fed54b24535b9b1fa"
-    },
-    {
-      "path": "docs/ARCHITECTURE.md",
-      "operation": "replace",
-      "sha256": "a5d510694c9c439d65bb841011d66e7385d951bdc67860cea8f4152e1c2d3d67"
-    },
-    {
-      "path": "docs/BACKUP_RECOVERY.md",
-      "operation": "add",
-      "sha256": "5acf84f8104ba20d998fea2aa6c06d771a3cba4aa893eb13f202ab84e497039d"
-    },
-    {
-      "path": "docs/COOLIFY.md",
-      "operation": "add",
-      "sha256": "e167c7509e320a66993b0db8b7171f668c2485e2788d21c8568d16ceba529fd6"
-    },
-    {
-      "path": "docs/OPERATIONS.md",
-      "operation": "replace",
-      "sha256": "f022a89a018011bfc21dc24d9aacdf7671ef036f424624d31591bb1d75863c1f"
-    },
-    {
-      "path": "docs/SECURITY.md",
-      "operation": "replace",
-      "sha256": "2cb1683fb964afb28a78054c903f71b4d71d63d3796bf93edae575c8fc77cfae"
-    },
-    {
-      "path": "docs/features/coolify-production/01-requirements.md",
-      "operation": "add",
-      "sha256": "59db9185bf096a22a09e413af20968d1c2e4ee2f8c03f7f4b8190df23dab7ce9"
-    },
-    {
-      "path": "docs/features/coolify-production/02-codebase-analysis.md",
-      "operation": "add",
-      "sha256": "738df94094022d716bbaadff765b222cd7556cd91e7b333ed0ea2538385e78d7"
-    },
-    {
-      "path": "docs/features/coolify-production/03-architecture.md",
-      "operation": "add",
-      "sha256": "52ecc2b7b5c8ef2760a4880323dd20698e94cba3229c5d6ef6a446fb3d7fa2f4"
-    },
-    {
-      "path": "docs/features/coolify-production/04-implementation.md",
-      "operation": "add",
-      "sha256": "ea53983c0c6a637cced0fc72ccdb5f879b3d788f42803f7a610270a4e6d1463f"
-    },
-    {
-      "path": "docs/features/coolify-production/05-quality.md",
-      "operation": "add",
-      "sha256": "6b0810f0ada180ba84cd7f738d6a431923e8239c780fd723bc9bf4f489f3b80c"
-    },
-    {
-      "path": "docs/features/coolify-production/06-summary.md",
-      "operation": "add",
-      "sha256": "2c9cd45f9d32a5b33b5dba5a040a8b5549d9e5f1c56c5a3ddb6182bfe6b71a85"
-    },
-    {
-      "path": "docs/features/coolify-production/state.json",
-      "operation": "add",
-      "sha256": "18356b2ffb1a55e6a422c3942dbf3c333dacf9d21edc201df451b9b6c8e94cf4"
-    },
-    {
-      "path": "package.json",
-      "operation": "replace",
-      "sha256": "a1969831c0b503d2d77d424bd91e499434216031d1c0e1481797d1044af05a29"
-    },
-    {
-      "path": "scripts/backup/config.d.mts",
-      "operation": "add",
-      "sha256": "435b3a605fd8236d0beea44b21e75f99ccf0fe772a465b61845ed8a5d124bbf8"
-    },
-    {
-      "path": "scripts/backup/config.mjs",
-      "operation": "add",
-      "sha256": "37666787ad00aef37540955937674b8810ad41cad23e5ed8b96fcc400818e68d"
-    },
-    {
-      "path": "scripts/backup/health.d.mts",
-      "operation": "add",
-      "sha256": "3fd8165e0718215f6e03740b5f0971173cca77d7ed6c111030fca82637aa3214"
-    },
-    {
-      "path": "scripts/backup/health.mjs",
-      "operation": "add",
-      "sha256": "7fa48936437d5cab7421f5a21432b2d1dd2718d46b225ab8b72aaaa19e64a40d"
-    },
-    {
-      "path": "scripts/backup/process.d.mts",
-      "operation": "add",
-      "sha256": "af21b86329fced3fe03540cd0a9166593f8714af0cd10df3c3217387bcb92e3b"
-    },
-    {
-      "path": "scripts/backup/process.mjs",
-      "operation": "add",
-      "sha256": "49a779ad1848ca8eee157e35960fff076eee7b6b6814a22e61f394222c82a50d"
-    },
-    {
-      "path": "scripts/backup/repository.d.mts",
-      "operation": "add",
-      "sha256": "12c13c159c88231af2c560d9aa0d8dceaf16891d10e83100de7aaba3b242496e"
-    },
-    {
-      "path": "scripts/backup/repository.mjs",
-      "operation": "add",
-      "sha256": "a8993131598c335d289edf46953d7b726d14f9cf656c84c635c79a556d321293"
-    },
-    {
-      "path": "scripts/backup/restore-components.mjs",
-      "operation": "add",
-      "sha256": "2e56349afdda52c55aefad38a80a2367f518b10be62ed710d472a3fdcc41d6b3"
-    },
-    {
-      "path": "scripts/backup/restore-prepare.mjs",
-      "operation": "add",
-      "sha256": "511b765d0a30446290c35f6618e577a2f3447410ab960d1747a9502c3477b436"
-    },
-    {
-      "path": "scripts/backup/run-backup.mjs",
-      "operation": "add",
-      "sha256": "1960d7735b348682c4015ca5ad1373c02419e7337e72fd537f3c9c67690183dd"
-    },
-    {
-      "path": "scripts/backup/run-maintenance.mjs",
-      "operation": "add",
-      "sha256": "0959b166b0a688b30c0781662c878be8ad9dd10835759f56119572e498b02450"
-    },
-    {
-      "path": "scripts/backup/scheduler.d.mts",
-      "operation": "add",
-      "sha256": "07c4fa04e0ed8fc0af5941b6b1abb32203ca2e38d3103b74e2a5362a75b5e1b7"
-    },
-    {
-      "path": "scripts/backup/scheduler.mjs",
-      "operation": "add",
-      "sha256": "838c4e53bc02832f1d4b082e8436be037a87e055f81b1630e671e09487e6fc34"
-    },
-    {
-      "path": "scripts/operations/bootstrap-production.mjs",
-      "operation": "add",
-      "sha256": "09d7a674241c2ca0c5675b45f77f3e8b1d19d99c3359279fafc3221a36184fbd"
-    },
-    {
-      "path": "scripts/operations/release-gate.mjs",
-      "operation": "add",
-      "sha256": "7b5bd23cdfad661a81fa2b469feb068ebb9174b0d56104758a43fe17063c2026"
-    },
-    {
-      "path": "scripts/release/deploy-coolify.d.mts",
-      "operation": "add",
-      "sha256": "8e74a3bd3204b2877b5a13de32bee5e4a500233fb6812ae83d4ec2970feb5134"
-    },
-    {
-      "path": "scripts/release/deploy-coolify.mjs",
-      "operation": "add",
-      "sha256": "96f04e15c85f7d0737c434181bb39e634d83b8f004a73fa58e47f3033bb91630"
-    },
-    {
-      "path": "scripts/release/production-release.mjs",
-      "operation": "add",
-      "sha256": "f55d3b8b2ebc51e587fad1fc9c4c0c99ece01cdb0fc2100e013d28dd98b4b003"
-    },
-    {
-      "path": "scripts/security/verify-supply-chain.mjs",
-      "operation": "replace",
-      "sha256": "18c1d100e99c204b52887ee1b6669e0330457df672deca843ed4dd1ea09ffd8f"
-    },
-    {
-      "path": "src/app/api/health/live/route.ts",
-      "operation": "replace",
-      "sha256": "f1694e81609a9a6c9f1301df05ae94f0fbdc5728300d2cd6d411bde07afe3349"
-    },
-    {
-      "path": "src/lib/validation/env.ts",
-      "operation": "replace",
-      "sha256": "66fdd725c53da5f8bba48126795428fb12741ec3c8a9986d19f617b21b80eb2b"
-    },
-    {
-      "path": "src/modules/private-files/server/scan-config.ts",
-      "operation": "replace",
-      "sha256": "5876a4c59b849712e7d369f0a7e7f16561b9678d90acfa42c7a7e62ac146ad60"
-    },
-    {
-      "path": "tests/unit/backup-operations-contract.test.ts",
-      "operation": "add",
-      "sha256": "17671a5ddeb556ba7eb346932cab9099a994110219b77cfe16b2e2cd9bcb27ee"
-    },
-    {
-      "path": "tests/unit/coolify-deployment-contract.test.ts",
-      "operation": "add",
-      "sha256": "cd46c5e3149a9801a4011c50e9e7ecbe7ec85b9e7ab441bd91a603f3f1342f6f"
-    },
-    {
-      "path": "tests/unit/env-validation.test.ts",
-      "operation": "replace",
-      "sha256": "556634c944e69e106ef04077576882ea39fef1cb52720041e93db95c7fe3a3bc"
-    },
-    {
-      "path": "tests/unit/hardening-20260822-contract.test.ts",
-      "operation": "replace",
-      "sha256": "fa8a9c9189942fd7fcbe3545f210306f7edbf0fddd565664ff2bfdb58c606e3e"
-    },
-    {
-      "path": "tests/unit/immutable-repository.test.ts",
-      "operation": "add",
-      "sha256": "8735cc0bca8ab6f1b09b9146a2512a66dded6664ae9e4505ef8d2338c0a21629"
-    }
+  "generatedAt": "2026-09-05T14:42:07.297Z",
+  "base": "original AgencyOS project uploaded in this conversation",
+  "changedOrAddedCount": 76,
+  "deletedCount": 0,
+  "changedOrAdded": [
+    ".containerignore",
+    ".dockerignore",
+    ".env.example",
+    ".github/workflows/release.yml",
+    ".gitignore",
+    "Containerfile",
+    "Containerfile.operations",
+    "README.md",
+    "TEST.md",
+    "compose.coolify.cloud.yaml",
+    "compose.coolify.yaml",
+    "compose.production.yaml",
+    "deploy/README.md",
+    "deploy/minio/agencyos-app-policy.json",
+    "deploy/redis/start-redis.sh",
+    "docs/ARCHITECTURE.md",
+    "docs/BACKUP_RECOVERY.md",
+    "docs/COOLIFY.md",
+    "docs/OPERATIONS.md",
+    "docs/POSTGRESQL_CUTOVER.md",
+    "docs/SECURITY.md",
+    "docs/features/coolify-production/01-requirements.md",
+    "docs/features/coolify-production/02-codebase-analysis.md",
+    "docs/features/coolify-production/03-architecture.md",
+    "docs/features/coolify-production/04-implementation.md",
+    "docs/features/coolify-production/05-quality.md",
+    "docs/features/coolify-production/06-summary.md",
+    "docs/features/coolify-production/state.json",
+    "docs/features/selectable-local-cloud-infrastructure/01-requirements.md",
+    "docs/features/selectable-local-cloud-infrastructure/02-codebase-analysis.md",
+    "docs/features/selectable-local-cloud-infrastructure/03-architecture.md",
+    "docs/features/selectable-local-cloud-infrastructure/04-implementation.md",
+    "docs/features/selectable-local-cloud-infrastructure/05-quality.md",
+    "docs/features/selectable-local-cloud-infrastructure/06-summary.md",
+    "docs/features/selectable-local-cloud-infrastructure/state.json",
+    "package.json",
+    "scripts/backup/config.d.mts",
+    "scripts/backup/config.mjs",
+    "scripts/backup/health.d.mts",
+    "scripts/backup/health.mjs",
+    "scripts/backup/process.d.mts",
+    "scripts/backup/process.mjs",
+    "scripts/backup/repository.d.mts",
+    "scripts/backup/repository.mjs",
+    "scripts/backup/restore-components.mjs",
+    "scripts/backup/restore-prepare.d.mts",
+    "scripts/backup/restore-prepare.mjs",
+    "scripts/backup/run-backup.d.mts",
+    "scripts/backup/run-backup.mjs",
+    "scripts/backup/run-maintenance.d.mts",
+    "scripts/backup/run-maintenance.mjs",
+    "scripts/backup/scheduler.d.mts",
+    "scripts/backup/scheduler.mjs",
+    "scripts/operations/bootstrap-production.mjs",
+    "scripts/operations/release-gate.mjs",
+    "scripts/operations/validate-cloud-production.mjs",
+    "scripts/release/deploy-coolify.d.mts",
+    "scripts/release/deploy-coolify.mjs",
+    "scripts/release/production-release.mjs",
+    "scripts/security/verify-supply-chain.mjs",
+    "scripts/storage/check-object-storage.mjs",
+    "src/app/api/health/live/route.ts",
+    "src/integrations/minio/object-storage.ts",
+    "src/integrations/object-storage/config.d.mts",
+    "src/integrations/object-storage/config.mjs",
+    "src/lib/server/dependency-health.ts",
+    "src/lib/validation/env.ts",
+    "src/modules/private-files/server/scan-config.ts",
+    "tests/unit/backup-maintenance-retention.test.ts",
+    "tests/unit/backup-operations-contract.test.ts",
+    "tests/unit/backup-restore-schema.test.ts",
+    "tests/unit/coolify-deployment-contract.test.ts",
+    "tests/unit/env-validation.test.ts",
+    "tests/unit/hardening-20260822-contract.test.ts",
+    "tests/unit/immutable-repository.test.ts",
+    "tests/unit/minio-storage.test.ts"
   ],
-  "deletedFiles": [],
-  "productionApproved": false
+  "deleted": []
 }

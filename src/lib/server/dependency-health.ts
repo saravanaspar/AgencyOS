@@ -3,6 +3,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 
 import { getMinioClient } from "@/integrations/minio/object-storage";
+import { objectStorageConfiguration } from "@/integrations/object-storage/config.mjs";
 import { getRedisClient } from "@/integrations/redis/client";
 import { scanBufferWithClamav } from "@/integrations/clamav/client";
 import { getDatabaseClient } from "@/integrations/postgres/database";
@@ -49,9 +50,17 @@ export async function checkRedis(): Promise<DependencyCheck> {
 }
 
 export function checkMinio(): Promise<DependencyCheck> {
-  if (!process.env.MINIO_ENDPOINT?.trim()) return Promise.resolve({ status: "not_configured" });
+  if (!process.env.MINIO_ENDPOINT?.trim() && !process.env.OBJECT_STORAGE_ENDPOINT?.trim()) {
+    return Promise.resolve({ status: "not_configured" });
+  }
   return timedCheck(async () => {
-    await getMinioClient().listBuckets();
+    const configuration = objectStorageConfiguration();
+    const buckets = [...new Set(configuration.locations.map((location) => location.bucket))];
+    for (const bucket of buckets) {
+      if (!(await getMinioClient().bucketExists(bucket))) {
+        throw new Error("object_storage_bucket_unavailable");
+      }
+    }
   });
 }
 

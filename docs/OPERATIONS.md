@@ -6,7 +6,9 @@ daily health/status, Object Lock limitations, and isolated recovery.
 
 ## Runtime topology
 
-AgencyOS runs as a web process plus a worker process against ordinary PostgreSQL and MinIO. Redis is optional locally. In production, Redis, MinIO, and the private-file scanner are required by default; an operator must explicitly set `REDIS_REQUIRED=0`, `MINIO_REQUIRED=0`, or `PRIVATE_FILE_SCANNER_REQUIRED=0` to declare an intentionally degraded deployment. ClamAV or an authenticated HTTPS scanner must be healthy before quarantined private files can be released.
+AgencyOS runs as a web process plus a worker process against PostgreSQL and S3-compatible private
+storage. Production can use bundled local dependencies or hosted PostgreSQL, native TLS Redis, and
+B2 through the two explicit Coolify manifests. The private-file scanner remains required.
 
 PostgreSQL can be Neon, local/self-hosted, or another compatible provider. No Supabase service or CLI is required.
 

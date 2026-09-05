@@ -2,6 +2,9 @@ x-agencyos-service: &agencyos-service
   image: ${AGENCYOS_IMAGE:?Set AGENCYOS_IMAGE to an immutable application digest (name@sha256:...)}
   env_file:
     - ${AGENCYOS_ENV_FILE:-.env.production}
+  environment: &agencyos-environment
+    AGENCYOS_INFRA_MODE: ${AGENCYOS_INFRA_MODE:-local}
+    OBJECT_STORAGE_PROVIDER: ${OBJECT_STORAGE_PROVIDER:-minio}
   restart: unless-stopped
   read_only: true
   tmpfs:
@@ -36,6 +39,7 @@ services:
     <<: *agencyos-service
     command: ["node", "scripts/workers/run.mjs"]
     environment:
+      <<: *agencyos-environment
       INTERNAL_APP_URL: http://app:3000
       WORKER_MAX_CONCURRENCY: ${WORKER_MAX_CONCURRENCY:-3}
     depends_on:

@@ -32,7 +32,8 @@ fail the job instead of being treated as an empty bucket.
 ## Data and consistency
 
 - AgencyOS and Vaultwarden use separate uncompressed custom `pg_dump` files with hash checks.
-- Current objects in the four private MinIO buckets are captured via the S3 API.
+- Current objects in the four logical storage locations are captured via the S3 API. Cloud mode
+  uses the mapped B2 prefixes and a separate read-only source key.
 - Vaultwarden files, keys and configuration are copied from its data volume. Live SQLite is
   refused; the bundled vault uses PostgreSQL.
 - The encrypted manifest records capture boundaries, release ID and dump hashes.
@@ -58,8 +59,8 @@ manifest timestamps and dump metadata still change. Some new data may upload eve
 changes; `--skip-if-unchanged` cannot guarantee no new snapshot.
 
 Weekly maintenance checks B2; the first weekly run each month reads a 10% sample. Local snapshot
-selection retains at least 35 days and 35 daily/8 weekly/12 monthly/1 yearly snapshots (default
-3 yearly). **Remote snapshots and packs are retained indefinitely.** Automatic remote pruning is
+selection uses 7 daily, 4 weekly, 12 monthly, and 1 yearly selections; one snapshot may satisfy
+multiple tiers. **Remote snapshots and packs are retained indefinitely.** Automatic remote pruning is
 disabled because those snapshots can still reference old packs; blindly deleting packs would
 corrupt recovery. `BACKUP_PRUNE_ENABLED=1` fails explicitly. Reducing long-term remote storage
 requires a separately validated off-host repository rotation or garbage collection procedure.
@@ -90,7 +91,8 @@ require your credentials and have not run in the coding environment.
 ## Isolated recovery
 
 1. Create a separate PostgreSQL cluster with pgcrypto/pgTAP packages and two empty databases named
-   with `recovery`. Use that cluster's administrative account. Create a separate MinIO server.
+   with `recovery`. Use that cluster's administrative account. Create a separate MinIO server or
+   provider-created B2 recovery bucket/prefixes.
 2. Stop recovery Vaultwarden and prepare an empty recovery data directory.
 3. Run the operations image with a recovery volume. Set `NODE_ENV=development`,
    `AGENCYOS_RESTORE_DRILL=1`, an exact `AGENCYOS_RESTORE_SNAPSHOT`, `AGENCYOS_RECOVERY_ID`, and

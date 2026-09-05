@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+import {
+  infrastructureMode,
+  objectStorageConfiguration,
+  type ObjectStorageConfiguration,
+} from "@/integrations/object-storage/config.mjs";
+
 const applicationEnvSchema = z.object({
   APP_URL: z.url(),
   INTERNAL_APP_URL: z.url().optional(),
@@ -50,6 +56,8 @@ export interface MinioEnv {
 export interface RedisEnv {
   redisUrl: string;
 }
+
+export type ObjectStorageEnv = ObjectStorageConfiguration;
 
 export interface AuditPipelineAlertEnv {
   webhookUrl: string;
@@ -183,6 +191,10 @@ export function getMinioEnv(): MinioEnv {
   };
 }
 
+export function getObjectStorageEnv(): ObjectStorageEnv {
+  return objectStorageConfiguration();
+}
+
 export function getRedisEnv(): RedisEnv | null {
   const value = process.env.REDIS_URL?.trim();
   if (!value) return null;
@@ -269,6 +281,15 @@ export function validateProductionEnvironment(): void {
   validateOptionalCrmOAuthEnvironment();
 
   const trustPrivateServiceNetwork = envFlag("AGENCYOS_TRUST_PRIVATE_SERVICE_NETWORK", false);
+  const mode = infrastructureMode();
+
+  const databaseUrl = new URL(database.databaseUrl);
+  if (mode === "cloud") {
+    const sslMode = databaseUrl.searchParams.get("sslmode");
+    if (!sslMode || !["require", "verify-ca", "verify-full"].includes(sslMode)) {
+      throw new Error("DATABASE_URL must require TLS in cloud mode.");
+    }
+  }
 
   if (policy.redisRequired) {
     const redis = getRedisEnv();
@@ -283,19 +304,30 @@ export function validateProductionEnvironment(): void {
       parsed.pathname === "/0" &&
       !parsed.search &&
       !parsed.hash;
+    const authenticatedCloudRedis =
+      mode === "cloud" &&
+      parsed?.protocol === "rediss:" &&
+      Boolean(parsed.hostname) &&
+      Boolean(parsed.username) &&
+      Boolean(parsed.password) &&
+      !parsed.hash;
+    if (mode === "cloud" && !authenticatedCloudRedis) {
+      throw new Error("Cloud REDIS_URL must be an authenticated native rediss:// URL.");
+    }
     if (!redis?.redisUrl.startsWith("rediss://") && !privateRedis) {
       throw new Error("REDIS_URL must use rediss:// when Redis is required in production.");
     }
   }
 
   if (policy.minioRequired) {
-    const minio = getMinioEnv();
+    const minio = mode === "local" ? getMinioEnv() : null;
+    const storage = getObjectStorageEnv();
     const privateMinio =
       trustPrivateServiceNetwork &&
-      minio.endpoint === "http://minio:9000" &&
+      minio?.endpoint === "http://minio:9000" &&
       minio.secretKey.length >= 32 &&
       minio.accessKey.toLowerCase() !== "minioadmin";
-    if (!minio.endpoint.startsWith("https://") && !privateMinio) {
+    if (!storage.endpoint.startsWith("https://") && !privateMinio) {
       throw new Error("MINIO_ENDPOINT must use HTTPS when MinIO is required in production.");
     }
   }

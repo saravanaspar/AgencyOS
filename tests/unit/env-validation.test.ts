@@ -5,6 +5,7 @@ import {
   getAuditPipelineAlertEnv,
   getDatabaseEnv,
   getMinioEnv,
+  getObjectStorageEnv,
   getRedisEnv,
   validateProductionEnvironment,
 } from "@/lib/validation/env";
@@ -111,6 +112,8 @@ describe("environment validation", () => {
 
   function stubProductionEnvironment() {
     vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("AGENCYOS_INFRA_MODE", "local");
+    vi.stubEnv("OBJECT_STORAGE_PROVIDER", "minio");
     vi.stubEnv("APP_URL", "https://agency.example.test");
     vi.stubEnv("DATABASE_URL", "postgresql://agency:password@postgres:5432/agencyos");
     vi.stubEnv("INTERNAL_WORKER_SECRET", "w".repeat(32));
@@ -148,5 +151,85 @@ describe("environment validation", () => {
 
     vi.stubEnv("REDIS_URL", `rediss://default:${"r".repeat(32)}@redis.example.test:6380/0`);
     expect(() => validateProductionEnvironment()).toThrow("MINIO_ENDPOINT must use HTTPS");
+  });
+
+  it("accepts strict cloud runtime dependencies and rejects unauthenticated TLS Redis", () => {
+    stubProductionEnvironment();
+    vi.stubEnv("AGENCYOS_INFRA_MODE", "cloud");
+    vi.stubEnv("OBJECT_STORAGE_PROVIDER", "b2");
+    vi.stubEnv("MINIO_ENDPOINT", "");
+    vi.stubEnv("MINIO_ACCESS_KEY", "");
+    vi.stubEnv("MINIO_SECRET_KEY", "");
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://agency:password@ep-test-pooler.us-east-2.aws.neon.tech/agencyos?sslmode=require",
+    );
+    vi.stubEnv("REDIS_URL", "rediss://default:token@redis.example.test:6380");
+    vi.stubEnv("OBJECT_STORAGE_ENDPOINT", "https://s3.us-west-004.backblazeb2.com");
+    vi.stubEnv("OBJECT_STORAGE_REGION", "us-west-004");
+    vi.stubEnv("OBJECT_STORAGE_ACCESS_KEY_ID", "runtime-key");
+    vi.stubEnv("OBJECT_STORAGE_SECRET_ACCESS_KEY", "runtime-secret");
+    for (const [suffix, prefix] of [
+      ["QUARANTINE", "private-file-quarantine"],
+      ["PRIVATE_FILES", "private-files"],
+      ["PROJECT_ATTACHMENTS", "project-attachments"],
+      ["DOCUMENT_TEMPLATES", "document-templates"],
+    ]) {
+      vi.stubEnv(`OBJECT_STORAGE_${suffix}_BUCKET`, "agencyos-runtime");
+      vi.stubEnv(`OBJECT_STORAGE_${suffix}_PREFIX`, prefix);
+    }
+    vi.stubEnv("PRIVATE_FILE_SCANNER_URL", "clamav://clamav:3310");
+    vi.stubEnv("AGENCYOS_TRUST_PRIVATE_SERVICE_NETWORK", "1");
+    expect(getObjectStorageEnv().provider).toBe("b2");
+    expect(() => validateProductionEnvironment()).not.toThrow();
+
+    vi.stubEnv("REDIS_URL", "rediss://redis.example.test:6380");
+    expect(() => validateProductionEnvironment()).toThrow("authenticated native rediss://");
+
+    vi.stubEnv("REDIS_URL", "https://redis.example.test");
+    expect(() => validateProductionEnvironment()).toThrow("Invalid Redis environment");
+
+    vi.stubEnv("REDIS_URL", "rediss://default:token@redis.example.test:6380");
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://agency:password@ep-test-pooler.us-east-2.aws.neon.tech/agencyos?sslmode=disable",
+    );
+    expect(() => validateProductionEnvironment()).toThrow(
+      "DATABASE_URL must require TLS in cloud mode",
+    );
+  });
+
+  it("requires an explicit production mode and rejects local storage variables in cloud mode", () => {
+    stubProductionEnvironment();
+    vi.stubEnv("AGENCYOS_INFRA_MODE", "");
+    vi.stubEnv("AGENCYOS_TRUST_PRIVATE_SERVICE_NETWORK", "1");
+    vi.stubEnv("REDIS_URL", `redis://default:${"r".repeat(32)}@redis:6379/0`);
+    vi.stubEnv("MINIO_ENDPOINT", "http://minio:9000");
+    vi.stubEnv("PRIVATE_FILE_SCANNER_URL", "clamav://clamav:3310");
+    expect(() => validateProductionEnvironment()).toThrow(
+      "AGENCYOS_INFRA_MODE is required in production",
+    );
+
+    vi.stubEnv("AGENCYOS_INFRA_MODE", "cloud");
+    vi.stubEnv("OBJECT_STORAGE_PROVIDER", "b2");
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://agency:password@ep-test-pooler.us-east-2.aws.neon.tech/agencyos?sslmode=require",
+    );
+    vi.stubEnv("REDIS_URL", "rediss://default:token@redis.example.test:6380");
+    vi.stubEnv("OBJECT_STORAGE_ENDPOINT", "https://s3.us-west-004.backblazeb2.com");
+    vi.stubEnv("OBJECT_STORAGE_REGION", "us-west-004");
+    vi.stubEnv("OBJECT_STORAGE_ACCESS_KEY_ID", "runtime-key");
+    vi.stubEnv("OBJECT_STORAGE_SECRET_ACCESS_KEY", "runtime-secret");
+    for (const [suffix, prefix] of [
+      ["QUARANTINE", "private-file-quarantine"],
+      ["PRIVATE_FILES", "private-files"],
+      ["PROJECT_ATTACHMENTS", "project-attachments"],
+      ["DOCUMENT_TEMPLATES", "document-templates"],
+    ]) {
+      vi.stubEnv(`OBJECT_STORAGE_${suffix}_BUCKET`, "agencyos-runtime");
+      vi.stubEnv(`OBJECT_STORAGE_${suffix}_PREFIX`, prefix);
+    }
+    expect(() => validateProductionEnvironment()).toThrow("not allowed in cloud mode");
   });
 });

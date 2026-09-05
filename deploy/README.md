@@ -4,6 +4,9 @@ For the complete persistent Coolify topology, automatic migration gate, two-imag
 and backups, use [`docs/COOLIFY.md`](../docs/COOLIFY.md). The Podman flow below remains useful for
 release-candidate verification but is not the complete stateful production stack.
 
+Use `compose.coolify.yaml` for bundled local PostgreSQL/Redis/MinIO or
+`compose.coolify.cloud.yaml` for hosted PostgreSQL, native TLS Redis, and B2 runtime storage.
+
 AgencyOS requires ordinary PostgreSQL plus the dependencies declared required by runtime policy. Production defaults `REDIS_REQUIRED`, `MINIO_REQUIRED`, and `PRIVATE_FILE_SCANNER_REQUIRED` to true; explicitly set a flag to `0` only for an intentional degraded deployment. PostgreSQL may be hosted by Neon, a local/self-hosted server, or another compatible provider. No Supabase service or CLI is required.
 
 Build and publish one immutable application image:

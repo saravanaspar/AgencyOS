@@ -1,5 +1,11 @@
 import { isAbsolute, relative, resolve } from "node:path";
 
+import {
+  assertRuntimeBackupIsolation,
+  infrastructureMode,
+  objectStorageConfiguration,
+} from "../../src/integrations/object-storage/config.mjs";
+
 const NAME_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/;
 const RECOVERY_ID_PATTERN = /^[a-z0-9][a-z0-9-]{2,63}$/;
 
@@ -59,6 +65,66 @@ export function parsePostgresConnection(value, label) {
   };
 }
 
+function normalizedPostgresHost(host) {
+  const normalized = host.toLowerCase().replace(/^\[|\]$/g, "");
+  if (!normalized.endsWith(".neon.tech")) return normalized;
+  const [first, ...rest] = normalized.split(".");
+  return [first.replace(/-pooler$/, ""), ...rest].join(".");
+}
+
+export function postgresDatabaseIdentity(value, label) {
+  const parsed = parsePostgresConnection(value, label);
+  const normalizedHost = normalizedPostgresHost(parsed.host);
+  const portIdentity = normalizedHost.endsWith(".neon.tech") ? "neon" : parsed.port;
+  return {
+    ...parsed,
+    normalizedHost,
+    identity: `${normalizedHost}:${portIdentity}/${parsed.database}`,
+  };
+}
+
+export function assertMatchingPostgresDatabase(runtimeUrl, adminUrl, label) {
+  const runtime = postgresDatabaseIdentity(runtimeUrl, `${label} runtime URL`);
+  const admin = postgresDatabaseIdentity(adminUrl, `${label} admin URL`);
+  if (runtime.identity !== admin.identity) {
+    throw new Error(`${label} runtime and admin URLs must target the same database cluster.`);
+  }
+  return { runtime, admin };
+}
+
+export function assertSecurePostgresUrl(value, label, { direct = false } = {}) {
+  const url = new URL(value);
+  const parsed = postgresDatabaseIdentity(value, label);
+  if (!["require", "verify-ca", "verify-full"].includes(url.searchParams.get("sslmode") || "")) {
+    throw new Error(`${label} must require TLS with sslmode=require, verify-ca, or verify-full.`);
+  }
+  if (
+    direct &&
+    (parsed.host.includes("-pooler") ||
+      parsed.host.includes(".pooler") ||
+      parsed.port === "6543" ||
+      url.searchParams.get("pgbouncer") === "true")
+  ) {
+    throw new Error(`${label} must be a direct, non-pooler PostgreSQL URL.`);
+  }
+  return parsed;
+}
+
+export function assertSecureRecoveryPostgresUrl(value, label) {
+  const parsed = postgresDatabaseIdentity(value, label);
+  const privateRecoveryHosts = new Set([
+    "localhost",
+    "127.0.0.1",
+    "::1",
+    "recovery-postgres",
+    "agencyos-recovery-postgres",
+  ]);
+  if (!privateRecoveryHosts.has(parsed.normalizedHost)) {
+    assertSecurePostgresUrl(value, label);
+  }
+  return parsed;
+}
+
 export function postgresEnvironment(value, label) {
   const parsed = parsePostgresConnection(value, label);
   return {
@@ -69,6 +135,11 @@ export function postgresEnvironment(value, label) {
     PGDATABASE: parsed.database,
     ...(parsed.sslmode ? { PGSSLMODE: parsed.sslmode } : {}),
   };
+}
+
+function assertCloudDirectPostgres(value, label) {
+  assertSecurePostgresUrl(value, label, { direct: true });
+  return value;
 }
 
 export function resticEnvironment(environment = process.env, credentialKind = "writer") {
@@ -104,15 +175,42 @@ export function backupConfiguration(environment = process.env) {
   const vaultwardenData = resolve(
     environment.AGENCYOS_VAULTWARDEN_DATA_DIR?.trim() || "/vaultwarden-data",
   );
+  const mode = infrastructureMode(environment);
+  const minioRootUser = environment.MINIO_ROOT_USER?.trim();
+  const minioRootPassword = environment.MINIO_ROOT_PASSWORD?.trim();
+  const objectStorage =
+    mode === "local"
+      ? objectStorageConfiguration({
+          ...environment,
+          MINIO_ACCESS_KEY: requiredEnvironment("MINIO_ROOT_USER", environment),
+          MINIO_SECRET_KEY: requiredEnvironment("MINIO_ROOT_PASSWORD", environment),
+        })
+      : objectStorageConfiguration(environment, "backup-source");
+  if (mode === "cloud") assertRuntimeBackupIsolation(objectStorage, environment);
   return {
     stateDirectory,
     stageRoot,
     vaultwardenData,
-    agencyDatabaseUrl: requiredEnvironment("DATABASE_ADMIN_URL", environment),
-    vaultwardenDatabaseUrl: requiredEnvironment("VAULTWARDEN_DATABASE_URL", environment),
-    minioEndpoint: requiredEnvironment("MINIO_ENDPOINT", environment),
-    minioRootUser: requiredEnvironment("MINIO_ROOT_USER", environment),
-    minioRootPassword: requiredEnvironment("MINIO_ROOT_PASSWORD", environment),
+    agencyDatabaseUrl:
+      mode === "cloud"
+        ? assertCloudDirectPostgres(
+            requiredEnvironment("DATABASE_ADMIN_URL", environment),
+            "DATABASE_ADMIN_URL",
+          )
+        : requiredEnvironment("DATABASE_ADMIN_URL", environment),
+    vaultwardenDatabaseUrl:
+      mode === "cloud"
+        ? assertCloudDirectPostgres(
+            requiredEnvironment("VAULTWARDEN_DATABASE_ADMIN_URL", environment),
+            "VAULTWARDEN_DATABASE_ADMIN_URL",
+          )
+        : environment.VAULTWARDEN_DATABASE_ADMIN_URL?.trim() ||
+          requiredEnvironment("VAULTWARDEN_DATABASE_URL", environment),
+    objectStorage,
+    // Legacy fields remain available to existing callers in local mode.
+    minioEndpoint: objectStorage.endpoint,
+    minioRootUser,
+    minioRootPassword,
     restic: resticEnvironment(environment, "writer"),
     host: safeName("BACKUP_HOST", environment.BACKUP_HOST?.trim() || "agencyos-production"),
     releaseId: environment.AGENCYOS_RELEASE_ID?.trim() || "unknown",

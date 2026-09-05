@@ -3,6 +3,7 @@ import process from "node:process";
 
 import postgres from "postgres";
 
+import { infrastructureMode } from "../../src/integrations/object-storage/config.mjs";
 import { checkedCommand, redactDiagnostic } from "../backup/process.mjs";
 
 const IDENTIFIER_PATTERN = /^[a-z][a-z0-9_]{0,62}$/;
@@ -152,6 +153,11 @@ async function bootstrapMinio() {
 }
 
 async function main() {
+  if (infrastructureMode() !== "local") {
+    throw new Error(
+      "bootstrap-production is local-only; cloud resources must be provider-created.",
+    );
+  }
   await bootstrapVaultwardenDatabase();
   await bootstrapMinio();
   console.log(

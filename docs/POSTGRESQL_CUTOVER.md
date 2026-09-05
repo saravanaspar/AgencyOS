@@ -1,5 +1,10 @@
 # PostgreSQL cutover and provider moves
 
+The cloud Coolify manifest uses a pooled TLS `DATABASE_URL` for app/worker and a direct TLS
+`DATABASE_ADMIN_URL` for migrations and dumps. Vaultwarden uses its own hosted database plus a
+direct `VAULTWARDEN_DATABASE_ADMIN_URL`. Selecting the cloud manifest does not copy existing data;
+perform the cutover below under a write freeze and verify it before moving the domain.
+
 AgencyOS no longer requires Supabase after cutover. The target architecture is:
 
 ```text
