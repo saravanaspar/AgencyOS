@@ -41,7 +41,7 @@ try {
         raw_user_meta_data, disabled_at, last_seen_at
       ) values (
         ${userId}::uuid, 'agencyos', ${userId}, ${email}, now(),
-        ${JSON.stringify({ full_name: "AgencyOS E2E Owner", e2e: true })}::jsonb,
+        ${sql.json({ full_name: "AgencyOS E2E Owner", e2e: true })},
         null, now()
       )
       on conflict (id) do update
@@ -92,6 +92,7 @@ try {
     update public.organization_security_policies
     set require_privileged_mfa = false,
         recommend_mfa = false,
+        login_limit_per_window = 100,
         updated_at = now()
     where organization_id = ${organization.id}::uuid
   `;

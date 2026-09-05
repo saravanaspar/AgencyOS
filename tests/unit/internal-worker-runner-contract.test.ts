@@ -7,7 +7,7 @@ const root = process.cwd();
 const source = (path: string) => readFileSync(join(root, path), "utf8");
 
 describe("AgencyOS internal worker runner", () => {
-  it("registers exactly the ten bounded background jobs", () => {
+  it("registers exactly the eleven bounded background jobs", () => {
     const registry = source("src/modules/workers/server/worker-registry.ts");
     const expectedJobs = [
       "notifications",
@@ -16,6 +16,7 @@ describe("AgencyOS internal worker runner", () => {
       "approvals",
       "crm-sync",
       "finance-overdue",
+      "finance-collections",
       "project-reminders",
       "legal-access-reviews",
       "audit-pipeline",
@@ -31,6 +32,7 @@ describe("AgencyOS internal worker runner", () => {
       "runApprovalTimerWorker",
       "runDueCrmConnectionSyncs",
       "runFinanceOverdueWorker",
+      "runFinanceCollectionsWorker",
       "runProjectReminderWorker",
       "runLegalAccessReviewWorker",
       "runAuditPipelineHealthWorker",

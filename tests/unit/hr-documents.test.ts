@@ -126,10 +126,7 @@ describe("HR private document templates", () => {
     );
     expect(normalized.html).toContain('<table class="summary">');
     expect(normalized.html).toContain('scope="row"');
-    expect(normalized.placeholders).toEqual([
-      "employee.legal_name",
-      "organization.legal_name",
-    ]);
+    expect(normalized.placeholders).toEqual(["employee.legal_name", "organization.legal_name"]);
   });
 
   it("loads every built-in template and escapes placeholder values", async () => {

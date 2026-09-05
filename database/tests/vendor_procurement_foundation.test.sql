@@ -26,7 +26,7 @@ select has_column('public', 'assets', 'vendor_id', 'assets link to vendors');
 select has_function('private', 'vendor_membership_access_allowed', array['uuid', 'uuid', 'text'], 'vendor scope helper exists');
 select has_function('private', 'purchase_request_membership_access_allowed', array['uuid', 'uuid', 'text'], 'purchase request scope helper exists');
 select has_function('private', 'purchase_order_membership_access_allowed', array['uuid', 'uuid', 'text'], 'purchase order scope helper exists');
-select has_function('private', 'apply_procurement_approval_result', array[], 'approval result synchronizer exists');
+select has_function('private', 'apply_procurement_approval_result', array[]::text[], 'approval result synchronizer exists');
 
 select policies_are('public', 'vendors', array['vendors_select'], 'vendors expose one permission-scoped select policy');
 select policies_are('public', 'procurement_purchase_requests', array['procurement_requests_select'], 'requests expose one scoped select policy');

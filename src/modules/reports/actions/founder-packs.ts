@@ -22,3 +22,20 @@ export async function generateFounderWeeklyReviewAction(): Promise<never> {
   });
   redirect(`/api/reports/snapshots/${snapshot.id}`);
 }
+
+export async function generateFounderMonthlyBoardPackAction(): Promise<never> {
+  const authorization = await authorizeCurrentUser([
+    "reports.workspace.view",
+    "reports.founder_pack.view",
+    "reports.snapshot.create",
+    "reports.snapshot.download",
+  ]);
+  if (!authorization.allowed) redirect("/reports?section=founder_monthly&error=permission");
+  const systemReports = await ensureFounderReportSchedulesForContext(authorization.context);
+  if (!systemReports) redirect("/reports?section=founder_monthly&error=setup");
+  const snapshot = await generateReportSnapshot(authorization.context, {
+    savedViewId: systemReports.monthlyViewId,
+    format: "pdf",
+  });
+  redirect(`/api/reports/snapshots/${snapshot.id}`);
+}

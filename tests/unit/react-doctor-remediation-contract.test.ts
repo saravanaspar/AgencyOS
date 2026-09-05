@@ -22,6 +22,8 @@ describe("React Doctor remediation contracts", () => {
     const auth = source("src/modules/identity/actions/auth.ts");
     const signOut = auth.slice(auth.indexOf("export async function signOutAction"));
 
+    expect(signOut).toContain("getCurrentIdentitySession");
+    expect(signOut).toContain("clearIdentitySessionCookie");
     expect(signOut).toContain("revokeCurrentIdentitySession");
     expect(signOut).toContain('redirect("/login")');
     expect(signOut).not.toContain("supabase");

@@ -25,7 +25,8 @@ select col_default_is(
 );
 select ok(
   (
-    select pg_get_constraintdef(oid) ilike '%ai_limit_per_minute between 1 and 100%'
+    select pg_get_constraintdef(oid) ilike '%ai_limit_per_minute >= 1%'
+      and pg_get_constraintdef(oid) ilike '%ai_limit_per_minute <= 100%'
     from pg_constraint
     where conrelid = 'public.organization_security_policies'::regclass
       and conname = 'organization_security_policy_rate_bounds'

@@ -27,7 +27,10 @@ for (const entry of matrix.public) {
       body: JSON.stringify(controls, null, 2),
       contentType: "application/json",
     });
-    const exercised = await exerciseVisibleControls(page, entry.route, { allowDestructive: false });
+    const exercised = await exerciseVisibleControls(page, entry.route, {
+      allowDestructive: false,
+      allowMutations: false,
+    });
     await testInfo.attach("exercised-controls.json", {
       body: JSON.stringify(exercised, null, 2),
       contentType: "application/json",

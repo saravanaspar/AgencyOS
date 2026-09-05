@@ -16,7 +16,7 @@ describe("founder next-phase execution layer", () => {
     const metricTool = source("src/modules/mcp/tools/reports-metric-definitions.ts");
 
     expect(ai).toContain('["operations", "executive"]');
-    expect(route).toContain("mode: z.enum(aiModes).default(\"operations\")");
+    expect(route).toContain('mode: z.enum(aiModes).default("operations")');
     expect(agent).toContain("filterToolsForExecutiveAnalysis(policyTools)");
     expect(agent).toContain("You are strictly read-only");
     expect(agent).toContain("never use free-form SQL or arbitrary HTTP");
@@ -84,7 +84,9 @@ describe("founder next-phase execution layer", () => {
     const worker = source("src/modules/automation/server/event-dispatch-worker.ts");
     const projectActions = source("src/modules/projects/actions/projects.ts");
 
-    expect(worker).toContain('import { enqueueNotification } from "@/modules/notifications/server/notifications"');
+    expect(worker).toContain(
+      'import { enqueueNotification } from "@/modules/notifications/server/notifications"',
+    );
     expect(worker).toContain('category: "contract_expiry"');
     expect(worker).toContain('category: "licence_expiry"');
     expect(worker).toContain("record.record_type = 'licence'");

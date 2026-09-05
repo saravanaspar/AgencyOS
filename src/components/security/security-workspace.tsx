@@ -413,7 +413,7 @@ export function SecurityWorkspace({ data }: { data: SecurityWorkspaceData }) {
             <p>Review active and historical sessions visible within your permission scope.</p>
           </div>
         </div>
-        <div className="security-table-wrap">
+        <div className="security-table-wrap" tabIndex={0} aria-label="Organization sessions table">
           <table className="security-table">
             <thead>
               <tr>
@@ -474,7 +474,7 @@ export function SecurityWorkspace({ data }: { data: SecurityWorkspaceData }) {
               </p>
             </div>
           </div>
-          <div className="security-table-wrap">
+          <div className="security-table-wrap" tabIndex={0} aria-label="Member MFA table">
             <table className="security-table">
               <thead>
                 <tr>

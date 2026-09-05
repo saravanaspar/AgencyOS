@@ -147,8 +147,10 @@ function WorkerConfiguration({ data }: { data: AutomationWorkspaceData }) {
       {!data.workerConfigured ? (
         <p className="automation-warning">
           <LockKeyhole size={15} aria-hidden="true" />
-          Generate a 32+ character secret, set it in the app and worker environment, then start the
-          worker process.
+          <span>
+            Generate a 32+ character secret, set it in the app and worker environment, then start
+            the worker process.
+          </span>
         </p>
       ) : null}
     </section>
@@ -388,7 +390,10 @@ function DispatchHistory({ data }: { data: AutomationWorkspaceData }) {
       {!data.workerConfigured ? (
         <p className="automation-warning">
           <LockKeyhole size={15} aria-hidden="true" />
-          Set INTERNAL_WORKER_SECRET and start npm run worker before relying on scheduled execution.
+          <span>
+            Set INTERNAL_WORKER_SECRET and start npm run worker before relying on scheduled
+            execution.
+          </span>
         </p>
       ) : null}
       {data.dispatches.length === 0 ? (
@@ -497,8 +502,10 @@ function AiGovernance({ data }: { data: AutomationWorkspaceData }) {
       {!data.aiApprovalPolicyConfigured ? (
         <p className="automation-warning">
           <ShieldAlert size={15} aria-hidden="true" />
-          Create an active approval policy with key <code>ai_sensitive_operation</code>, source
-          module <code>automation</code>, and entity type <code>ai_tool_call</code>.
+          <span>
+            Create an active approval policy with key <code>ai_sensitive_operation</code>, source
+            module <code>automation</code>, and entity type <code>ai_tool_call</code>.
+          </span>
         </p>
       ) : null}
       <div className="automation-ai-grid">
@@ -661,8 +668,10 @@ function VaultwardenSection({ data }: { data: AutomationWorkspaceData }) {
       {!data.vaultwardenConfigured ? (
         <p className="automation-warning">
           <LockKeyhole size={15} aria-hidden="true" />
-          Set <code>VAULTWARDEN_URL</code> to enable Open Vaultwarden buttons. References can still
-          be recorded.
+          <span>
+            Set <code>VAULTWARDEN_URL</code> to enable Open Vaultwarden buttons. References can
+            still be recorded.
+          </span>
         </p>
       ) : null}
       {data.vaultwardenLinks.length === 0 ? (

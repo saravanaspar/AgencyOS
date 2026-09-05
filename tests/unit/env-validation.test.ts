@@ -6,6 +6,7 @@ import {
   getDatabaseEnv,
   getMinioEnv,
   getRedisEnv,
+  validateProductionEnvironment,
 } from "@/lib/validation/env";
 
 afterEach(() => {
@@ -106,5 +107,46 @@ describe("environment validation", () => {
       "https://user:password@alerts.example.test/audit",
     );
     expect(() => getAuditPipelineAlertEnv()).toThrow("without credentials");
+  });
+
+  function stubProductionEnvironment() {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("APP_URL", "https://agency.example.test");
+    vi.stubEnv("DATABASE_URL", "postgresql://agency:password@postgres:5432/agencyos");
+    vi.stubEnv("INTERNAL_WORKER_SECRET", "w".repeat(32));
+    vi.stubEnv("AUDIT_PIPELINE_ALERT_WEBHOOK_URL", "https://alerts.example.test/audit");
+    vi.stubEnv("AUDIT_PIPELINE_ALERT_WEBHOOK_SECRET", "a".repeat(32));
+    vi.stubEnv("AUTH_ENCRYPTION_KEY", "00".repeat(32));
+    vi.stubEnv("CRM_CONNECTOR_ENCRYPTION_KEY", "11".repeat(32));
+    vi.stubEnv("REDIS_REQUIRED", "1");
+    vi.stubEnv("MINIO_REQUIRED", "1");
+    vi.stubEnv("PRIVATE_FILE_SCANNER_REQUIRED", "1");
+    vi.stubEnv("MINIO_ACCESS_KEY", "agencyos-app");
+    vi.stubEnv("MINIO_SECRET_KEY", "m".repeat(32));
+    vi.stubEnv("MINIO_REGION", "us-east-1");
+  }
+
+  it("allows only the authenticated exact-host private service topology when opted in", () => {
+    stubProductionEnvironment();
+    vi.stubEnv("AGENCYOS_TRUST_PRIVATE_SERVICE_NETWORK", "1");
+    vi.stubEnv("REDIS_URL", `redis://default:${"r".repeat(32)}@redis:6379/0`);
+    vi.stubEnv("MINIO_ENDPOINT", "http://minio:9000");
+    vi.stubEnv("PRIVATE_FILE_SCANNER_URL", "clamav://clamav:3310");
+    expect(() => validateProductionEnvironment()).not.toThrow();
+
+    vi.stubEnv("REDIS_URL", `redis://default:${"r".repeat(32)}@redis-evil:6379/0`);
+    expect(() => validateProductionEnvironment()).toThrow("REDIS_URL must use rediss://");
+  });
+
+  it("keeps remote production Redis and MinIO transport fail-closed", () => {
+    stubProductionEnvironment();
+    vi.stubEnv("AGENCYOS_TRUST_PRIVATE_SERVICE_NETWORK", "0");
+    vi.stubEnv("REDIS_URL", `redis://default:${"r".repeat(32)}@redis.example.test:6379/0`);
+    vi.stubEnv("MINIO_ENDPOINT", "http://files.example.test");
+    vi.stubEnv("PRIVATE_FILE_SCANNER_URL", "https://scanner.example.test/scan");
+    expect(() => validateProductionEnvironment()).toThrow("REDIS_URL must use rediss://");
+
+    vi.stubEnv("REDIS_URL", `rediss://default:${"r".repeat(32)}@redis.example.test:6380/0`);
+    expect(() => validateProductionEnvironment()).toThrow("MINIO_ENDPOINT must use HTTPS");
   });
 });

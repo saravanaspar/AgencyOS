@@ -17,6 +17,10 @@ import {
   saveReportViewAction,
   undoReportDeliveryAction,
 } from "@/modules/reports/actions/reports";
+import {
+  disableReportDeliveryDestinationAction,
+  saveReportDeliveryDestinationAction,
+} from "@/modules/reports/actions/delivery-destinations";
 import type { ReportActionState } from "@/modules/reports/schemas/reports";
 
 const initialState: ReportActionState = { status: "idle", message: "" };
@@ -277,6 +281,20 @@ function ScheduleForm({ studio }: { studio: ReportStudioData }) {
             />
             <span>Email with the report attached</span>
           </label>
+          {(["slack", "telegram", "webhook"] as const).map((channel) => (
+            <label key={channel}>
+              <input
+                type="checkbox"
+                name="deliveryChannels"
+                value={channel}
+                defaultChecked={schedule?.deliveryChannels.includes(channel) ?? false}
+              />
+              <span>
+                {channel.charAt(0).toUpperCase() + channel.slice(1)} via each recipient&apos;s
+                configured destination
+              </span>
+            </label>
+          ))}
         </fieldset>
         <fieldset className="report-studio__widgets">
           <legend>Named delivery recipients</legend>
@@ -325,6 +343,90 @@ function ScheduleForm({ studio }: { studio: ReportStudioData }) {
         </form>
       ) : null}
     </div>
+  );
+}
+
+function DeliveryDestinationManager({ studio }: { studio: ReportStudioData }) {
+  const [state, action, pending] = useActionState(
+    saveReportDeliveryDestinationAction,
+    initialState,
+  );
+  const [disableState, disableAction, disablePending] = useActionState(
+    disableReportDeliveryDestinationAction,
+    initialState,
+  );
+  if (!studio.capabilities.canManageDeliveryDestinations) return null;
+  return (
+    <section className="report-studio__schedule" aria-labelledby="report-destination-title">
+      <div>
+        <h3 id="report-destination-title">External delivery destinations</h3>
+        <p>
+          Destinations are private to your membership. Secrets are encrypted server-side and never
+          returned to the browser.
+        </p>
+      </div>
+      <form action={action} className="report-studio__form">
+        <div className="report-studio__form-grid">
+          <label>
+            Name
+            <input name="name" maxLength={100} required placeholder="Founder Slack" />
+          </label>
+          <label>
+            Channel
+            <select name="channel" defaultValue="slack">
+              <option value="slack">Slack</option>
+              <option value="telegram">Telegram</option>
+              <option value="webhook">Webhook</option>
+            </select>
+          </label>
+          <label>
+            HTTPS URL
+            <input
+              name="url"
+              type="url"
+              placeholder="https://hooks.slack.com/services/... or webhook URL"
+            />
+          </label>
+          <label>
+            Telegram bot token
+            <input name="botToken" type="password" autoComplete="off" />
+          </label>
+          <label>
+            Telegram chat ID
+            <input name="chatId" autoComplete="off" />
+          </label>
+          <label>
+            Webhook bearer token (optional)
+            <input name="bearerToken" type="password" autoComplete="off" />
+          </label>
+        </div>
+        <div className="report-studio__actions">
+          <button type="submit" className="button button--secondary" disabled={pending}>
+            Save destination
+          </button>
+        </div>
+        <ReportsActionMessage state={state} />
+      </form>
+      {studio.destinations.length ? (
+        <div className="report-studio__history">
+          {studio.destinations.map((destination) => (
+            <form action={disableAction} key={destination.id}>
+              <input type="hidden" name="destinationId" value={destination.id} />
+              <strong>{destination.name}</strong>{" "}
+              <small>
+                {destination.channel} · {destination.status}
+              </small>
+              {destination.status === "active" ? (
+                <button type="submit" className="text-link" disabled={disablePending}>
+                  Disable
+                </button>
+              ) : null}
+            </form>
+          ))}
+          <ReportsActionMessage state={disableState} />
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -458,6 +560,9 @@ export function ReportStudio({
         ) : null}
         {selected && studio.capabilities.canCreateSnapshot ? (
           <SnapshotActions studio={studio} />
+        ) : null}
+        {studio.capabilities.canManageDeliveryDestinations ? (
+          <DeliveryDestinationManager studio={studio} />
         ) : null}
         {selected && studio.capabilities.canSchedule ? <ScheduleForm studio={studio} /> : null}
         {selected && studio.capabilities.canSchedule ? <DeliveryHistory studio={studio} /> : null}

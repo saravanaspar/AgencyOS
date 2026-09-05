@@ -36,6 +36,10 @@ export const documentFolderSchema = z.object({
   classification: z.enum(documentClassifications),
 });
 
+export const documentStarterStructureSchema = z.object({
+  intent: z.literal("create-starter-structure"),
+});
+
 export const documentCategorySchema = z.object({
   categoryId: optionalUuid,
   name: z.string().trim().min(1).max(80),
@@ -50,6 +54,11 @@ export const documentTagSchema = z.object({
 const documentMetadataShape = {
   title: z.string().trim().min(1).max(180),
   description: optionalText(2000),
+  // These fields were added after the original Documents API shipped. Keep
+  // omitted values compatible with older callers while normalizing them to
+  // SQL-safe nulls for inserts and updates.
+  documentDate: optionalDate.default(null),
+  referenceCode: optionalText(120).default(null),
   folderId: optionalUuid,
   categoryId: optionalUuid,
   classification: z.enum(documentClassifications),

@@ -52,7 +52,10 @@ function commandEvidence(name, result, summary) {
       stdoutBytes: result.stdoutBytes,
       stderrBytes: result.stderrBytes,
     }),
-    summary: result.status === "passed" ? summary : `${name} failed: ${result.diagnostic || "unknown error"}`,
+    summary:
+      result.status === "passed"
+        ? summary
+        : `${name} failed: ${result.diagnostic || "unknown error"}`,
   };
 }
 
@@ -125,8 +128,7 @@ export async function runRestoreDrillVerification(options, root = process.cwd())
     expectedMigration: deployment.expectedMigration,
     localMigrationCount: deployment.localMigrationCount,
     checks,
-    note:
-      "This verifies an already-restored isolated environment. Preserve separate provider evidence that PostgreSQL, MinIO, configuration, DNS/TLS, and secret-manager data were restored from the named backup set.",
+    note: "This verifies an already-restored isolated environment. Preserve separate provider evidence that PostgreSQL, MinIO, configuration, DNS/TLS, and secret-manager data were restored from the named backup set.",
   };
   return { ...evidence, manifestSha256: sha256Json(evidence) };
 }

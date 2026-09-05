@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { getDatabaseClient } from "@/integrations/postgres/database";
 import { writeAuditEvent } from "@/modules/audit/server/write-audit-event";
 import { parseMoneyToMinor } from "@/modules/finance/calculations";
+import { submitSalaryRevisionApproval } from "@/modules/hr/server/salary-approvals";
 import {
   formText,
   HrActionError,
@@ -70,7 +71,11 @@ export async function saveSalaryRevisionAction(
   try {
     const values = parsed.data;
     const context = authorization.context;
-    await requireHrSalaryTarget(context, values.membershipId, hrPermissionKeys.salaryManage);
+    const employee = await requireHrSalaryTarget(
+      context,
+      values.membershipId,
+      hrPermissionKeys.salaryManage,
+    );
     const baseSalaryMinor = parseMoneyToMinor(values.baseSalary, values.currency);
     const allowances = parseSalaryComponentLines(
       values.allowances,
@@ -88,62 +93,70 @@ export async function saveSalaryRevisionAction(
       deductionAmounts: deductions.map((item) => item.amountMinor),
     });
 
-    const structureId = await getDatabaseClient().begin(async (sql) => {
-      const rows = await sql<
-        Array<{ id: string; revision_number: number; effective_to: string | null }>
-      >`
-        insert into public.hr_salary_structures (
-          organization_id, membership_id, revision_number, currency, base_salary_minor,
-          effective_from, notes, created_by_membership_id
-        ) values (
-          ${context.membership.organizationId}::uuid, ${values.membershipId}::uuid, 1,
-          ${values.currency}, ${baseSalaryMinor}, ${values.effectiveFrom}::date, ${values.notes},
-          ${context.membership.id}::uuid
-        )
-        returning id, revision_number, effective_to::text
-      `;
-      const structure = rows[0];
-      if (!structure) throw new Error("salary-revision-create-failed");
-      const components = [
-        ...allowances.map((item) => ({ ...item, type: "allowance" as const })),
-        ...deductions.map((item) => ({ ...item, type: "deduction" as const })),
-      ];
-      let sortOrder = 0;
-      for (const component of components) {
-        sortOrder += 1;
-        await sql`
-          insert into public.hr_salary_structure_components (
-            organization_id, salary_structure_id, component_type, name, amount_minor,
-            taxable, sort_order
-          ) values (
-            ${context.membership.organizationId}::uuid, ${structure.id}::uuid,
-            ${component.type}, ${component.name}, ${component.amountMinor},
-            ${component.taxable}, ${sortOrder}
-          )
+    const structureId = randomUUID();
+    const submitted = await submitSalaryRevisionApproval(
+      context,
+      {
+        structureId,
+        membershipId: values.membershipId,
+        employeeName: employee.employeeName,
+        currency: values.currency,
+        baseSalaryMinor,
+        effectiveFrom: values.effectiveFrom,
+        notes: values.notes,
+        allowances,
+        deductions,
+      },
+      async (sql, requestId) => {
+        await sql`select pg_advisory_xact_lock(hashtextextended(${`${context.membership.organizationId}:salary-revision:${values.membershipId}:${values.effectiveFrom}`}, 0))`;
+        const conflicts = await sql<Array<{ conflict: boolean }>>`
+          select exists(
+            select 1 from public.hr_salary_structures structure
+            where structure.organization_id=${context.membership.organizationId}::uuid
+              and structure.membership_id=${values.membershipId}::uuid
+              and structure.effective_from=${values.effectiveFrom}::date
+            union all
+            select 1 from public.approval_requests request
+            where request.organization_id=${context.membership.organizationId}::uuid
+              and request.id <> ${requestId}::uuid and request.status='pending'
+              and request.source_module='hr' and request.entity_type='salary_revision'
+              and request.snapshot ->> 'membershipId' = ${values.membershipId}
+              and request.snapshot ->> 'effectiveFrom' = ${values.effectiveFrom}
+          ) as conflict
         `;
-      }
-      await writeAuditEvent(sql, context, {
-        action: "hr.salary_revision_created",
-        entityType: "hr_salary_structure",
-        entityId: structure.id,
-        afterState: {
-          membershipId: values.membershipId,
-          revisionNumber: structure.revision_number,
-          currency: values.currency,
-          effectiveFrom: values.effectiveFrom,
-          effectiveTo: structure.effective_to,
-          allowanceCount: allowances.length,
-          deductionCount: deductions.length,
-        },
-      });
-      return structure.id;
-    });
+        if (conflicts[0]?.conflict)
+          throw new HrActionError(
+            "A salary revision already exists or is pending for that effective date.",
+          );
+        await writeAuditEvent(sql, context, {
+          action: "hr.salary_revision_submitted",
+          entityType: "approval_request",
+          entityId: requestId,
+          afterState: {
+            structureId,
+            membershipId: values.membershipId,
+            currency: values.currency,
+            effectiveFrom: values.effectiveFrom,
+            allowanceCount: allowances.length,
+            deductionCount: deductions.length,
+          },
+        });
+        return structureId;
+      },
+    );
     revalidatePath("/hr");
-    return { status: "success", message: `Salary revision ${structureId.slice(0, 8)} created.` };
+    revalidatePath("/approvals");
+    return {
+      status: "success",
+      message: `Salary revision submitted for approval (${submitted.requestId.slice(0, 8)}).`,
+    };
   } catch (error) {
     if (isUniqueViolation(error))
       return stateError("A salary revision already starts on that date.");
-    return stateError(salaryInputErrorMessage(error) ?? "Salary revision could not be created.");
+    return stateError(
+      salaryInputErrorMessage(error) ??
+        (error instanceof Error ? error.message : "Salary revision could not be submitted."),
+    );
   }
 }
 

@@ -1,0 +1,22 @@
+services:
+  redis:
+    image: docker.io/library/redis:7.4.10-alpine@sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2
+    container_name: agencyos-redis
+    command:
+      ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec", "--save", "60", "1000"]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${AGENCYOS_REDIS_PORT:-6379}:6379"
+    volumes:
+      - agencyos_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    stop_grace_period: 30s
+
+volumes:
+  agencyos_redis_data:
+    name: ${AGENCYOS_REDIS_VOLUME:-agencyos_redis_data}

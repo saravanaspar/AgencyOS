@@ -43,7 +43,9 @@ describe("security control closure", () => {
     expect(migration).toContain("Finance approval definitions cannot allow self-approval");
     expect(migration).toContain("private.validate_finance_approval_link()");
     expect(migration).toContain("private.apply_finance_approval_result()");
-    expect(migration).toContain("Finance documents cannot be issued without completed shared approval");
+    expect(migration).toContain(
+      "Finance documents cannot be issued without completed shared approval",
+    );
     expect(migration).toContain("Expense payment processing requires completed shared approval");
     expect(financeActions).toContain('invoice.approval_status !== "approved"');
     expect(financeActions).toContain('note.approval_status !== "approved"');
@@ -64,7 +66,9 @@ describe("security control closure", () => {
     expect(sensitiveBoundary).toContain("allowedElements");
     expect(sensitiveBoundary).toContain("validateAndNormalizeHrTemplateHtml(decoded)");
     expect(sensitiveBoundary).toContain("src/modules/hr/medical");
-    expect(sensitiveBoundary).toContain("Dedicated HR medical data exists without hr.medical.* permissions");
+    expect(sensitiveBoundary).toContain(
+      "Dedicated HR medical data exists without hr.medical.* permissions",
+    );
     expect(packageJson).toContain("security:sensitive-content");
   });
 

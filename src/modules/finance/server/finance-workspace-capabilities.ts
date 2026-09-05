@@ -1,0 +1,37 @@
+export interface FinanceWorkspaceCapabilities {
+  canViewCatalog: boolean;
+  canManageCatalog: boolean;
+  canViewEstimates: boolean;
+  canCreateEstimates: boolean;
+  canUpdateEstimates: boolean;
+  canRecordEstimateAcceptance: boolean;
+  canConvertEstimates: boolean;
+  canViewInvoices: boolean;
+  canCreateInvoices: boolean;
+  canUpdateInvoices: boolean;
+  canIssueInvoices: boolean;
+  canVoidInvoices: boolean;
+  canCorrectInvoices: boolean;
+  canManageInvoiceAttachments: boolean;
+  canManageInvoiceStatus: boolean;
+  canViewCreditNotes: boolean;
+  canCreateCreditNotes: boolean;
+  canIssueCreditNotes: boolean;
+  canVoidCreditNotes: boolean;
+  canViewPayments: boolean;
+  canCreatePayments: boolean;
+  canReconcilePayments: boolean;
+  canRefundPayments: boolean;
+  canViewExpenses: boolean;
+  canCreateExpenses: boolean;
+  canManageExpenses: boolean;
+  canPayExpenses: boolean;
+  canManageExpenseCategories: boolean;
+  canManageExpenseReceipts: boolean;
+  canViewReports: boolean;
+  canManageCashForecast: boolean;
+  canManageCollections: boolean;
+  canExportReports: boolean;
+  canDownloadDocuments: boolean;
+  canSendDocuments: boolean;
+}

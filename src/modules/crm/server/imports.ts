@@ -50,6 +50,7 @@ import {
   type CrmPullAuthenticationMethod,
 } from "@/modules/crm/crm-import-providers";
 import { leadDuplicateFingerprint, stablePayloadHash } from "@/modules/crm/server/import-hashing";
+import { ProviderRequestError } from "@/modules/crm/server/provider-request-error";
 import {
   buildCrmOAuthAuthorizationUrl,
   crmOAuthRedirectUri,
@@ -1470,17 +1471,6 @@ async function defaultStageAndOwner(connection: ConnectionSecretRow) {
   `;
   if (!stages[0]) throw new Error("No active open CRM pipeline stage is configured.");
   return { stageId: stages[0].id, ownerMembershipId: connection.created_by_membership_id };
-}
-
-class ProviderRequestError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-    readonly retryAfterSeconds: number | null,
-  ) {
-    super(message);
-    this.name = "ProviderRequestError";
-  }
 }
 
 interface ProviderJsonResult {

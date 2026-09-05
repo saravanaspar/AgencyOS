@@ -33,32 +33,12 @@ jobs:
   authenticated-e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    services:
-      postgres:
-        image: postgres:17.10-bookworm@sha256:4f736ae292687621d4dbe0d499ffd024a36bd2ee7d8ca6f2ccd4c800f047b394
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: agencyos
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d agencyos"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
-      redis:
-        image: redis:7.4.10-alpine@sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
     env:
       DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/agencyos
       DATABASE_ADMIN_URL: postgres://postgres:postgres@127.0.0.1:5432/agencyos
+      AGENCYOS_POSTGRES_USER: postgres
+      AGENCYOS_POSTGRES_PASSWORD: postgres
+      AGENCYOS_POSTGRES_DB: agencyos
       REDIS_URL: redis://127.0.0.1:6379/0
       APP_URL: http://127.0.0.1:3000
       NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
@@ -78,9 +58,25 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
-      - name: Install pgTAP in disposable PostgreSQL service
+      - name: Install rootless Podman Compose
         run: |
-          docker exec "${{ job.services.postgres.id }}" bash -lc 'apt-get update && apt-get install -y --no-install-recommends postgresql-17-pgtap && rm -rf /var/lib/apt/lists/*'
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends podman podman-compose
+      - name: Start disposable PostgreSQL and Redis with Podman
+        run: |
+          podman-compose --project-name agencyos-ci \
+            -f compose.database.yaml -f compose.redis.yaml up -d --build
+          for attempt in $(seq 1 30); do
+            if podman exec agencyos-postgres pg_isready -U postgres -d agencyos >/dev/null \
+              && podman exec agencyos-redis redis-cli ping | grep -q PONG; then
+              exit 0
+            fi
+            sleep 2
+          done
+          podman ps --all
+          podman logs agencyos-postgres
+          podman logs agencyos-redis
+          exit 1
       - name: Install dependencies and Chromium
         run: |
           npm ci
@@ -93,3 +89,8 @@ jobs:
         run: npm run test:e2e:seed
       - name: Run authenticated browser audit
         run: npm run test:e2e
+      - name: Stop disposable Podman dependencies
+        if: always()
+        run: |
+          podman-compose --project-name agencyos-ci \
+            -f compose.database.yaml -f compose.redis.yaml down -v

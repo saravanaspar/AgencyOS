@@ -89,12 +89,54 @@ describe("release remediation contracts", () => {
     const renderer = source("src/lib/server/html-to-pdf.ts");
     const vitest = source("vitest.config.ts");
     const playwright = source("playwright.config.ts");
+    const browserAudit = source("tests/e2e/support/audit.ts");
+    const browserRuntime = source("tests/e2e/support/runtime.ts");
+    const styles = source("src/app/globals.css");
+    const packageJson = JSON.parse(source("package.json")) as { scripts: Record<string, string> };
     expect(renderer).toContain("removeEmptyBundledExecutable");
     expect(renderer).toContain("Bundled Chromium executable is missing, empty, or not executable");
     expect(vitest).toContain("maxWorkers: 1");
     expect(playwright).toContain("--hostname 127.0.0.1");
     expect(playwright).toContain("NEXT_PUBLIC_APP_URL: baseURL");
+    expect(playwright).toContain("timeout: 240_000");
+    expect(playwright).toContain("fullyParallel: true");
+    expect(playwright).toContain("workers: 2");
     expect(playwright).not.toContain("agencyos-public-browser-test-placeholder");
     expect(playwright).not.toContain("SUPABASE");
+    expect(packageJson.scripts["test:e2e"]).toContain("--env-file-if-exists=.env.local");
+    expect(browserAudit).toContain("log out|logout");
+    expect(browserAudit).toContain("duplicateOrdinal");
+    expect(browserAudit).not.toContain(".nth(control.index)");
+    expect(browserAudit).toContain('outcome: "skipped-navigation"');
+    expect(browserAudit).toContain('outcome: "skipped-cross-cutting"');
+    expect(browserAudit).toContain('"skipped-mutation"');
+    expect(browserAudit).toContain("const submitsForm");
+    expect(browserAudit).toContain("formIsValid");
+    expect(browserAudit).toContain("page.waitForResponse(");
+    expect(browserAudit).toContain("restoreFinalSecondaryState");
+    expect(browserAudit).toContain("const requiresFreshPage");
+    expect(browserAudit).toContain("applicationFocusVisible");
+    expect(browserAudit).toContain("zoomLayout.documentWidth");
+    expect(browserAudit).toContain("await page.waitForTimeout(350)");
+    expect(browserRuntime).toContain('url.pathname !== "/login"');
+    expect(browserRuntime).toContain('errorText === "net::ERR_ABORTED"');
+    expect(styles).toMatch(/\.finance-section__heading\s*\{[\s\S]*?flex-wrap:\s*wrap/);
+    expect(styles).toMatch(
+      /@media \(max-width: 700px\)[\s\S]*?\.finance-section__heading\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)/,
+    );
+    expect(styles).toMatch(
+      /\.hr-workspace,[\s\S]*?\.hr-section\s*\{[\s\S]*?min-width:\s*0;[\s\S]*?max-width:\s*100%/,
+    );
+    expect(styles).toMatch(/\.hr-workspace\s*\{[\s\S]*?overflow-x:\s*clip/);
+    expect(styles).toMatch(
+      /\.settings-area-grid\s*\{[\s\S]*?min-width:\s*0;[\s\S]*?max-width:\s*100%/,
+    );
+    expect(styles).toMatch(
+      /\.table-wrap\s*\{[\s\S]*?overflow-x:\s*auto;[\s\S]*?contain:\s*inline-size paint/,
+    );
+    expect(styles).toMatch(
+      /@media \(max-width: 960px\)[\s\S]*?\.automation-grid,[\s\S]*?\.automation-ai-grid,[\s\S]*?\.vaultwarden-form-grid\s*\{\s*grid-template-columns: 1fr/,
+    );
+    expect(styles).toMatch(/\.automation-warning > span\s*\{[\s\S]*?overflow-wrap: anywhere/);
   });
 });

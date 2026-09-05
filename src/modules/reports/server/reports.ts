@@ -134,7 +134,7 @@ function availableSections(context: CurrentPermissionContext): ReportSection[] {
   if (context.permissions.has(hrPermissionKeys.employeeView)) sections.push("hr");
   if (context.permissions.has(supportPermissionKeys.view)) sections.push("support");
   if (context.permissions.has("reports.founder_pack.view")) {
-    sections.push("founder_daily", "founder_weekly");
+    sections.push("founder_daily", "founder_weekly", "founder_monthly");
   }
   if (
     context.permissions.has(legalPermissionKeys.view) ||
@@ -1103,10 +1103,15 @@ export async function getReportsWorkspaceDataForContext(
           ? comparisonRevenue(database, organizationId, comparisonPeriod)
           : Promise.resolve(null),
         normalizedFilters.section === "founder_daily" ||
-        normalizedFilters.section === "founder_weekly"
+        normalizedFilters.section === "founder_weekly" ||
+        normalizedFilters.section === "founder_monthly"
           ? getFounderReportPackForContext(
               context,
-              normalizedFilters.section === "founder_daily" ? "daily" : "weekly",
+              normalizedFilters.section === "founder_daily"
+                ? "daily"
+                : normalizedFilters.section === "founder_weekly"
+                  ? "weekly"
+                  : "monthly",
             )
           : Promise.resolve(null),
       ]);
@@ -1140,7 +1145,8 @@ export async function getReportsWorkspaceDataForContext(
       capabilities: {
         canExport:
           context.permissions.has(reportsPermissionKeys.export) &&
-          (normalizedFilters.section !== "hr" || context.permissions.has(hrPermissionKeys.reportExport)),
+          (normalizedFilters.section !== "hr" ||
+            context.permissions.has(hrPermissionKeys.reportExport)),
         canManageSavedViews: context.permissions.has(reportsPermissionKeys.savedViewManage),
         canSchedule: context.permissions.has(reportsPermissionKeys.scheduleManage),
         canCreateSnapshot: context.permissions.has(reportsPermissionKeys.snapshotCreate),

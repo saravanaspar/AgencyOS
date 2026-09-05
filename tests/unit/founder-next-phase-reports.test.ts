@@ -3,10 +3,7 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import {
-  getMetricDefinition,
-  metricDefinitionCatalog,
-} from "@/modules/reports/metric-definitions";
+import { getMetricDefinition, metricDefinitionCatalog } from "@/modules/reports/metric-definitions";
 
 const root = process.cwd();
 const source = (file: string) => readFileSync(path.join(root, file), "utf8");
@@ -54,8 +51,10 @@ describe("founder next-phase reporting", () => {
     expect(concentration).toContain("lead.estimated_value, 0) * lead.probability / 100.0");
     expect(concentration).toContain("private.crm_scope_allows_membership");
     expect(concentration).toContain("topThreeShareBps");
-    expect(concentration).toContain("kind === \"pipeline\"");
-    expect(concentration).toContain('scope: kind === "revenue" ? "issued_revenue" : "open_receivables"');
+    expect(concentration).toContain('kind === "pipeline"');
+    expect(concentration).toContain(
+      'scope: kind === "revenue" ? "issued_revenue" : "open_receivables"',
+    );
     expect(concentration).toContain('scope: "open_opportunities"');
     expect(concentration).toContain("client_concentration.${kind}");
     expect(concentration).not.toContain("sum(sourceRows");
@@ -71,7 +70,8 @@ describe("founder next-phase reporting", () => {
     expect(builder).toContain('key: "finance.concentration"');
     expect(builder).toContain('key: "founder_daily.concentration"');
     expect(reportServer).toContain("getClientConcentrationForContext");
-    expect(founderPacks).toContain('block("founder_daily.concentration"');
+    expect(founderPacks).toContain('"founder_daily.concentration"');
+    expect(founderPacks).toContain("concentrationRows(concentration)");
     expect(workspace).toContain("ClientConcentrationReport");
     expect(document).toContain('key === "finance.concentration"');
   });
@@ -80,13 +80,14 @@ describe("founder next-phase reporting", () => {
     const workspace = source("src/components/reports/reports-workspace.tsx");
     const document = source("src/modules/reports/report-document.ts");
     const founderPacks = source("src/modules/reports/server/founder-packs.ts");
+    const founderPackHelpers = source("src/modules/reports/server/founder-pack-helpers.ts");
 
     expect(workspace).toContain("MetricDefinitionDisclosure");
     expect(workspace).toContain("Open source");
     expect(workspace).toContain("Open all source records");
     expect(document).toContain("Source records");
     expect(document).toContain("definitionCells");
-    expect(founderPacks).toContain("founderMetricDefinitionKey");
+    expect(founderPackHelpers).toContain("founderMetricDefinitionKey");
     expect(founderPacks).toContain("reportHref");
     expect(founderPacks).toContain("financeHref");
   });

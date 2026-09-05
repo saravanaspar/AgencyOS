@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   BadgeCheck,
@@ -242,7 +242,7 @@ function VersionForm({
         Version
         <select name="documentVersionId" required>
           {(document?.versions ?? []).map((version) => (
-            <option key={version.id} value={version.id} disabled={version.status !== "clean"}>
+            <option key={version.id} value={version.id} disabled={version.status !== "available"}>
               v{version.versionNumber} · {version.fileName} · {version.status}
             </option>
           ))}
@@ -530,7 +530,7 @@ function TemplatePanel({ data }: { data: LegalWorkspaceData }) {
           Version
           <select name="sourceVersionId" required>
             {(document?.versions ?? []).map((version) => (
-              <option key={version.id} value={version.id} disabled={version.status !== "clean"}>
+              <option key={version.id} value={version.id} disabled={version.status !== "available"}>
                 v{version.versionNumber} · {version.fileName}
               </option>
             ))}
@@ -584,11 +584,8 @@ export function LegalWorkspace({
   deletionData: LegalDeletionWorkspaceData | null;
   accessReviewData: LegalAccessReviewWorkspaceData | null;
 }) {
-  const [showCreate, setShowCreate] = useState(false);
   const searchParams = useSearchParams();
-  useEffect(() => {
-    if (searchParams.get("create") === "contract") setShowCreate(true);
-  }, [searchParams]);
+  const [showCreate, setShowCreate] = useState(() => searchParams.get("create") === "contract");
   const stats = useMemo(
     () => [
       { label: "Visible contracts", value: data.summary.total, icon: Scale },

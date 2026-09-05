@@ -1130,8 +1130,9 @@ export async function decideFinanceApprovalAction(
         display_number: string;
       }>
     >`
-      ${entityType === "estimate"
-        ? database`
+      ${
+        entityType === "estimate"
+          ? database`
             select id, status, approval_status, total_minor, currency, content_hash,
               estimate_number as display_number
             from public.finance_estimates
@@ -1139,8 +1140,8 @@ export async function decideFinanceApprovalAction(
               and organization_id = ${context.membership.organizationId}::uuid
             limit 1
           `
-        : entityType === "invoice"
-          ? database`
+          : entityType === "invoice"
+            ? database`
               select id, status, approval_status, total_minor, currency, content_hash,
                 coalesce(invoice_number, draft_reference) as display_number
               from public.finance_invoices
@@ -1148,14 +1149,15 @@ export async function decideFinanceApprovalAction(
                 and organization_id = ${context.membership.organizationId}::uuid
               limit 1
             `
-          : database`
+            : database`
               select id, status, approval_status, total_minor, currency, content_hash,
                 coalesce(credit_note_number, left(id::text, 8)) as display_number
               from public.finance_credit_notes
               where id = ${parsed.data.entityId}::uuid
                 and organization_id = ${context.membership.organizationId}::uuid
               limit 1
-            `}
+            `
+      }
     `;
     const record = rows[0];
     if (!record) throw new FinanceActionError(`${label} was not found.`);
@@ -1199,7 +1201,9 @@ export async function decideFinanceApprovalAction(
             returning id
           `;
           if (!updated[0]) {
-            throw new FinanceActionError("The estimate changed before approval submission. Reload and try again.");
+            throw new FinanceActionError(
+              "The estimate changed before approval submission. Reload and try again.",
+            );
           }
           await insertEstimateVersion(sql, context, record.id, "Submitted for shared approval");
         } else if (entityType === "invoice") {
@@ -1214,7 +1218,9 @@ export async function decideFinanceApprovalAction(
             returning id
           `;
           if (!updated[0]) {
-            throw new FinanceActionError("The invoice changed before approval submission. Reload and try again.");
+            throw new FinanceActionError(
+              "The invoice changed before approval submission. Reload and try again.",
+            );
           }
           await sql`
             insert into public.finance_invoice_events (
@@ -1237,7 +1243,9 @@ export async function decideFinanceApprovalAction(
             returning id
           `;
           if (!updated[0]) {
-            throw new FinanceActionError("The credit note changed before approval submission. Reload and try again.");
+            throw new FinanceActionError(
+              "The credit note changed before approval submission. Reload and try again.",
+            );
           }
           await sql`
             insert into public.finance_credit_note_events (

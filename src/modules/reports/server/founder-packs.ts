@@ -5,24 +5,29 @@ import type { Sql } from "postgres";
 import { getDatabaseClient } from "@/integrations/postgres/database";
 import { formatMinorMoney } from "@/modules/finance/calculations";
 import { financePermissionKeys } from "@/modules/finance/finance";
-import type { FinanceFilters } from "@/modules/finance/schemas/finance";
-import type { CrmFilters } from "@/modules/crm/schemas/crm";
+import { getCashForecastForContext } from "@/modules/finance/server/cash-forecast";
 import { getCrmForecastDataForContext } from "@/modules/crm/server/forecast";
-import { founderMetricDefinitionKey } from "@/modules/reports/metric-definitions";
 import { hrPermissionKeys } from "@/modules/hr/hr";
 import type { CurrentPermissionContext } from "@/modules/permissions/server/effective-permissions";
 import { getProjectProfitabilityForContext } from "@/modules/projects/server/profitability";
 import { projectPermissionKeys } from "@/modules/projects/projects";
-import {
-  resolveReportPeriod,
-  type ClientConcentrationMetric,
-  type FounderReportBlock,
-  type FounderReportPack,
-  type FounderReportRow,
-  type ReportSection,
-} from "@/modules/reports/reports";
+import { resolveReportPeriod, type FounderReportPack } from "@/modules/reports/reports";
 import { supportPermissionKeys } from "@/modules/support/support";
 import { getClientConcentrationForContext } from "@/modules/reports/server/client-concentration";
+import {
+  block,
+  concentrationRows,
+  crmHref,
+  financeHref,
+  majorMoney,
+  number,
+  percent,
+  previousCalendarMonth,
+  reportHref,
+  row,
+  shiftPeriod,
+} from "@/modules/reports/server/founder-pack-helpers";
+import { monthlyFinancialTrend } from "@/modules/reports/server/founder-monthly-trend";
 import { vendorPermissionKeys } from "@/modules/vendors/vendors";
 
 interface OrganizationRow {
@@ -90,119 +95,6 @@ interface WeeklyRow {
   resource_constraints: string | number;
   contracts_renewing_next_week: string | number;
   founder_decisions: string | number;
-}
-
-function number(value: string | number | null | undefined): number {
-  return Number(value ?? 0);
-}
-
-function majorMoney(value: number, currency: string, locale: string): string {
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency,
-    currencyDisplay: "narrowSymbol",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-function percent(value: number | null): string {
-  return value === null || !Number.isFinite(value) ? "Not enough data" : `${value.toFixed(1)}%`;
-}
-
-function row(
-  id: string,
-  label: string,
-  value: string,
-  detail: string | null = null,
-  href: string | null = null,
-  tone: FounderReportRow["tone"] = "neutral",
-): FounderReportRow {
-  return { id, label, value, detail, href, tone };
-}
-
-function block(id: string, title: string, rows: FounderReportRow[]): FounderReportBlock {
-  return {
-    id,
-    title,
-    rows: rows.map((item) => ({
-      ...item,
-      definitionKey: item.definitionKey ?? founderMetricDefinitionKey(id, item.id),
-    })),
-  };
-}
-
-function concentrationRows(metrics: readonly ClientConcentrationMetric[]): FounderReportRow[] {
-  const labels = {
-    revenue: "Revenue concentration",
-    receivables: "Receivables concentration",
-    pipeline: "Weighted pipeline concentration",
-  } as const;
-  return metrics.map((metric) => ({
-    id: metric.id,
-    label: `${labels[metric.kind]} · ${metric.currency}`,
-    value: `Largest ${(metric.largestShareBps / 100).toFixed(1)}% · Top 3 ${(metric.topThreeShareBps / 100).toFixed(1)}%`,
-    detail: metric.entries
-      .map((entry) => `${entry.label} ${(entry.shareBps / 100).toFixed(1)}%`)
-      .join(" · "),
-    href: metric.sourceHref,
-    definitionKey: metric.definitionKey,
-    tone: "neutral",
-  }));
-}
-
-function reportHref(
-  section: ReportSection,
-  period: { from: string; to: string },
-): string {
-  const params = new URLSearchParams({
-    section,
-    from: period.from,
-    to: period.to,
-  });
-  return `/reports?${params.toString()}`;
-}
-
-function financeHref(
-  tab: "invoices" | "payments" | "expenses" | "reports",
-  period?: { from: string; to: string },
-  options: {
-    status?: string;
-    scope?: NonNullable<FinanceFilters["scope"]>;
-    currency?: string;
-  } = {},
-): string {
-  const params = new URLSearchParams({ tab });
-  if (period) {
-    params.set("from", period.from);
-    params.set("to", period.to);
-  }
-  if (options.status) params.set("status", options.status);
-  if (options.scope) params.set("scope", options.scope);
-  if (options.currency) params.set("currency", options.currency);
-  return `/finance?${params.toString()}`;
-}
-
-function crmHref(options: {
-  tab?: "pipeline" | "forecast";
-  currency?: string;
-  scope?: NonNullable<CrmFilters["scope"]>;
-} = {}): string {
-  const params = new URLSearchParams({ tab: options.tab ?? "pipeline" });
-  if (options.currency) params.set("currency", options.currency);
-  if (options.scope) params.set("scope", options.scope);
-  return `/crm?${params.toString()}`;
-}
-
-function shiftPeriod(
-  period: { from: string; to: string },
-  days: number,
-): { from: string; to: string } {
-  const shift = (value: string) => {
-    const date = new Date(`${value}T00:00:00.000Z`);
-    date.setUTCDate(date.getUTCDate() + days);
-    return date.toISOString().slice(0, 10);
-  };
-  return { from: shift(period.from), to: shift(period.to) };
 }
 
 async function organization(database: Sql, organizationId: string): Promise<OrganizationRow> {
@@ -571,7 +463,7 @@ async function weeklyMetrics(
 
 export async function getFounderReportPackForContext(
   context: CurrentPermissionContext,
-  kind: "daily" | "weekly",
+  kind: "daily" | "weekly" | "monthly",
 ): Promise<FounderReportPack | null> {
   if (!context.permissions.has("reports.founder_pack.view")) return null;
   const database = getDatabaseClient();
@@ -579,10 +471,155 @@ export async function getFounderReportPackForContext(
   const currency = org.default_currency;
   const locale = org.number_format;
   const thisMonth = resolveReportPeriod({ periodMode: "this_month", timezone: org.timezone });
+  const lastMonth = resolveReportPeriod({ periodMode: "last_month", timezone: org.timezone });
+  const previousMonth = previousCalendarMonth(lastMonth);
   const yearToDate = resolveReportPeriod({ periodMode: "year_to_date", timezone: org.timezone });
   const lastWeek = resolveReportPeriod({ periodMode: "last_week", timezone: org.timezone });
   const thisWeek = resolveReportPeriod({ periodMode: "this_week", timezone: org.timezone });
   const nextWeek = shiftPeriod(thisWeek, 7);
+
+  if (kind === "monthly") {
+    const [daily, weekly, trend, profitability, cashForecast, concentration] = await Promise.all([
+      getFounderReportPackForContext(context, "daily"),
+      getFounderReportPackForContext(context, "weekly"),
+      monthlyFinancialTrend(database, context, currency),
+      getProjectProfitabilityForContext(context),
+      context.permissions.has(financePermissionKeys.reportView)
+        ? getCashForecastForContext(context)
+        : Promise.resolve(null),
+      getClientConcentrationForContext(database, context, lastMonth),
+    ]);
+    if (!daily || !weekly) return null;
+    const dailyBlock = (id: string) => daily.blocks.find((item) => item.id === id)?.rows ?? [];
+    const weeklyBlock = (id: string) => weekly.blocks.find((item) => item.id === id)?.rows ?? [];
+    const money = dailyBlock("founder_daily.money");
+    const sales = dailyBlock("founder_daily.sales");
+    const delivery = dailyBlock("founder_daily.delivery");
+    const people = dailyBlock("founder_daily.people");
+    const actions = dailyBlock("founder_daily.actions");
+    const previous = weeklyBlock("founder_weekly.previous");
+    const next = weeklyBlock("founder_weekly.next");
+    const lastMonthContribution =
+      number(trend.revenue_last_month) - number(trend.expenses_last_month);
+    const previousMonthContribution =
+      number(trend.revenue_previous_month) - number(trend.expenses_previous_month);
+    const trendRows = [
+      row(
+        "revenue-last-month",
+        "Issued revenue · last month",
+        formatMinorMoney(number(trend.revenue_last_month), currency, locale),
+        `Previous month ${formatMinorMoney(number(trend.revenue_previous_month), currency, locale)}`,
+        financeHref("invoices", lastMonth, { scope: "issued_revenue", currency }),
+      ),
+      row(
+        "cash-last-month",
+        "Recorded cash · last month",
+        formatMinorMoney(number(trend.cash_last_month), currency, locale),
+        `Previous month ${formatMinorMoney(number(trend.cash_previous_month), currency, locale)}; recorded payments are not reconciled bank cash.`,
+        financeHref("payments", lastMonth, { currency }),
+      ),
+      row(
+        "expenses-last-month",
+        "Recorded expenses · last month",
+        formatMinorMoney(number(trend.expenses_last_month), currency, locale),
+        `Previous month ${formatMinorMoney(number(trend.expenses_previous_month), currency, locale)}`,
+        financeHref("expenses", lastMonth, { currency }),
+      ),
+      row(
+        "contribution-last-month",
+        "Operational contribution · last month",
+        formatMinorMoney(lastMonthContribution, currency, locale),
+        `Previous month ${formatMinorMoney(previousMonthContribution, currency, locale)}; invoiced revenue less visible recorded expenses, not general-ledger profit.`,
+        reportHref("finance", lastMonth),
+        lastMonthContribution < 0 ? "warning" : "neutral",
+      ),
+      row(
+        "revenue-previous-month",
+        "Issued revenue · prior month",
+        formatMinorMoney(number(trend.revenue_previous_month), currency, locale),
+        null,
+        financeHref("invoices", previousMonth, { scope: "issued_revenue", currency }),
+      ),
+    ].map((item) => ({ ...item, definitionKey: `founder_monthly.financial.${item.id}` }));
+    const forecastCurrency =
+      cashForecast?.currencies.find((item) => item.currency === currency) ?? null;
+    const baseForecast =
+      forecastCurrency?.scenarios.find((item) => item.scenario === "base") ?? null;
+    const forecastRows = (baseForecast?.horizons ?? []).map((horizon) => ({
+      ...row(
+        `cash-forecast-${horizon.days}`,
+        `Base cash movement · ${horizon.days} days`,
+        formatMinorMoney(horizon.netMinor, currency, locale),
+        `${formatMinorMoney(horizon.inflowMinor, currency, locale)} expected in · ${formatMinorMoney(horizon.outflowMinor, currency, locale)} expected out. This is forward movement, not bank balance.`,
+        "/finance?tab=reports",
+        horizon.netMinor < 0 ? "warning" : "neutral",
+      ),
+      definitionKey: "founder_monthly.financial.cash-forecast",
+    }));
+    const lastMonthProfitability =
+      profitability.rollups.find(
+        (item) =>
+          item.dimension === "month" &&
+          item.currency === currency &&
+          item.label === lastMonth.from.slice(0, 7),
+      ) ?? null;
+    const projectRows = lastMonthProfitability
+      ? [
+          {
+            ...row(
+              "project-contribution-last-month",
+              "Project gross contribution · last month",
+              formatMinorMoney(lastMonthProfitability.grossContributionMinor, currency, locale),
+              `${formatMinorMoney(lastMonthProfitability.invoicedRevenueMinor, currency, locale)} project revenue with recorded labor, vendor, and project-expense costs.`,
+              reportHref("projects", lastMonth),
+              lastMonthProfitability.grossContributionMinor < 0 ? "warning" : "neutral",
+            ),
+            definitionKey: "founder_monthly.delivery.project-contribution-last-month",
+          },
+          {
+            ...row(
+              "project-margin-last-month",
+              "Project contribution margin · last month",
+              percent(lastMonthProfitability.marginPercent),
+              "Permission-filtered project profitability rollup for the last calendar month.",
+              reportHref("projects", lastMonth),
+            ),
+            definitionKey: "founder_monthly.delivery.project-margin-last-month",
+          },
+        ]
+      : [];
+    const currentReceivables = money.filter((item) => ["receivables", "overdue"].includes(item.id));
+    const executiveRows = [
+      ...trendRows.slice(0, 4),
+      ...sales.filter((item) => item.id === "weighted-pipeline"),
+      ...currentReceivables,
+      ...concentrationRows(concentration)
+        .filter((item) => item.id.includes("revenue"))
+        .slice(0, 1),
+    ];
+    return {
+      kind: "monthly",
+      blocks: [
+        block("founder_monthly.executive", "Executive summary", executiveRows),
+        block("founder_monthly.financial", "Financial trend", [
+          ...trendRows,
+          ...currentReceivables,
+          ...forecastRows,
+        ]),
+        block("founder_monthly.sales", "Pipeline, forecast, and client concentration", [
+          ...sales,
+          ...concentrationRows(concentration),
+        ]),
+        block("founder_monthly.delivery", "Project profitability, delivery, and people", [
+          ...projectRows,
+          ...delivery,
+          ...people,
+          ...previous.filter((item) => ["utilization", "client-issues"].includes(item.id)),
+        ]),
+        block("founder_monthly.outlook", "Risks, decisions, and outlook", [...actions, ...next]),
+      ],
+    };
+  }
 
   if (kind === "daily") {
     const [finance, vendor, forecast, delivery, profitability, people, actions, concentration] =
@@ -702,13 +739,7 @@ export async function getFounderReportPackForContext(
             crmHref({ tab: "forecast" }),
             forecast.staleOpportunities.length ? "warning" : "neutral",
           ),
-          row(
-            "lost",
-            "Lost opportunities",
-            String(lostCount),
-            null,
-            crmHref({ tab: "forecast" }),
-          ),
+          row("lost", "Lost opportunities", String(lostCount), null, crmHref({ tab: "forecast" })),
           row(
             "followups",
             "Required follow-ups",
@@ -718,7 +749,11 @@ export async function getFounderReportPackForContext(
             forecast.overdueFollowUps.length ? "danger" : "neutral",
           ),
         ]),
-        block("founder_daily.concentration", "Client concentration risk", concentrationRows(concentration)),
+        block(
+          "founder_daily.concentration",
+          "Client concentration risk",
+          concentrationRows(concentration),
+        ),
         block("founder_daily.delivery", "Delivery", [
           row(
             "rag",
@@ -760,13 +795,7 @@ export async function getFounderReportPackForContext(
           ),
         ]),
         block("founder_daily.people", "People", [
-          row(
-            "away",
-            "Who is away",
-            String(number(people?.away_today)),
-            null,
-            "/hr?tab=leave",
-          ),
+          row("away", "Who is away", String(number(people?.away_today)), null, "/hr?tab=leave"),
           row(
             "attendance",
             "Attendance exceptions",
@@ -915,13 +944,7 @@ export async function getFounderReportPackForContext(
           null,
           reportHref("projects", lastWeek),
         ),
-        row(
-          "margin",
-          "Project margin",
-          percent(margin),
-          null,
-          "/projects",
-        ),
+        row("margin", "Project margin", percent(margin), null, "/projects"),
         row(
           "client-issues",
           "Client issues",
@@ -991,6 +1014,7 @@ export async function getFounderReportPackForContext(
 export interface FounderSystemReports {
   dailyViewId: string;
   weeklyViewId: string;
+  monthlyViewId: string;
 }
 
 export async function ensureFounderReportSchedulesForContext(
@@ -1023,11 +1047,13 @@ export async function ensureFounderReportSchedulesForContext(
       systemKey: string;
       name: string;
       description: string;
-      section: "founder_daily" | "founder_weekly";
-      periodMode: "today" | "last_week";
+      section: "founder_daily" | "founder_weekly" | "founder_monthly";
+      periodMode: "today" | "last_week" | "last_month";
       widgetKeys: string[];
-      cadence: "daily" | "weekly";
+      cadence: "daily" | "weekly" | "monthly";
       weekday: number | null;
+      monthDay?: number | null;
+      localTime?: string;
     }): Promise<string> => {
       const existing = await sql<Array<{ id: string }>>`
         select id from public.report_saved_views
@@ -1081,9 +1107,9 @@ export async function ensureFounderReportSchedulesForContext(
       if (!scheduleRows[0]) {
         const nextRows = await sql<Array<{ next_run_at: Date }>>`
           select private.report_schedule_next_run(
-            ${input.cadence}, '08:00'::time, ${timezone},
+            ${input.cadence}, ${input.localTime ?? "08:00"}::time, ${timezone},
             ${input.cadence === "weekly" ? input.weekday : null}::smallint,
-            null::smallint, now()
+            ${input.cadence === "monthly" ? (input.monthDay ?? 1) : null}::smallint, now()
           ) as next_run_at
         `;
         const nextRun = nextRows[0]?.next_run_at;
@@ -1095,9 +1121,9 @@ export async function ensureFounderReportSchedulesForContext(
             grace_seconds, status, next_run_at
           ) values (
             ${context.membership.organizationId}::uuid, ${viewId}::uuid,
-            ${context.membership.id}::uuid, ${input.cadence}, '08:00'::time,
+            ${context.membership.id}::uuid, ${input.cadence}, ${input.localTime ?? "08:00"}::time,
             ${timezone}, ${input.cadence === "weekly" ? input.weekday : null}::smallint,
-            null::smallint, 'pdf', 'owner', ${["in_app", "email"]}, 5, 'active',
+            ${input.cadence === "monthly" ? (input.monthDay ?? 1) : null}::smallint, 'pdf', 'owner', ${["in_app", "email"]}, 5, 'active',
             ${nextRun}::timestamptz
           )
         `;
@@ -1133,6 +1159,25 @@ export async function ensureFounderReportSchedulesForContext(
       cadence: "weekly",
       weekday: 1,
     });
-    return { dailyViewId, weeklyViewId };
+    const monthlyViewId = await ensureView({
+      systemKey: "founder.monthly.v1",
+      name: "Founder Monthly / Board Pack",
+      description:
+        "Versioned monthly executive pack covering financial position, cash and receivables, sales concentration, delivery, people, risks, decisions, and evidence links.",
+      section: "founder_monthly",
+      periodMode: "last_month",
+      widgetKeys: [
+        "founder_monthly.executive",
+        "founder_monthly.financial",
+        "founder_monthly.sales",
+        "founder_monthly.delivery",
+        "founder_monthly.outlook",
+      ],
+      cadence: "monthly",
+      weekday: null,
+      monthDay: 1,
+      localTime: "08:15",
+    });
+    return { dailyViewId, weeklyViewId, monthlyViewId };
   });
 }

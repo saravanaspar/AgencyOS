@@ -70,7 +70,6 @@ async function connectRedisClient(): Promise<AgencyRedisClient | null> {
     commandsQueueMaxLength: 100,
     socket: {
       connectTimeout: 750,
-      socketTimeout: 1_000,
       reconnectStrategy: false,
     },
   });
@@ -94,6 +93,13 @@ async function connectRedisClient(): Promise<AgencyRedisClient | null> {
 
 export async function getRedisClient(): Promise<AgencyRedisClient | null> {
   if ((globalThis.__agencyOsRedisRetryAfter ?? 0) > Date.now()) return null;
+
+  // Concurrent requests can arrive after connectRedisClient has published the
+  // client but before node-redis marks it ready. Reuse that in-flight promise;
+  // destroying the not-yet-ready client here aborts every waiter with
+  // ClientClosedError and unnecessarily activates the fail-safe cooldown.
+  const connecting = globalThis.__agencyOsRedisConnectPromise;
+  if (connecting) return connecting;
 
   const existing = globalThis.__agencyOsRedisClient;
   if (existing?.isReady) return existing;

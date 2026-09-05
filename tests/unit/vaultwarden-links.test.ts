@@ -53,6 +53,12 @@ describe("Vaultwarden item references", () => {
   it("enforces exact project and CRM record scopes for listing, linking and revocation", () => {
     expect(automationService).toContain("private.project_is_visible");
     expect(automationService).toContain("private.crm_scope_allows_membership");
+    expect(automationService).toContain("company.account_owner_membership_id");
+    expect(automationService).not.toContain("company.owner_membership_id");
+    expect(automationService).toContain(
+      "join public.identity_accounts as account on account.id = membership.user_id",
+    );
+    expect(automationService).not.toContain("membership.email");
     expect(automationService).toContain("context.permissionScopes.get");
     expect(automationService).toContain("update public.vaultwarden_item_links as link");
   });

@@ -446,7 +446,7 @@ export async function getSupportWorkspaceData(filters?: {
       : Promise.resolve([]),
     context.permissions.has(projectPermissionKeys.projectView)
       ? database<Array<{ id: string; companyId: string | null; name: string }>>`
-        select project.id, project.crm_company_id as "companyId",
+        select project.id, project.company_id as "companyId",
           concat(project.code, ' — ', project.name) as name
         from public.projects project
         where project.organization_id = ${organizationId}::uuid

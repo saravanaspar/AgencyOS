@@ -487,9 +487,13 @@ alter table public.projects
   add column actual_completion_date date;
 
 update public.projects as project
-set currency = coalesce(company.currency, organization.default_currency)
+set currency = coalesce((
+  select company.currency
+  from public.crm_companies as company
+  where company.id = project.company_id
+    and company.organization_id = project.organization_id
+), organization.default_currency)
 from public.organizations as organization
-left join public.crm_companies as company on company.id = project.company_id
 where organization.id = project.organization_id and project.currency is null;
 
 alter table public.projects alter column currency set not null;

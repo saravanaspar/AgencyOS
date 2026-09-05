@@ -187,10 +187,13 @@ export async function saveLegalTemplateAction(
       const document = await sql<Array<{ valid: boolean }>>`
         select exists (
           select 1 from public.document_versions version
-          join public.private_files file on file.id = version.private_file_id
+          join public.private_files file
+            on file.id = version.private_file_id
+            and file.organization_id = ${context.membership.organizationId}::uuid
           where version.id = ${parsed.data.sourceVersionId}::uuid
             and version.document_id = ${parsed.data.sourceDocumentId}::uuid
-            and file.status = 'clean'
+            and version.organization_id = ${context.membership.organizationId}::uuid
+            and file.status = 'available'
         ) as valid
       `;
       if (!document[0]?.valid) throw new Error("template-version-invalid");
@@ -491,10 +494,13 @@ export async function attachLegalContractVersionAction(
       const document = await sql<Array<{ valid: boolean }>>`
         select exists (
           select 1 from public.document_versions version
-          join public.private_files file on file.id = version.private_file_id
+          join public.private_files file
+            on file.id = version.private_file_id
+            and file.organization_id = ${context.membership.organizationId}::uuid
           where version.id = ${parsed.data.documentVersionId}::uuid
             and version.document_id = ${parsed.data.documentId}::uuid
-            and file.status = 'clean'
+            and version.organization_id = ${context.membership.organizationId}::uuid
+            and file.status = 'available'
         ) as valid
       `;
       if (!document[0]?.valid) throw new Error("version-not-clean");

@@ -7,6 +7,7 @@ export async function GET() {
     {
       status: "ok",
       service: "agencyos",
+      revision: process.env.AGENCYOS_REVISION || "unknown",
       timestamp: new Date().toISOString(),
     },
     { headers: { "Cache-Control": "no-store" } },

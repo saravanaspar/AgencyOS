@@ -86,7 +86,6 @@ import {
 } from "@/modules/finance/actions/finance";
 import { financePermissionKeys } from "@/modules/finance/finance";
 import { documentPermissionKeys } from "@/modules/documents/documents";
-import { getDocumentWorkspaceData } from "@/modules/documents/server/documents";
 import { getFinanceWorkspaceData } from "@/modules/finance/server/finance";
 import { hrPermissionKeys } from "@/modules/hr/hr";
 import { getHrWorkspaceData } from "@/modules/hr/server/hr";
@@ -152,6 +151,7 @@ import { getAssetWorkspaceData } from "@/modules/assets/server/assets";
 import { assetPermissionKeys } from "@/modules/assets/assets";
 import { getVendorWorkspaceData } from "@/modules/vendors/server/vendors";
 import { vendorPermissionKeys } from "@/modules/vendors/vendors";
+import { searchDocumentLibraryForMcp } from "@/modules/mcp/tools/document-library";
 import { getPermissionViewerData } from "@/modules/permissions/server/permission-viewer";
 import { getRoleEditorData } from "@/modules/permissions/server/role-editor";
 import {
@@ -2791,10 +2791,11 @@ export const AGENCYOS_MCP_TOOLS: readonly AgencyOsMcpToolDefinition[] = [
     name: "agencyos.documents.search_library",
     title: "Search document library",
     description:
-      "Returns permission-filtered document metadata, tags, business links, version numbers, review dates, retention state, and file scan status. File contents, comments, access grants, and restricted history details are excluded.",
+      "Searches the permission-filtered document library and returns the visible folder structure, stable document and record identifiers, clean metadata, business links, and version evidence. File contents, comments, access grants, and restricted history details are excluded.",
     inputSchema: objectSchema({
       q: { type: "string", maxLength: 100, default: "" },
       status: { type: "string", enum: ["active", "archived", "all"], default: "active" },
+      folderId: nullableUuidSchema,
     }),
     requiredPermissions: [documentPermissionKeys.workspace, documentPermissionKeys.view],
     annotations: {
@@ -2803,44 +2804,7 @@ export const AGENCYOS_MCP_TOOLS: readonly AgencyOsMcpToolDefinition[] = [
       idempotentHint: true,
       openWorldHint: false,
     },
-    async execute(input) {
-      const data = unwrapResult(
-        await getDocumentWorkspaceData({
-          query: typeof input.q === "string" ? input.q : "",
-          status: typeof input.status === "string" ? input.status : "active",
-        }),
-      );
-      return {
-        summary: data.summary,
-        documents: data.documents.map((document) => ({
-          id: document.id,
-          title: document.title,
-          classification: document.classification,
-          ownerName: document.ownerName,
-          folderPath: document.folderPath,
-          category: document.categoryName,
-          status: document.status,
-          reviewDate: document.reviewDate,
-          expiryDate: document.expiryDate,
-          retentionUntil: document.retentionUntil,
-          legalHold: document.legalHold,
-          reviewState: document.reviewState,
-          retentionState: document.retentionState,
-          tags: document.tags.map((tag) => tag.name),
-          links: document.links.map((link) => ({
-            type: link.entityType,
-            label: link.label,
-          })),
-          versions: document.versions.map((version) => ({
-            version: version.versionNumber,
-            fileName: version.fileName,
-            mimeType: version.mimeType,
-            fileStatus: version.fileStatus,
-            createdAt: version.createdAt,
-          })),
-        })),
-      };
-    },
+    execute: searchDocumentLibraryForMcp,
   },
   {
     name: "agencyos.legal.search_contracts",

@@ -40,14 +40,18 @@ export const crmFiltersSchema = z.object({
   stage: z.preprocess(emptyValueToNull, uuid.nullable()).catch(null),
   owner: z.preprocess(emptyValueToNull, uuid.nullable()).catch(null),
   status: z.preprocess(emptyValueToNull, z.enum(crmLeadStatuses).nullable()).catch(null),
-  currency: z.preprocess(
-    emptyValueToNull,
-    z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/).nullable(),
-  ).catch(null),
-  scope: z.preprocess(
-    emptyValueToNull,
-    z.enum(["open_opportunities"]).nullable(),
-  ).catch(null),
+  currency: z
+    .preprocess(
+      emptyValueToNull,
+      z
+        .string()
+        .trim()
+        .toUpperCase()
+        .regex(/^[A-Z]{3}$/)
+        .nullable(),
+    )
+    .catch(null),
+  scope: z.preprocess(emptyValueToNull, z.enum(["open_opportunities"]).nullable()).catch(null),
   page: z.coerce.number().int().min(1).catch(1),
 });
 

@@ -72,7 +72,12 @@ function blockForWidget(
   key: ReportWidgetKey,
   data: ReportsWorkspaceData,
 ): ReportDocumentBlock | null {
-  if ((key.startsWith("founder_daily.") || key.startsWith("founder_weekly.")) && data.founderPack) {
+  if (
+    (key.startsWith("founder_daily.") ||
+      key.startsWith("founder_weekly.") ||
+      key.startsWith("founder_monthly.")) &&
+    data.founderPack
+  ) {
     const founderBlock = data.founderPack.blocks.find((block) => block.id === key);
     if (!founderBlock) return null;
     return {

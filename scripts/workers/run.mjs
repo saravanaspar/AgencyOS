@@ -13,6 +13,7 @@ const jobDefinitions = [
   { key: "approvals", intervalMs: 5 * 60_000 },
   { key: "crm-sync", intervalMs: 5 * 60_000 },
   { key: "finance-overdue", intervalMs: 5 * 60_000 },
+  { key: "finance-collections", intervalMs: 15 * 60_000 },
   { key: "project-reminders", intervalMs: 5 * 60_000 },
   { key: "legal-access-reviews", intervalMs: 6 * 60 * 60_000 },
   { key: "audit-pipeline", intervalMs: 5 * 60_000 },

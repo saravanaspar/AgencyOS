@@ -11,7 +11,12 @@ import type { CreateApprovalDefinitionInput } from "@/modules/approvals/schemas/
 import { currencyMinorUnits } from "@/modules/finance/calculations";
 import type { CurrentPermissionContext } from "@/modules/permissions/server/effective-permissions";
 
-export const financeApprovalEntityTypes = ["estimate", "invoice", "credit_note", "expense"] as const;
+export const financeApprovalEntityTypes = [
+  "estimate",
+  "invoice",
+  "credit_note",
+  "expense",
+] as const;
 export type FinanceApprovalEntityType = (typeof financeApprovalEntityTypes)[number];
 
 const approvalPolicyByEntity: Record<

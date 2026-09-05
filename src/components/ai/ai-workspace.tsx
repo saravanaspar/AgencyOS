@@ -128,7 +128,9 @@ export function AiWorkspace({ providers }: { providers: AiProviderOption[] }) {
         <div className="ai-workspace__trust">
           <ShieldCheck size={18} aria-hidden="true" />
           <div>
-            <strong>{mode === "executive" ? "Read-only executive tools" : "Permission-bound tools"}</strong>
+            <strong>
+              {mode === "executive" ? "Read-only executive tools" : "Permission-bound tools"}
+            </strong>
             <span>
               {mode === "executive"
                 ? "Executive analysis only receives an explicit allow-list of read tools and the canonical KPI catalogue."
@@ -142,7 +144,9 @@ export function AiWorkspace({ providers }: { providers: AiProviderOption[] }) {
         <div className="ai-workspace__toolbar">
           <div>
             <strong>{mode === "executive" ? "Executive analyst" : activeProvider.label}</strong>
-            <span>{activeProvider.label} · {model}</span>
+            <span>
+              {activeProvider.label} · {model}
+            </span>
           </div>
           <Button
             variant="ghost"
@@ -161,7 +165,9 @@ export function AiWorkspace({ providers }: { providers: AiProviderOption[] }) {
           {!messages.length ? (
             <div className="ai-workspace__empty">
               <Bot size={28} aria-hidden="true" />
-              <h2>{mode === "executive" ? "Analyze the business" : "Ask about current operations"}</h2>
+              <h2>
+                {mode === "executive" ? "Analyze the business" : "Ask about current operations"}
+              </h2>
               <p>
                 {mode === "executive"
                   ? "Ask why a KPI moved, which clients create concentration risk, what is driving margin or collections, or which decisions need attention. Executive mode is read-only."

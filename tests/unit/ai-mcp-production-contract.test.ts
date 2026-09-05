@@ -18,11 +18,16 @@ describe("AI and MCP production contracts", () => {
 
   it("ships real Gemini and DeepSeek agent adapters without browser-visible keys", () => {
     const agent = source("src/modules/ai/server/agent.ts");
+    const discovery = source("src/modules/mcp/tool-discovery.ts");
     const config = source("src/modules/ai/server/config.ts");
     const client = source("src/components/ai/ai-workspace.tsx");
     expect(agent).toContain("generateContent");
     expect(agent).toContain("/chat/completions");
     expect(agent).toContain("callMcpTool");
+    expect(agent).toContain("createLazyMcpToolGateway");
+    expect(discovery).toContain("agencyos.tools.search_catalog");
+    expect(discovery).toContain("agencyos.tools.describe");
+    expect(discovery).toContain("agencyos.tools.invoke");
     expect(config).toContain("GEMINI_API_KEY");
     expect(config).toContain("DEEPSEEK_API_KEY");
     expect(client).not.toContain("GEMINI_API_KEY");

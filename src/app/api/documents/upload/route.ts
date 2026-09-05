@@ -86,6 +86,8 @@ export async function POST(request: Request) {
     documentId: formData.get("documentId"),
     title: formData.get("title"),
     description: formData.get("description"),
+    documentDate: formData.get("documentDate"),
+    referenceCode: formData.get("referenceCode"),
     folderId: formData.get("folderId"),
     categoryId: formData.get("categoryId"),
     classification: formData.get("classification"),
@@ -235,12 +237,14 @@ export async function POST(request: Request) {
         await sql`
           insert into public.documents (
             id, organization_id, folder_id, category_id, title, description, classification,
-            owner_membership_id, created_by_membership_id, expiry_date, review_date, retention_until
+            owner_membership_id, created_by_membership_id, document_date, reference_code,
+            expiry_date, review_date, retention_until
           ) values (
             ${documentId}::uuid, ${context.membership.organizationId}::uuid,
             ${parsed.data.folderId}::uuid, ${parsed.data.categoryId}::uuid,
             ${parsed.data.title}, ${parsed.data.description}, ${parsed.data.classification},
             ${parsed.data.ownerMembershipId}::uuid, ${context.membership.id}::uuid,
+            ${parsed.data.documentDate}::date, ${parsed.data.referenceCode},
             ${parsed.data.expiryDate}::date, ${parsed.data.reviewDate}::date,
             ${parsed.data.retentionUntil}::date
           )
@@ -299,6 +303,8 @@ export async function POST(request: Request) {
             title: parsed.data.title,
             classification: parsed.data.classification,
             ownerMembershipId: parsed.data.ownerMembershipId,
+            documentDate: parsed.data.documentDate,
+            referenceCode: parsed.data.referenceCode,
             folderId: parsed.data.folderId,
             categoryId: parsed.data.categoryId,
           },

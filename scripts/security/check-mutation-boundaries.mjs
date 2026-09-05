@@ -377,11 +377,10 @@ function sourceBoundaries(path, source, root) {
       for (const fn of functions) {
         const kind = boundaryKind(fn.name, useServer, isRoute);
         if (!kind) continue;
-        const line = sourceFile.getLineAndCharacterOfPosition(fn.node.getStart(sourceFile)).line + 1;
+        const line =
+          sourceFile.getLineAndCharacterOfPosition(fn.node.getStart(sourceFile)).line + 1;
         if (!fn.body) {
-          boundaries.push(
-            uninspectableBoundary({ kind, relativePath, exportName: fn.name, line }),
-          );
+          boundaries.push(uninspectableBoundary({ kind, relativePath, exportName: fn.name, line }));
           continue;
         }
         boundaries.push(
@@ -421,9 +420,7 @@ function sourceBoundaries(path, source, root) {
       const exportName = element.name.text;
       const kind = boundaryKind(exportName, useServer, isRoute);
       if (!kind) continue;
-      boundaries.push(
-        uninspectableBoundary({ kind, relativePath, exportName, line }),
-      );
+      boundaries.push(uninspectableBoundary({ kind, relativePath, exportName, line }));
     }
   }
 

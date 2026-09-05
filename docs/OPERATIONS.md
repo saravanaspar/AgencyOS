@@ -1,5 +1,9 @@
 # AgencyOS Operations
 
+The authoritative production runbooks are [Coolify deployment](COOLIFY.md) and
+[encrypted backup/recovery](BACKUP_RECOVERY.md). They define stable volumes, pre-migration backups,
+daily health/status, Object Lock limitations, and isolated recovery.
+
 ## Runtime topology
 
 AgencyOS runs as a web process plus a worker process against ordinary PostgreSQL and MinIO. Redis is optional locally. In production, Redis, MinIO, and the private-file scanner are required by default; an operator must explicitly set `REDIS_REQUIRED=0`, `MINIO_REQUIRED=0`, or `PRIVATE_FILE_SCANNER_REQUIRED=0` to declare an intentionally degraded deployment. ClamAV or an authenticated HTTPS scanner must be healthy before quarantined private files can be released.
@@ -12,6 +16,15 @@ PostgreSQL can be Neon, local/self-hosted, or another compatible provider. No Su
 cp .env.example .env.local
 npm ci
 ```
+
+Install rootless Podman and native `podman-compose`. Keep Podman's rootless socket and storage
+owned by the deployment user; do not run AgencyOS containers as root merely to avoid configuring
+subordinate UID/GID ranges.
+
+The Podman manifests give each persistent volume an engine-stable name configured by
+`AGENCYOS_POSTGRES_VOLUME`, `AGENCYOS_REDIS_VOLUME`, `AGENCYOS_MINIO_VOLUME`, and
+`AGENCYOS_CLAMAV_VOLUME`. Changing one of these values intentionally selects a different data
+directory. Keep these values stable after the first successful startup.
 
 Configure `APP_URL`, `DATABASE_URL`, `DATABASE_ADMIN_URL`, `INTERNAL_WORKER_SECRET`, `AUTH_ENCRYPTION_KEY`, `CRM_CONNECTOR_ENCRYPTION_KEY`, MinIO, and any integrations you enable. `DATABASE_POOL_MAX` defaults to 10. Production startup validates required secrets, TLS requirements, the independent audit-pipeline alert webhook, dependency policy, and paired CRM OAuth credentials before accepting traffic.
 
@@ -42,6 +55,15 @@ npm run db:test
 
 Database reset and schema pull are intentionally blocked. Production changes are forward-only.
 
+For a local Podman PostgreSQL 17 instance with the pgTAP extension required by `db:test`, set
+`AGENCYOS_POSTGRES_PASSWORD` and matching `DATABASE_URL`/`DATABASE_ADMIN_URL` values in
+`.env.local`, then run:
+
+```bash
+npm run db:start
+npm run db:logs
+```
+
 For the one-time former-provider migration or later Neon/local/provider moves, follow [`POSTGRESQL_CUTOVER.md`](POSTGRESQL_CUTOVER.md).
 
 ## MinIO object storage
@@ -49,7 +71,7 @@ For the one-time former-provider migration or later Neon/local/provider moves, f
 Runtime file bytes live only in private MinIO buckets.
 
 ```bash
-docker compose --env-file .env.local -f compose.minio.yaml up -d
+npm run storage:start
 npm run storage:setup
 npm run storage:check
 ```
@@ -99,6 +121,7 @@ In non-production only, `AUTH_DEV_SHOW_TOKENS=1` may expose a verification/reset
 Use `redis://127.0.0.1:6379/0` locally. Production requires authenticated TLS `rediss://` whenever `REDIS_REQUIRED=1` (the default). Authenticated rate limits fail closed in production if Redis is unavailable. Worker coordination falls back to PostgreSQL advisory locks where designed.
 
 ```bash
+npm run redis:start
 npm run redis:check
 ```
 
@@ -146,6 +169,20 @@ npm run notifications:vapid
 ```
 
 Keep delivery encryption keys and private VAPID keys server-only.
+
+## Founder cash, collections, and external report delivery
+
+The finance worker includes the `finance-collections` job. Keep the worker running continuously so due stages, delivery retry evidence, owner follow-ups, and founder escalation stay current. Collection client email reuses the existing Resend configuration; if email is unavailable the case remains retryable rather than being marked delivered.
+
+The 30/60/90 forecast is computed on demand from authorized canonical records plus explicit recurring assumptions. Forecast settings are not a bank-feed configuration and must not be interpreted as reconciled/available bank cash.
+
+Slack, Telegram, and generic webhook report destinations are configured per recipient in Reports. Destination secrets are encrypted with a separate server-only key:
+
+```env
+REPORT_DELIVERY_ENCRYPTION_KEY=
+```
+
+Use a high-entropy production secret and rotate it through the deployment secret manager. Slack uses an incoming webhook and receives an authenticated AgencyOS snapshot link. Telegram and generic webhooks receive the recipient-specific PDF/CSV bytes. Generic webhook destinations are HTTPS-only and reject local/private/reserved destinations; do not bypass that validation with internal hostnames. Missing recipient destinations are suppressed independently, while transient delivery failures use the existing report retry/backoff path.
 
 ## AI providers
 
@@ -199,7 +236,9 @@ The verifier checks source migration validity, database migration parity, provid
 
 ## Container deployment
 
-`Dockerfile` builds one image for web and worker. `compose.production.yaml` supplies restart supervision, readiness checks, worker execution, and bounded ingress. Follow [`../deploy/README.md`](../deploy/README.md) for the deployment sequence.
+`Containerfile` builds one OCI image for web and worker with Podman. `compose.production.yaml`
+supplies restart supervision, readiness checks, worker execution, and bounded ingress. Follow
+[`../deploy/README.md`](../deploy/README.md) for the deployment sequence.
 
 The production Compose defaults cap each app/worker container at 2 GiB memory, 2 CPUs, and 256 PIDs. Tune `AGENCYOS_MEMORY_LIMIT`, `AGENCYOS_CPU_LIMIT`, and `AGENCYOS_PIDS_LIMIT` from load-test evidence rather than removing limits.
 

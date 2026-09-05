@@ -1,5 +1,9 @@
 # AgencyOS Architecture Decisions
 
+Production uses `compose.coolify.yaml`: disposable web/worker and operations images surround private
+PostgreSQL, authenticated Redis, MinIO, ClamAV, and PostgreSQL-backed Vaultwarden. Stateful data
+stays in stable named volumes; encrypted off-host B2 snapshots are the disaster-recovery boundary.
+
 ## System shape
 
 AgencyOS is a modular Next.js monolith backed by ordinary PostgreSQL. Authentication is owned by AgencyOS and stored in the same PostgreSQL system of record; the database may run on Neon, local/self-hosted PostgreSQL, or another compatible provider. Server-side modules own authorization, validation, business transactions, audit events, and integrations.

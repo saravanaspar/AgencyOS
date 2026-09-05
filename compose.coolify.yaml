@@ -1,0 +1,472 @@
+# Coolify production stack. Configure all ${NAME:?message} values in Coolify before first deploy.
+# Route the AgencyOS domain to gateway:8080 and the vault domain to vaultwarden:8080.
+# Never run `docker compose down -v` and never change AGENCYOS_VOLUME_PREFIX after first boot.
+
+x-app-environment: &app-environment
+  NODE_ENV: production
+  APP_URL: ${APP_URL:?Set the public AgencyOS HTTPS URL}
+  NEXT_PUBLIC_APP_URL: ${APP_URL:?Set the public AgencyOS HTTPS URL}
+  DATABASE_URL: ${DATABASE_URL:?Set the private AgencyOS PostgreSQL URL}
+  DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-8}
+  REDIS_URL: ${REDIS_URL:?Set redis://default:PASSWORD@redis:6379/0}
+  MINIO_ENDPOINT: http://minio:9000
+  MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?Set a non-root MinIO application access key}
+  MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?Set a non-root MinIO application secret}
+  MINIO_REGION: ${MINIO_REGION:-us-east-1}
+  PRIVATE_FILE_SCANNER_URL: clamav://clamav:3310
+  REDIS_REQUIRED: "1"
+  MINIO_REQUIRED: "1"
+  PRIVATE_FILE_SCANNER_REQUIRED: "1"
+  AGENCYOS_TRUST_PRIVATE_SERVICE_NETWORK: "1"
+  INTERNAL_WORKER_SECRET: ${INTERNAL_WORKER_SECRET:?Set a 32+ character worker secret}
+  AUTH_ENCRYPTION_KEY: ${AUTH_ENCRYPTION_KEY:?Set a stable 32-byte encryption key}
+  CRM_CONNECTOR_ENCRYPTION_KEY: ${CRM_CONNECTOR_ENCRYPTION_KEY:?Set a stable 32-byte encryption key}
+  AUDIT_PIPELINE_ALERT_WEBHOOK_URL: ${AUDIT_PIPELINE_ALERT_WEBHOOK_URL:?Set the HTTPS audit alert webhook}
+  AUDIT_PIPELINE_ALERT_WEBHOOK_SECRET: ${AUDIT_PIPELINE_ALERT_WEBHOOK_SECRET:?Set its 32+ character secret}
+  VAULTWARDEN_URL: ${VAULTWARDEN_URL:?Set the public Vaultwarden HTTPS URL}
+  RESEND_API_KEY: ${RESEND_API_KEY:-}
+  NOTIFICATION_EMAIL_FROM: ${NOTIFICATION_EMAIL_FROM:-AgencyOS <notifications@example.com>}
+  NOTIFICATION_DELIVERY_ENCRYPTION_KEY: ${NOTIFICATION_DELIVERY_ENCRYPTION_KEY:-}
+  NOTIFICATION_VAPID_PUBLIC_KEY: ${NOTIFICATION_VAPID_PUBLIC_KEY:-}
+  NOTIFICATION_VAPID_PRIVATE_KEY: ${NOTIFICATION_VAPID_PRIVATE_KEY:-}
+  NOTIFICATION_VAPID_SUBJECT: ${NOTIFICATION_VAPID_SUBJECT:-}
+  REPORT_DELIVERY_ENCRYPTION_KEY: ${REPORT_DELIVERY_ENCRYPTION_KEY:-}
+  SECURITY_RATE_LIMIT_REDIS_FAILURE_MODE: deny
+  SECURITY_WORKER_RATE_LIMIT_PER_MINUTE: ${SECURITY_WORKER_RATE_LIMIT_PER_MINUTE:-120}
+  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+  GEMINI_MODELS: ${GEMINI_MODELS:-gemini-3.5-flash,gemini-3.1-pro-preview}
+  DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+  DEEPSEEK_API_URL: ${DEEPSEEK_API_URL:-https://api.deepseek.com}
+  DEEPSEEK_MODELS: ${DEEPSEEK_MODELS:-deepseek-v4-flash,deepseek-v4-pro}
+  HUBSPOT_OAUTH_CLIENT_ID: ${HUBSPOT_OAUTH_CLIENT_ID:-}
+  HUBSPOT_OAUTH_CLIENT_SECRET: ${HUBSPOT_OAUTH_CLIENT_SECRET:-}
+  SALESFORCE_OAUTH_CLIENT_ID: ${SALESFORCE_OAUTH_CLIENT_ID:-}
+  SALESFORCE_OAUTH_CLIENT_SECRET: ${SALESFORCE_OAUTH_CLIENT_SECRET:-}
+  SALESFORCE_OAUTH_LOGIN_URL: ${SALESFORCE_OAUTH_LOGIN_URL:-https://login.salesforce.com}
+  ZOHO_OAUTH_CLIENT_ID: ${ZOHO_OAUTH_CLIENT_ID:-}
+  ZOHO_OAUTH_CLIENT_SECRET: ${ZOHO_OAUTH_CLIENT_SECRET:-}
+  PIPEDRIVE_OAUTH_CLIENT_ID: ${PIPEDRIVE_OAUTH_CLIENT_ID:-}
+  PIPEDRIVE_OAUTH_CLIENT_SECRET: ${PIPEDRIVE_OAUTH_CLIENT_SECRET:-}
+
+x-app-service: &app-service
+  image: ${AGENCYOS_IMAGE:?Set AGENCYOS_IMAGE to an immutable application digest (name@sha256:...)}
+  environment: *app-environment
+  restart: unless-stopped
+  read_only: true
+  init: true
+  tmpfs:
+    - /tmp:size=536870912,mode=1777
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  stop_grace_period: 30s
+  pids_limit: 256
+
+x-operations-environment: &operations-environment
+  NODE_ENV: production
+  AGENCYOS_OPERATIONS_IMAGE: ${AGENCYOS_OPERATIONS_IMAGE:?Set the immutable operations digest (name@sha256:...)}
+  AGENCYOS_RELEASE_ID: ${AGENCYOS_RELEASE_ID:-manual-first-deploy}
+  DATABASE_ADMIN_URL: ${DATABASE_ADMIN_URL:?Set the direct private AgencyOS PostgreSQL URL}
+  VAULTWARDEN_DATABASE_URL: ${VAULTWARDEN_DATABASE_URL:?Set the private Vaultwarden PostgreSQL URL}
+  MINIO_ENDPOINT: http://minio:9000
+  MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set the MinIO root user}
+  MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set the MinIO root password}
+  B2_ENDPOINT: ${B2_ENDPOINT:?Set the Backblaze B2 S3 HTTPS endpoint}
+  B2_BUCKET: ${B2_BUCKET:?Set the Object-Lock-enabled B2 bucket}
+  B2_PREFIX: ${B2_PREFIX:-agencyos/restic}
+  B2_REGION: ${B2_REGION:-us-west-004}
+  RESTIC_PASSWORD: ${RESTIC_PASSWORD:?Set and separately escrow the restic repository password}
+  BACKUP_HOST: ${BACKUP_HOST:-agencyos-production}
+  BACKUP_HOUR_UTC: ${BACKUP_HOUR_UTC:-2}
+  BACKUP_MAINTENANCE_HOUR_UTC: ${BACKUP_MAINTENANCE_HOUR_UTC:-5}
+  BACKUP_JITTER_MINUTES: ${BACKUP_JITTER_MINUTES:-20}
+  BACKUP_MAX_AGE_HOURS: ${BACKUP_MAX_AGE_HOURS:-30}
+  BACKUP_COMMAND_TIMEOUT_MS: ${BACKUP_COMMAND_TIMEOUT_MS:-3600000}
+  BACKUP_SUCCESS_HEARTBEAT_URL: ${BACKUP_SUCCESS_HEARTBEAT_URL:?Set an external dead-man heartbeat URL}
+  BACKUP_FAILURE_WEBHOOK_URL: ${BACKUP_FAILURE_WEBHOOK_URL:-}
+  BACKUP_FAILURE_WEBHOOK_SECRET: ${BACKUP_FAILURE_WEBHOOK_SECRET:-}
+
+x-operations-service: &operations-service
+  image: ${AGENCYOS_OPERATIONS_IMAGE:?Set AGENCYOS_OPERATIONS_IMAGE to an immutable operations digest (name@sha256:...)}
+  read_only: true
+  tmpfs:
+    - /tmp:size=134217728,mode=1777
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  pids_limit: 192
+  mem_limit: 768m
+  cpus: 0.75
+
+services:
+  postgres:
+    build:
+      context: .
+      dockerfile: Containerfile.postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${AGENCYOS_POSTGRES_USER:-agencyos}
+      POSTGRES_PASSWORD: ${AGENCYOS_POSTGRES_PASSWORD:?Set a 32+ character PostgreSQL password}
+      POSTGRES_DB: ${AGENCYOS_POSTGRES_DB:-agencyos}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - private
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+    stop_grace_period: 60s
+    shm_size: 256m
+    pids_limit: 256
+    mem_limit: 1g
+    cpus: 1.0
+
+  redis:
+    image: docker.io/library/redis:7.4.10-alpine@sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2
+    command: ["sh", "/usr/local/lib/agencyos/start-redis.sh"]
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set a URL-safe 32+ character Redis password}
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?Set a URL-safe 32+ character Redis password}
+      REDIS_MAXMEMORY: ${REDIS_MAXMEMORY:-192mb}
+    volumes:
+      - redis-data:/data
+      - ./deploy/redis/start-redis.sh:/usr/local/lib/agencyos/start-redis.sh:ro
+    tmpfs:
+      - /run/agencyos-redis:size=1048576,mode=0700
+    networks:
+      - private
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 128
+    mem_limit: 256m
+    cpus: 0.25
+    stop_grace_period: 30s
+
+  minio:
+    image: docker.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    command: ["server", "/data"]
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set the MinIO root user}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set the MinIO root password}
+      MINIO_BROWSER: "off"
+    volumes:
+      - minio-data:/data
+    networks:
+      - private
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 512m
+    cpus: 0.5
+    stop_grace_period: 30s
+
+  clamav:
+    image: docker.io/clamav/clamav:1.5.3-debian13-slim@sha256:741e6c447241220e0792a901befcaec1d55a755c5097fc9cd88d7fd8be251a5c
+    restart: unless-stopped
+    volumes:
+      - clamav-signatures:/var/lib/clamav
+    networks:
+      - private
+      - egress
+    healthcheck:
+      test: ["CMD-SHELL", "clamdscan --ping 1 --wait >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      retries: 30
+      start_period: 180s
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 3g
+    cpus: 1.0
+    stop_grace_period: 45s
+
+  bootstrap:
+    <<: *operations-service
+    command: ["node", "scripts/operations/bootstrap-production.mjs"]
+    restart: "no"
+    environment:
+      DATABASE_CONTROL_URL: ${DATABASE_CONTROL_URL:?Set the private PostgreSQL control URL}
+      VAULTWARDEN_DATABASE_USER: ${VAULTWARDEN_DATABASE_USER:-vaultwarden}
+      VAULTWARDEN_DATABASE_NAME: ${VAULTWARDEN_DATABASE_NAME:-vaultwarden}
+      VAULTWARDEN_DATABASE_PASSWORD: ${VAULTWARDEN_DATABASE_PASSWORD:?Set a stable 32+ character password}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set the MinIO root user}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set the MinIO root password}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?Set a non-root MinIO application access key}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?Set a non-root MinIO application secret}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - private
+
+  vaultwarden:
+    image: docker.io/vaultwarden/server:1.34.3@sha256:84fd8a47f58d79a1ad824c27be0a9492750c0fa5216b35c749863093bfa3c3d7
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${VAULTWARDEN_DATABASE_URL:?Set the private Vaultwarden PostgreSQL URL}
+      DOMAIN: ${VAULTWARDEN_URL:?Set the public Vaultwarden HTTPS URL}
+      SIGNUPS_ALLOWED: ${VAULTWARDEN_SIGNUPS_ALLOWED:-false}
+      INVITATIONS_ALLOWED: ${VAULTWARDEN_INVITATIONS_ALLOWED:-false}
+      ADMIN_TOKEN: ${VAULTWARDEN_ADMIN_TOKEN:-}
+      ROCKET_PORT: "8080"
+      WEBSOCKET_ENABLED: "true"
+    volumes:
+      - vaultwarden-data:/data
+    expose:
+      - "8080"
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    networks:
+      - private
+      - egress
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/alive"]
+      interval: 30s
+      timeout: 5s
+      retries: 15
+      start_period: 60s
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 256m
+    cpus: 0.25
+    stop_grace_period: 30s
+
+  predeploy-backup:
+    <<: *operations-service
+    command: ["node", "scripts/backup/run-backup.mjs", "--reason=predeploy"]
+    restart: "no"
+    environment:
+      <<: *operations-environment
+      B2_WRITER_KEY_ID: ${B2_WRITER_KEY_ID:?Set the non-delete B2 writer key ID}
+      B2_WRITER_APPLICATION_KEY: ${B2_WRITER_APPLICATION_KEY:?Set the non-delete B2 writer key}
+    volumes:
+      - backup-state:/state
+      - restic-cache:/cache
+      - restic-repository:/repository
+      - backup-stage:/stage
+      - vaultwarden-data:/vaultwarden-data:ro
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+      vaultwarden:
+        condition: service_healthy
+    networks:
+      - private
+      - egress
+
+  migrate:
+    <<: *operations-service
+    command: ["node", "scripts/operations/release-gate.mjs"]
+    restart: "no"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set the private AgencyOS PostgreSQL URL}
+      DATABASE_ADMIN_URL: ${DATABASE_ADMIN_URL:?Set the direct private AgencyOS PostgreSQL URL}
+      AGENCYOS_RELEASE_ID: ${AGENCYOS_RELEASE_ID:-manual-first-deploy}
+      AGENCYOS_OPERATIONS_IMAGE: ${AGENCYOS_OPERATIONS_IMAGE:?Set the immutable operations digest}
+      AGENCYOS_RELEASE_STATUS_DIR: /release-status
+    volumes:
+      - release-status:/release-status
+    depends_on:
+      postgres:
+        condition: service_healthy
+      predeploy-backup:
+        condition: service_completed_successfully
+    networks:
+      - private
+
+  app:
+    <<: *app-service
+    command: ["node", "server.js"]
+    expose:
+      - "3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      clamav:
+        condition: service_healthy
+    networks:
+      - private
+      - egress
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 8
+      start_period: 45s
+    mem_limit: 1536m
+    cpus: 1.25
+
+  worker:
+    <<: *app-service
+    command: ["node", "scripts/workers/run.mjs"]
+    environment:
+      <<: *app-environment
+      INTERNAL_APP_URL: http://app:3000
+      WORKER_MAX_CONCURRENCY: ${WORKER_MAX_CONCURRENCY:-2}
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - private
+      - egress
+    mem_limit: 512m
+    cpus: 0.5
+
+  gateway:
+    image: docker.io/library/nginx:1.29.8-alpine3.23@sha256:5616878291a2eed594aee8db4dade5878cf7edcb475e59193904b198d9b830de
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:size=67108864,mode=0755
+      - /var/run:size=1048576,mode=0755
+      - /tmp:size=16777216,mode=1777
+    volumes:
+      - ./deploy/nginx/agencyos.conf:/etc/nginx/conf.d/default.conf:ro
+    expose:
+      - "8080"
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - private
+      - egress
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/api/health/live"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+    pids_limit: 96
+    mem_limit: 128m
+    cpus: 0.2
+
+  backup:
+    <<: *operations-service
+    command: ["node", "scripts/backup/scheduler.mjs"]
+    restart: unless-stopped
+    environment:
+      <<: *operations-environment
+      B2_WRITER_KEY_ID: ${B2_WRITER_KEY_ID:?Set the non-delete B2 writer key ID}
+      B2_WRITER_APPLICATION_KEY: ${B2_WRITER_APPLICATION_KEY:?Set the non-delete B2 writer key}
+    volumes:
+      - backup-state:/state
+      - restic-cache:/cache
+      - restic-repository:/repository
+      - backup-stage:/stage
+      - vaultwarden-data:/vaultwarden-data:ro
+    depends_on:
+      predeploy-backup:
+        condition: service_completed_successfully
+    networks:
+      - private
+      - egress
+    healthcheck:
+      test: ["CMD", "node", "scripts/backup/health.mjs"]
+      interval: 10m
+      timeout: 10s
+      retries: 3
+      start_period: 10m
+
+  backup-maintenance:
+    <<: *operations-service
+    command: ["node", "scripts/backup/scheduler.mjs", "--maintenance"]
+    restart: unless-stopped
+    environment:
+      <<: *operations-environment
+      B2_MAINTENANCE_KEY_ID: ${B2_MAINTENANCE_KEY_ID:?Set the read-only B2 maintenance key ID}
+      B2_MAINTENANCE_APPLICATION_KEY: ${B2_MAINTENANCE_APPLICATION_KEY:?Set the maintenance B2 key}
+      BACKUP_KEEP_DAILY: ${BACKUP_KEEP_DAILY:-35}
+      BACKUP_KEEP_WEEKLY: ${BACKUP_KEEP_WEEKLY:-8}
+      BACKUP_KEEP_MONTHLY: ${BACKUP_KEEP_MONTHLY:-12}
+      BACKUP_KEEP_YEARLY: ${BACKUP_KEEP_YEARLY:-3}
+      BACKUP_PRUNE_ENABLED: ${BACKUP_PRUNE_ENABLED:-0}
+    volumes:
+      - backup-state:/state
+      - restic-cache:/cache
+      - restic-repository:/repository
+    depends_on:
+      predeploy-backup:
+        condition: service_completed_successfully
+    networks:
+      - egress
+    healthcheck:
+      test: ["CMD", "node", "scripts/backup/health.mjs", "--maintenance"]
+      interval: 30m
+      timeout: 10s
+      retries: 3
+      start_period: 10m
+
+networks:
+  private:
+    internal: true
+  egress:
+    driver: bridge
+
+volumes:
+  postgres-data:
+    name: ${AGENCYOS_VOLUME_PREFIX:-agencyos-production}-postgres-v1
+  redis-data:
+    name: ${AGENCYOS_VOLUME_PREFIX:-agencyos-production}-redis-v1
+  minio-data:
+    name: ${AGENCYOS_VOLUME_PREFIX:-agencyos-production}-minio-v1
+  clamav-signatures:
+    name: ${AGENCYOS_VOLUME_PREFIX:-agencyos-production}-clamav-signatures-v1
+  vaultwarden-data:
+    name: ${AGENCYOS_VOLUME_PREFIX:-agencyos-production}-vaultwarden-v1
+  backup-state:
+    name: ${AGENCYOS_VOLUME_PREFIX:-agencyos-production}-backup-state-v1
+  restic-cache:
+    name: ${AGENCYOS_VOLUME_PREFIX:-agencyos-production}-restic-cache-v1
+  restic-repository:
+    name: ${AGENCYOS_VOLUME_PREFIX:-agencyos-production}-restic-repository-v1
+  backup-stage:
+    name: ${AGENCYOS_VOLUME_PREFIX:-agencyos-production}-backup-stage-v1
+  release-status:
+    name: ${AGENCYOS_VOLUME_PREFIX:-agencyos-production}-release-status-v1

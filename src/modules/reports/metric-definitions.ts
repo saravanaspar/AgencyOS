@@ -305,7 +305,9 @@ export const metricDefinitionCatalog: Readonly<Record<string, MetricDefinition>>
     "Sum(lead estimated value) for authorized CRM leads created in the previous week.",
     ["crm_leads"],
     currencySeparated,
-    ["The founder card displays the organization's default-currency slice and is not probability weighted."],
+    [
+      "The founder card displays the organization's default-currency slice and is not probability weighted.",
+    ],
   ),
   "founder_weekly.previous.won-lost": define(
     "founder_weekly.previous.won-lost",
@@ -327,7 +329,9 @@ export const metricDefinitionCatalog: Readonly<Record<string, MetricDefinition>>
     "Sum(project gross contribution minor) / Sum(project invoiced revenue minor) x 100.",
     ["projects", "finance_invoices", "finance_expenses", "project_time_entries"],
     defaultCurrencyOnly,
-    ["This is a current project profitability view, not strictly a previous-week accounting margin."],
+    [
+      "This is a current project profitability view, not strictly a previous-week accounting margin.",
+    ],
   ),
   "founder_weekly.previous.client-issues": define(
     "founder_weekly.previous.client-issues",
@@ -382,13 +386,85 @@ export const metricDefinitionCatalog: Readonly<Record<string, MetricDefinition>>
     ["approval_requests", "approval_request_steps"],
   ),
 
+  "founder_monthly.financial.revenue-last-month": define(
+    "founder_monthly.financial.revenue-last-month",
+    "Issued net invoice revenue during the last completed local calendar month.",
+    "Sum(invoice subtotal minor - invoice discount minor) for issued, non-void invoices whose issue date falls in the last completed month.",
+    ["finance_invoices"],
+    defaultCurrencyOnly,
+    ["This is invoiced revenue, not recognized accounting revenue or cash received."],
+  ),
+  "founder_monthly.financial.cash-last-month": define(
+    "founder_monthly.financial.cash-last-month",
+    "Incoming payments recorded during the last completed local calendar month.",
+    "Sum(finance payment amount minor) where payment_date falls in the last completed month.",
+    ["finance_payments"],
+    defaultCurrencyOnly,
+    ["Recorded payments are not the same as reconciled bank cash."],
+  ),
+  "founder_monthly.financial.expenses-last-month": define(
+    "founder_monthly.financial.expenses-last-month",
+    "Authorized non-rejected expenses dated during the last completed local calendar month.",
+    "Sum(visible finance expense total minor) for non-rejected expenses in the last completed month.",
+    ["finance_expenses"],
+    defaultCurrencyOnly,
+  ),
+  "founder_monthly.financial.contribution-last-month": define(
+    "founder_monthly.financial.contribution-last-month",
+    "Operational contribution for the last completed month using invoiced revenue and visible recorded expenses.",
+    "Last-month issued net invoice revenue - last-month authorized recorded expenses.",
+    ["finance_invoices", "finance_expenses"],
+    defaultCurrencyOnly,
+    ["This is an operating indicator and not general-ledger or statutory profit."],
+  ),
+  "founder_monthly.financial.revenue-previous-month": define(
+    "founder_monthly.financial.revenue-previous-month",
+    "Issued net invoice revenue during the calendar month immediately before the last completed month.",
+    "Sum(invoice subtotal minor - invoice discount minor) for issued, non-void invoices in the prior comparison month.",
+    ["finance_invoices"],
+    defaultCurrencyOnly,
+  ),
+  "founder_monthly.financial.cash-forecast": define(
+    "founder_monthly.financial.cash-forecast",
+    "Base-scenario forward cash movement over the selected 30, 60, or 90-day horizon.",
+    "Permission-filtered expected inflows - expected outflows using the configured base forecast policy and explicit recurring assumptions.",
+    [
+      "finance_invoices",
+      "finance_payments",
+      "finance_expenses",
+      "procurement_vendor_bills",
+      "procurement_purchase_orders",
+      "hr_salary_structures",
+      "crm_leads",
+      "finance_cash_recurring_items",
+    ],
+    currencySeparated,
+    ["This is forward cash movement, not a bank balance or bank reconciliation."],
+  ),
+  "founder_monthly.delivery.project-contribution-last-month": define(
+    "founder_monthly.delivery.project-contribution-last-month",
+    "Gross contribution from visible project work in the last completed month.",
+    "Project invoiced revenue - labor cost - vendor cost - allocated project expenses for the last completed month.",
+    ["projects", "finance_invoices", "project_time_entries", "finance_expenses"],
+    defaultCurrencyOnly,
+  ),
+  "founder_monthly.delivery.project-margin-last-month": define(
+    "founder_monthly.delivery.project-margin-last-month",
+    "Gross contribution margin for visible project work in the last completed month.",
+    "Last-month project gross contribution / last-month project invoiced revenue x 100.",
+    ["projects", "finance_invoices", "project_time_entries", "finance_expenses"],
+    defaultCurrencyOnly,
+  ),
+
   "client_concentration.revenue": define(
     "client_concentration.revenue",
     "Share of issued net revenue attributable to the largest client and top three clients.",
     "For each currency: client issued net revenue / total issued net revenue in the selected period; top-three share = sum(top 3 client revenue) / total.",
     ["finance_invoices", "crm_companies"],
     currencySeparated,
-    ["Revenue is grouped by invoice company and uses invoiced net revenue, not recognized revenue."],
+    [
+      "Revenue is grouped by invoice company and uses invoiced net revenue, not recognized revenue.",
+    ],
   ),
   "client_concentration.receivables": define(
     "client_concentration.receivables",
@@ -396,7 +472,9 @@ export const metricDefinitionCatalog: Readonly<Record<string, MetricDefinition>>
     "For each currency: client open issued invoice balance / total open issued invoice balance; top-three share = sum(top 3 client balances) / total.",
     ["finance_invoices", "crm_companies"],
     currencySeparated,
-    ["Receivables are current balances and are not limited to the report-period invoice issue date."],
+    [
+      "Receivables are current balances and are not limited to the report-period invoice issue date.",
+    ],
   ),
   "client_concentration.pipeline": define(
     "client_concentration.pipeline",
@@ -412,7 +490,7 @@ export const metricDefinitionCatalog: Readonly<Record<string, MetricDefinition>>
 };
 
 export function getMetricDefinition(key: string | null | undefined): MetricDefinition | null {
-  return key ? metricDefinitionCatalog[key] ?? null : null;
+  return key ? (metricDefinitionCatalog[key] ?? null) : null;
 }
 
 export function founderMetricDefinitionKey(blockId: string, rowId: string): string | null {

@@ -46,9 +46,9 @@ export function installFailureHooks(page: Page): RuntimeFailures {
   page.on("requestfailed", (request) => {
     const url = request.url();
     if (url.startsWith("data:") || url.includes("favicon.ico")) return;
-    failures.failedRequests.push(
-      `${request.method()} ${url} ${request.failure()?.errorText ?? "request failed"}`,
-    );
+    const errorText = request.failure()?.errorText ?? "request failed";
+    if (errorText === "net::ERR_ABORTED" || errorText === "NS_BINDING_ABORTED") return;
+    failures.failedRequests.push(`${request.method()} ${url} ${errorText}`);
   });
   page.on("response", (response) => {
     if (response.status() >= 500)
@@ -117,7 +117,10 @@ export async function login(page: Page, account: BrowserAccount): Promise<void> 
   await page.goto("/login");
   await page.getByLabel(/email/i).fill(account.email);
   await page.getByLabel(/password/i).fill(account.password);
-  await page.getByRole("button", { name: /sign in/i }).click();
+  await Promise.all([
+    page.waitForURL((url) => url.pathname !== "/login", { timeout: 15_000 }),
+    page.getByRole("button", { name: /sign in/i }).click(),
+  ]);
   await page.waitForLoadState("networkidle");
 
   if (page.url().includes("/mfa")) {

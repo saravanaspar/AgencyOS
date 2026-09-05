@@ -53,6 +53,13 @@ export const reportWidgetCatalog = {
     { key: "founder_weekly.previous", label: "Previous week" },
     { key: "founder_weekly.next", label: "Next week" },
   ],
+  founder_monthly: [
+    { key: "founder_monthly.executive", label: "Executive summary" },
+    { key: "founder_monthly.financial", label: "Financial position" },
+    { key: "founder_monthly.sales", label: "Sales and concentration" },
+    { key: "founder_monthly.delivery", label: "Delivery and people" },
+    { key: "founder_monthly.outlook", label: "Risks, decisions, and outlook" },
+  ],
   legal: [
     { key: "legal.expiring", label: "Expiring contracts" },
     { key: "legal.signatures", label: "Pending signatures" },

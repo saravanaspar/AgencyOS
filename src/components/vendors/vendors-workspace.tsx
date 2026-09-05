@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 
 import { VendorActionMessage } from "@/components/vendors/vendors-action-message";
+import { VendorBillForm } from "@/components/vendors/vendor-bill-form";
 import { CreateQueryDetails } from "@/components/shell/create-query-details";
 import { toDateTimeLocalValue } from "@/lib/date-time-local";
 import { getDateTimeFormatter, getNumberFormatter } from "@/lib/intl-formatters";
@@ -18,7 +19,6 @@ import {
   issuePurchaseOrderAction,
   linkVendorContractAction,
   recordGoodsReceiptAction,
-  recordVendorBillAction,
   saveVendorAction,
   selectVendorQuotationAction,
   submitPurchaseRequestAction,
@@ -698,7 +698,6 @@ function PurchaseOrderActions({
     recordGoodsReceiptAction,
     initialState,
   );
-  const [billState, billAction, billPending] = useActionState(recordVendorBillAction, initialState);
   const [documentState, documentAction, documentPending] = useActionState(
     attachPurchaseOrderDocumentAction,
     initialState,
@@ -778,52 +777,7 @@ function PurchaseOrderActions({
           </div>
         </form>
       ) : null}
-      {order.canManageBill ? (
-        <form action={billAction} className="vendor-form vendor-form--compact">
-          <input type="hidden" name="purchaseOrderId" value={order.id} />
-          <label>
-            Bill reference
-            <input name="billReference" required />
-          </label>
-          <label>
-            Invoice date
-            <input name="invoiceDate" type="date" required />
-          </label>
-          <label>
-            Due date
-            <input name="dueDate" type="date" />
-          </label>
-          <label>
-            Subtotal minor
-            <input name="subtotalMinor" type="number" min={0} required />
-          </label>
-          <label>
-            Tax minor
-            <input name="taxMinor" type="number" min={0} defaultValue={0} required />
-          </label>
-          <label>
-            Currency
-            <input name="currency" maxLength={3} defaultValue={order.currency} required />
-          </label>
-          <label>
-            Source document
-            <select name="sourceDocumentId" defaultValue="">
-              <option value="">None</option>
-              {data.documents.map((document) => (
-                <option key={document.id} value={document.id}>
-                  {document.title}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="vendor-form__wide vendor-form__actions">
-            <button type="submit" className="button button--secondary" disabled={billPending}>
-              Record bill
-            </button>
-            <VendorActionMessage state={billState} />
-          </div>
-        </form>
-      ) : null}
+      {order.canManageBill ? <VendorBillForm data={data} order={order} /> : null}
       {order.canLinkDocument ? (
         <form action={documentAction} className="vendor-inline-form">
           <input type="hidden" name="purchaseOrderId" value={order.id} />
@@ -846,6 +800,7 @@ function PurchaseOrderActions({
     </div>
   );
 }
+
 function BillApprovalForm({ bill }: { bill: PurchaseOrderSummary["bills"][number] }) {
   const [state, action, pending] = useActionState(submitVendorBillApprovalAction, initialState);
   if (!bill.canSubmitApproval) return null;
@@ -1245,6 +1200,22 @@ function PurchaseOrderRegister({ data }: { data: VendorWorkspaceData }) {
                       {money(bill.totalMinor, bill.currency)} · {bill.matchStatusLabel} ·{" "}
                       {bill.statusLabel}
                     </p>
+                    {bill.sourceDocumentTitle ? (
+                      <p className="vendor-muted">
+                        Source:{" "}
+                        {bill.sourceDocumentCanOpen &&
+                        bill.sourceDocumentId &&
+                        bill.sourceDocumentCurrentVersionId ? (
+                          <Link
+                            href={`/api/documents/${bill.sourceDocumentId}/versions/${bill.sourceDocumentCurrentVersionId}`}
+                          >
+                            {bill.sourceDocumentTitle}
+                          </Link>
+                        ) : (
+                          bill.sourceDocumentTitle
+                        )}
+                      </p>
+                    ) : null}
                     {bill.approvalRequestId ? (
                       <p className="vendor-muted">Approval request linked.</p>
                     ) : null}

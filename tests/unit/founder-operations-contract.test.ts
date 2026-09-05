@@ -59,6 +59,10 @@ describe("founder operations contracts", () => {
     expect(migration).toContain("billing_method");
     expect(migration).toContain("budget_minor");
     expect(migration).toContain("actual_completion_date");
+    expect(migration).toContain("company.organization_id = project.organization_id");
+    expect(migration).not.toContain(
+      "left join public.crm_companies as company on company.id = project.company_id",
+    );
     expect(migration).toContain("private.project_unbilled_minor");
     expect(migration).toContain("private.validate_project_closure_transition");
     expect(migration).toContain("Issue final billing before project closure");

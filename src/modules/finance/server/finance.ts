@@ -17,6 +17,12 @@ import { reportsPermissionKeys } from "@/modules/reports/reports";
 import { loadFinanceExpenseData, type FinanceExpenseData } from "@/modules/finance/server/expenses";
 import { loadFinanceReportData, type FinanceReportData } from "@/modules/finance/server/reports";
 import { invoiceSourceFilter, paymentSourceFilter } from "@/modules/finance/server/source-filters";
+import {
+  financeDepthCapabilities,
+  loadFinanceDepthData,
+  type FinanceDepthData,
+} from "@/modules/finance/server/finance-depth";
+import type { FinanceWorkspaceCapabilities } from "@/modules/finance/server/finance-workspace-capabilities";
 
 export type {
   FinanceExpense,
@@ -304,7 +310,8 @@ export interface FinancePayment {
   createdAt: string;
 }
 
-export interface FinanceWorkspaceData extends FinanceExpenseData, FinanceReportData {
+export interface FinanceWorkspaceData
+  extends FinanceExpenseData, FinanceReportData, FinanceDepthData {
   organizationId: string;
   defaultCurrency: string;
   locale: string;
@@ -324,41 +331,7 @@ export interface FinanceWorkspaceData extends FinanceExpenseData, FinanceReportD
     paidThisMonthMinor: number;
     currency: string;
   };
-  capabilities: {
-    canViewCatalog: boolean;
-    canManageCatalog: boolean;
-    canViewEstimates: boolean;
-    canCreateEstimates: boolean;
-    canUpdateEstimates: boolean;
-    canRecordEstimateAcceptance: boolean;
-    canConvertEstimates: boolean;
-    canViewInvoices: boolean;
-    canCreateInvoices: boolean;
-    canUpdateInvoices: boolean;
-    canIssueInvoices: boolean;
-    canVoidInvoices: boolean;
-    canCorrectInvoices: boolean;
-    canManageInvoiceAttachments: boolean;
-    canManageInvoiceStatus: boolean;
-    canViewCreditNotes: boolean;
-    canCreateCreditNotes: boolean;
-    canIssueCreditNotes: boolean;
-    canVoidCreditNotes: boolean;
-    canViewPayments: boolean;
-    canCreatePayments: boolean;
-    canReconcilePayments: boolean;
-    canRefundPayments: boolean;
-    canViewExpenses: boolean;
-    canCreateExpenses: boolean;
-    canManageExpenses: boolean;
-    canPayExpenses: boolean;
-    canManageExpenseCategories: boolean;
-    canManageExpenseReceipts: boolean;
-    canViewReports: boolean;
-    canExportReports: boolean;
-    canDownloadDocuments: boolean;
-    canSendDocuments: boolean;
-  };
+  capabilities: FinanceWorkspaceCapabilities;
 }
 
 export type FinanceWorkspaceResult =
@@ -656,6 +629,7 @@ export async function getFinanceWorkspaceData(
     ),
     canManageExpenseReceipts: context.permissions.has(financePermissionKeys.expenseReceiptManage),
     canViewReports: context.permissions.has(financePermissionKeys.reportView),
+    ...financeDepthCapabilities(context),
     canExportReports: context.permissions.has(reportsPermissionKeys.export),
     canDownloadDocuments: context.permissions.has(financePermissionKeys.documentDownload),
     canSendDocuments: context.permissions.has(financePermissionKeys.documentSend),
@@ -1037,6 +1011,8 @@ export async function getFinanceWorkspaceData(
       { attempts: 2, operationName: "Finance workspace" },
     );
 
+    const depthData = await loadFinanceDepthData(context, capabilities.canViewReports);
+
     const organization = organizationRows[0] ?? { default_currency: "USD", number_format: "en-US" };
     const estimateLinesByParent = new Map<string, FinanceDocumentLine[]>();
     for (const row of estimateLineRows) {
@@ -1353,6 +1329,7 @@ export async function getFinanceWorkspaceData(
         })),
         ...expenseData,
         ...reportData,
+        ...depthData,
         summary: {
           draftEstimateValueMinor: Number(summaryRows[0]?.draft_estimate_value_minor ?? 0),
           outstandingMinor: Number(summaryRows[0]?.outstanding_minor ?? 0),

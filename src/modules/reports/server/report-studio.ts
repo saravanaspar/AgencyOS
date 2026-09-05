@@ -4,6 +4,7 @@ import type { Sql } from "postgres";
 
 import { getDatabaseClient } from "@/integrations/postgres/database";
 import { withInfrastructureRetry } from "@/lib/server/retry";
+import { listReportDeliveryDestinations } from "@/modules/reports/server/delivery-destinations";
 import { normalizeReportWidgets } from "@/modules/reports/report-builder";
 import type {
   ReportDeliveryBatchSummary,
@@ -52,7 +53,7 @@ interface ScheduleRow {
   month_day: number | null;
   format: "csv" | "pdf";
   audience: "owner" | "named" | "view_access" | "section_access";
-  delivery_channels: Array<"in_app" | "email">;
+  delivery_channels: Array<"in_app" | "email" | "slack" | "telegram" | "webhook">;
   recipient_ids: string[];
   grace_seconds: number;
   status: "active" | "paused";
@@ -243,8 +244,9 @@ export async function getReportStudioData(
   const database = getDatabaseClient();
   return withInfrastructureRetry(
     async () => {
-      const [viewRows, timezoneRows, recipientRows, departmentRows] = await Promise.all([
-        database<SavedViewRow[]>`
+      const [viewRows, timezoneRows, recipientRows, departmentRows, destinations] =
+        await Promise.all([
+          database<SavedViewRow[]>`
           select view.id, view.owner_membership_id, view.name, view.description, view.section,
             view.period_mode, view.visibility, view.visibility_department_id, view.filters,
             view.widget_keys, organization.timezone as organization_timezone, view.updated_at,
@@ -263,19 +265,19 @@ export async function getReportStudioData(
             view.updated_at desc, view.name
           limit 100
         `,
-        database<Array<{ timezone: string }>>`
+          database<Array<{ timezone: string }>>`
           select timezone from public.organizations
           where id = ${context.membership.organizationId}::uuid
           limit 1
         `,
-        database<
-          Array<{
-            membership_id: string;
-            display_name: string;
-            email: string;
-            department_id: string | null;
-          }>
-        >`
+          database<
+            Array<{
+              membership_id: string;
+              display_name: string;
+              email: string;
+              department_id: string | null;
+            }>
+          >`
           select membership.id as membership_id,
             coalesce(
               profile.display_name,
@@ -293,12 +295,15 @@ export async function getReportStudioData(
           order by lower(coalesce(profile.display_name, auth_user.email, ''))
           limit 500
         `,
-        database<Array<{ id: string; name: string }>>`
+          database<Array<{ id: string; name: string }>>`
           select id, name from public.departments
           where organization_id = ${context.membership.organizationId}::uuid and status = 'active'
           order by lower(name)
         `,
-      ]);
+          context.permissions.has(reportsPermissionKeys.deliveryDestinationManage)
+            ? listReportDeliveryDestinations(context)
+            : Promise.resolve([]),
+        ]);
       const savedViews = viewRows.map(mapSavedView);
       const selectedView = savedViews.find((view) => view.id === selectedViewId) ?? null;
       const ownsSelected = selectedView?.ownerMembershipId === context.membership.id;
@@ -400,6 +405,7 @@ export async function getReportStudioData(
           departmentId: row.department_id,
         })),
         departments: departmentRows,
+        destinations,
         organizationTimezone: timezoneRows[0]?.timezone ?? "UTC",
         capabilities: {
           canManageSavedViews: context.permissions.has(reportsPermissionKeys.savedViewManage),
@@ -410,6 +416,9 @@ export async function getReportStudioData(
           canSchedule,
           canCreateSnapshot: context.permissions.has(reportsPermissionKeys.snapshotCreate),
           canDownloadSnapshot,
+          canManageDeliveryDestinations: context.permissions.has(
+            reportsPermissionKeys.deliveryDestinationManage,
+          ),
         },
       };
     },

@@ -58,9 +58,43 @@ describe("documents module contracts", () => {
     expect(component).toContain("DocumentUploadForm");
     expect(component).toContain("DocumentAdminPanels");
     expect(component).toContain("DocumentCard");
+    expect(component).toContain("document-folder-tree");
+    expect(component).toContain("document-breadcrumbs");
+    expect(component).toContain("Search all folders");
+    expect(source("src/components/documents/document-admin-panels.tsx")).toContain("Save folder");
     const mcp = source("src/modules/mcp/tool-registry.ts");
+    const discovery = source("src/modules/mcp/tools/document-library.ts");
     expect(mcp).toContain("agencyos.documents.search_library");
+    expect(mcp).toContain("searchDocumentLibraryForMcp");
+    expect(discovery).toContain("documentDate: document.documentDate");
+    expect(discovery).toContain("referenceCode: document.referenceCode");
+    expect(discovery).toContain("folders: data.folders.map");
+    expect(discovery).toContain("sha256: version.sha256");
+    expect(discovery).toContain("createdAt: document.createdAt");
+    expect(discovery).toContain("updatedAt: document.updatedAt");
     expect(mcp).not.toContain("agencyos.documents.download_file");
+  });
+
+  it("adds structured discovery metadata and restores contract document links", () => {
+    const migration = source("database/migrations/20260831006600_document_library_discovery.sql");
+    const documents = source("src/modules/documents/documents.ts");
+    const server = source("src/modules/documents/server/documents.ts");
+    const entityOptions = source("src/modules/documents/server/document-entity-options.ts");
+    expect(migration).toContain("add column document_date date");
+    expect(migration).toContain("add column reference_code text");
+    expect(migration).toContain(
+      "grant select (document_date, reference_code) on public.documents to authenticated;",
+    );
+    expect(migration).toContain("'contract'");
+    expect(documents).toContain('"contract"');
+    expect(documents).toContain('contract: "Contract"');
+    expect(entityOptions).toContain("select 'contract'::text as type");
+    expect(server).toContain("private.legal_contract_membership_access_allowed");
+    expect(server).toContain('entityType === "contract"');
+    expect(server).toContain("when 'contract' then");
+    expect(server).toContain("with recursive search_folders");
+    expect(server).toContain("visible_document_folders");
+    expect(server).toContain("document.document_date::text");
   });
 
   it("keeps restricted access lists and legal-hold reasons out of unauthorized client data", () => {

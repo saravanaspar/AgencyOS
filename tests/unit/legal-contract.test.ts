@@ -42,6 +42,13 @@ describe("legal contract lifecycle contracts", () => {
     expect(actions).toContain("validateLegalOwnerAssignment");
     expect(actions).toContain("validateCounterpartyCompanyReference");
     expect(actions).toContain('error.message === "template-locked"');
+    expect(actions).toContain("file.status = 'available'");
+    expect(source("src/components/legal/legal-workspace.tsx")).toContain(
+      'version.status !== "available"',
+    );
+    expect(source("database/migrations/20260831006600_document_library_discovery.sql")).toContain(
+      "'contract'",
+    );
   });
 
   it("routes sequential reviews through the shared approval engine", () => {

@@ -219,7 +219,7 @@ export function HrAttendance({ data }: { data: HrWorkspaceData }) {
         ) : null}
       </div>
 
-      <div className="table-wrap">
+      <div className="table-wrap" tabIndex={0} aria-label="Attendance records table">
         <table className="data-table hr-attendance-table">
           <caption className="sr-only">
             Attendance records for {data.attendance.currentMonth}

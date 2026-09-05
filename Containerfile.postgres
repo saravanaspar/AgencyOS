@@ -1,0 +1,7 @@
+FROM docker.io/library/postgres:17.10-bookworm@sha256:4f736ae292687621d4dbe0d499ffd024a36bd2ee7d8ca6f2ccd4c800f047b394
+
+# AgencyOS migrations and regression tests require pgcrypto and pgTAP. pgcrypto
+# ships with PostgreSQL contrib; this package supplies the matching pgTAP build.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends postgresql-17-pgtap \
+  && rm -rf /var/lib/apt/lists/*

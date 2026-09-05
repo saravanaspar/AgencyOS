@@ -43,7 +43,7 @@ services:
         condition: service_healthy
 
   gateway:
-    image: nginx:1.29.8-alpine3.23@sha256:5616878291a2eed594aee8db4dade5878cf7edcb475e59193904b198d9b830de
+    image: docker.io/library/nginx:1.29.8-alpine3.23@sha256:5616878291a2eed594aee8db4dade5878cf7edcb475e59193904b198d9b830de
     depends_on:
       app:
         condition: service_healthy
@@ -59,7 +59,7 @@ services:
     mem_limit: 256m
     cpus: 1.0
     volumes:
-      - ./deploy/nginx/agencyos.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./deploy/nginx/agencyos.conf:/etc/nginx/conf.d/default.conf:ro,Z
     ports:
       - "127.0.0.1:8080:8080"
     healthcheck:

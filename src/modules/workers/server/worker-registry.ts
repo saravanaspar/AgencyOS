@@ -5,6 +5,7 @@ import { runAuditPipelineHealthWorker } from "@/modules/audit/server/audit-pipel
 import { runAutomationDispatchWorker } from "@/modules/automation/server/event-dispatch-worker";
 import { runDueCrmConnectionSyncs } from "@/modules/crm/server/imports";
 import { runFinanceOverdueWorker } from "@/modules/finance/server/overdue-worker";
+import { runFinanceCollectionsWorker } from "@/modules/finance/server/collections-worker";
 import { runLegalAccessReviewWorker } from "@/modules/legal/server/access-review-worker";
 import { runNotificationDeliveryWorker } from "@/modules/notifications/server/delivery-worker";
 import { getPrivateFileScanConfiguration } from "@/modules/private-files/server/scan-config";
@@ -19,6 +20,7 @@ export const internalWorkerJobKeys = [
   "approvals",
   "crm-sync",
   "finance-overdue",
+  "finance-collections",
   "project-reminders",
   "legal-access-reviews",
   "audit-pipeline",
@@ -98,6 +100,16 @@ export function getInternalWorkerDefinition(key: InternalWorkerJobKey): Internal
       ready: true,
       notConfiguredMessage: "Internal workers are not configured.",
       unavailableMessage: "Finance overdue processing could not run.",
+    };
+  }
+  if (key === "finance-collections") {
+    return {
+      key,
+      leaseName: "finance-collections",
+      execute: runFinanceCollectionsWorker,
+      ready: true,
+      notConfiguredMessage: "Internal workers are not configured.",
+      unavailableMessage: "Finance collections processing could not run.",
     };
   }
   if (key === "project-reminders") {

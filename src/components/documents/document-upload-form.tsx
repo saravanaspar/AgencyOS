@@ -89,7 +89,7 @@ export function DocumentUploadForm({ data }: { data: DocumentWorkspaceData }) {
         </label>
         <label className="field">
           <span>Folder</span>
-          <select name="folderId" defaultValue="">
+          <select name="folderId" defaultValue={data.filters.folderId ?? ""}>
             <option value="">Library root</option>
             {data.folders.map((folder) =>
               folder.archivedAt ? null : (
@@ -99,6 +99,14 @@ export function DocumentUploadForm({ data }: { data: DocumentWorkspaceData }) {
               ),
             )}
           </select>
+        </label>
+        <label className="field">
+          <span>Document date</span>
+          <input name="documentDate" type="date" />
+        </label>
+        <label className="field">
+          <span>Reference code</span>
+          <input name="referenceCode" maxLength={120} placeholder="e.g. BM-2026-09-15" />
         </label>
         <label className="field">
           <span>Category</span>

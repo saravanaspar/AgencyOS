@@ -1,38 +1,18 @@
 # Founder Operations — Next Phase
 
-Last updated: 2026-08-24
+Last updated: 2026-08-25
 
-This release deliberately prioritizes the founder operating core requested for AgencyOS: trustworthy report delivery, CRM forecasting/conversion, project commercial truth/closure, founder attention, Daily Brief, and Weekly Review. The items below are intentionally deferred until that foundation has completed normal dependency-backed verification and production acceptance.
+This roadmap tracks the founder operating core requested for AgencyOS. Items marked **IMPLEMENTED** are now present in the codebase but still require the normal dependency-backed verification and production acceptance gates; unimplemented items remain deferred until their dependencies or measured operating need are real.
 
 ## P1 — Cash and collections depth
 
-### 30 / 60 / 90-day company cash forecast
+### 30 / 60 / 90-day company cash forecast — IMPLEMENTED
 
-Build a true forward cash model rather than extending the current operational cash estimate.
+AgencyOS now computes a permission-filtered forward cash model independently per ISO currency. It uses open receivables and due dates, optional historical median collection lag, approved expenses, vendor bills, unbilled purchase commitments, current salary structures, explicit recurring/retainer schedules, and probability-weighted CRM pipeline when an organization enables it. Conservative, base, and optimistic scenarios expose 30/60/90-day inflow, outflow, net movement, source provenance, and explicit assumptions. The model deliberately remains a cash-movement forecast rather than a bank-balance view until a trusted bank feed exists.
 
-Inputs should include:
+### Automated collections workflow — IMPLEMENTED
 
-- open invoice balances and due dates;
-- recurring/retainer invoice expectations;
-- historical collection behavior;
-- approved expenses and scheduled reimbursements;
-- vendor bills / purchase commitments;
-- payroll and recurring obligations;
-- probability-weighted CRM pipeline where explicitly enabled.
-
-Outputs should include base, conservative, and optimistic scenarios with assumption provenance. Bank balance/reconciliation must stay separate from the current recorded-cash estimate until a bank-feed/reconciliation source exists.
-
-### Automated collections workflow
-
-Add configurable stages such as pre-due, due today, 7/14/30 days overdue, with:
-
-- reminder templates and channel policy;
-- account-owner tasks;
-- promise-to-pay tracking;
-- dispute suppression;
-- collection notes and next action;
-- founder escalation thresholds;
-- idempotent delivery evidence and retry status.
+The existing Finance/CRM/Notifications worker path now owns a durable collection case per issued invoice. Organization policy configures pre-due and overdue stages, reminder templates/channels, and founder escalation thresholds. Cases track promise-to-pay, dispute suppression, notes, next action, owner, reminder state, and retry status. Stage changes create CRM follow-up work and owner notifications; client email delivery uses idempotency keys and append-only success/failure evidence, while failed delivery remains retryable instead of being marked complete.
 
 ### Client concentration risk — IMPLEMENTED
 
@@ -40,11 +20,9 @@ AgencyOS now reports issued net revenue, open receivables, and probability-weigh
 
 ## P1 — Founder execution layer
 
-### Universal My Work / Founder Inbox
+### Universal My Work / Founder Inbox — IMPLEMENTED FOR CURRENT ACTION SOURCES
 
-Unify actionable records across tasks, approvals, CRM follow-ups, collections, contract renewals, support escalation, invoices, HR, vendors, and security alerts. Each item should expose urgency, due date, money at risk, source record, recommended action, deep link, snooze, delegate, and handled state.
-
-The Founder Attention Queue added in the current release is the exception summary; this future feature becomes a normalized executable work queue.
+The existing Founder Attention Queue is now an executable work surface rather than a second task database. It aggregates actionable approvals, CRM/collection work, invoices, project tasks, contract renewals, support escalations, vendor bills, and security issues from their canonical records, then overlays only founder-work state: active, snoozed, delegated, or handled. Source snapshots preserve urgency/reason/meta/deep links for delegation; delegated work appears on the assignee's dashboard and sends the normal notification pipeline. Reclaim, one-day/seven-day snooze, delegation, and handled state are persistent and tenant validated.
 
 ### KPI drill-down everywhere — IMPLEMENTED FOR CURRENT EXECUTIVE REPORTS
 
@@ -60,26 +38,19 @@ The existing Cmd/Ctrl+K palette now includes permission-filtered high-frequency 
 
 ## P2 — Reporting and distribution
 
-### Monthly executive / board pack
+### Monthly executive / board pack — IMPLEMENTED
 
-Generate a versioned PDF pack with executive summary, financial trend, cash/receivables, pipeline/forecast, client concentration, project profitability, delivery health, utilization, risks, decisions, and source/evidence links.
+The existing Founder pack/report-snapshot pipeline now includes a versioned `founder_monthly` PDF pack and a first-of-month schedule. It reuses canonical Daily/Weekly, cash-forecast, client-concentration, and project-profitability primitives while adding last-completed-month financial trend/comparison rows. The pack covers executive summary, revenue/cash/expense trend, current receivables, 30/60/90 base cash movement, pipeline/forecast, client concentration, project contribution/margin, delivery and people health, utilization, risks, decisions, and source/evidence links. Recipient authorization still happens before each immutable snapshot is generated.
 
-### Additional report destinations
+### Additional report destinations — IMPLEMENTED FOR SLACK / TELEGRAM / WEBHOOK
 
-The current release implements in-app and email report delivery with recipient-specific authorization, queued send, undo grace, retries, and partial-failure reporting. Later destinations can reuse the same batch/recipient model:
-
-- Slack;
-- Telegram;
-- webhook;
-- other explicitly authorized communication channels.
-
-Each destination must preserve per-recipient authorization and idempotency. Do not reuse a founder-generated snapshot for a lower-scope recipient.
+The existing report batch/recipient worker now supports `slack`, `telegram`, and `webhook` in addition to in-app and email. Each recipient keeps an independently encrypted destination configuration and receives a snapshot generated under that recipient's current permissions; a founder snapshot is never reused for a lower-scope recipient. Telegram and generic webhook delivery send the recipient-specific PDF/CSV bytes. Slack incoming-webhook delivery posts the authenticated AgencyOS snapshot link because incoming webhooks do not provide a file-upload API. Delivery retains existing queueing, grace period, idempotency, retry, suppression, partial-failure evidence, and owner notification behavior. Webhook URLs are HTTPS-only and reject local/private/reserved destinations; secrets are encrypted server-side and never returned to the browser.
 
 ## P2 — Notification and approval completeness
 
 Current notification-gap closure is implemented for project-task assignment and scheduled contract/licence reminders by reusing the existing notification queue, preferences, dedupe keys, external-delivery scheduler, and legal reminder records. Asset return, support reply, general task-due, security, approval-request, and approval-decision notifications already use that same pipeline. A future explicit mention feature should emit the existing `mention` category only when structured mention semantics exist; do not infer recipients from free-form names.
 
-Finish explicit approval bindings and threshold policies for all controlled domains that need them, especially estimates, invoices, credit notes, contracts, document publication, leave, expenses, and salary changes. Reuse the shared approval engine; do not create domain-specific parallel approval systems.
+Approval binding is now complete for the currently controlled workflows, including salary revisions. Salary changes submit to the existing shared Approval engine with self-approval disabled; the immutable approval snapshot is the proposal, and an approved request is applied to the effective-dated salary structure by a database trigger. Concurrent duplicate effective-date proposals are locked/rejected. Finance, legal contracts, document publication, leave, vendor bills, assets, and other previously bound workflows continue to reuse the same engine rather than domain-specific approval tables.
 
 ## P2 — Project and operating depth
 

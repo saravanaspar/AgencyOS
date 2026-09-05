@@ -1,0 +1,27 @@
+services:
+  postgres:
+    build:
+      context: .
+      dockerfile: Containerfile.postgres
+    image: localhost/agencyos-postgres:17-pgtap
+    container_name: agencyos-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${AGENCYOS_POSTGRES_USER:-agencyos}
+      POSTGRES_PASSWORD: ${AGENCYOS_POSTGRES_PASSWORD:?Set AGENCYOS_POSTGRES_PASSWORD in .env.local}
+      POSTGRES_DB: ${AGENCYOS_POSTGRES_DB:-agencyos}
+    ports:
+      - "127.0.0.1:${AGENCYOS_POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - agencyos_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    stop_grace_period: 60s
+
+volumes:
+  agencyos_postgres_data:
+    name: ${AGENCYOS_POSTGRES_VOLUME:-agencyos_postgres_data}

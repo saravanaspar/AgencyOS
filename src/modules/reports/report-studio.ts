@@ -7,8 +7,9 @@ import type {
   ReportsWorkspaceData,
 } from "@/modules/reports/reports";
 import type { ReportWidgetKey } from "@/modules/reports/report-builder";
+import type { ReportDeliveryDestinationSummary } from "@/modules/reports/delivery-destinations";
 
-export type ReportDeliveryChannel = "in_app" | "email";
+export type ReportDeliveryChannel = "in_app" | "email" | "slack" | "telegram" | "webhook";
 export type ReportDeliveryAudience = "owner" | "named" | "view_access" | "section_access";
 
 export interface SavedReportView {
@@ -101,6 +102,7 @@ export interface ReportStudioData {
   deliveryBatches: ReportDeliveryBatchSummary[];
   recipients: ReportRecipientOption[];
   departments: ReportDepartmentOption[];
+  destinations: ReportDeliveryDestinationSummary[];
   organizationTimezone: string;
   capabilities: {
     canManageSavedViews: boolean;
@@ -108,5 +110,6 @@ export interface ReportStudioData {
     canSchedule: boolean;
     canCreateSnapshot: boolean;
     canDownloadSnapshot: boolean;
+    canManageDeliveryDestinations: boolean;
   };
 }

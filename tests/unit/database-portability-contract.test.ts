@@ -74,6 +74,9 @@ describe("database and authentication provider portability", () => {
     expect(migrationRunner).toContain("cleanupPortableCompatibility");
     expect(portabilityBootstrap).toContain("AgencyOS migration replay compatibility only");
     expect(portabilityBootstrap).toContain("cleanupPortableCompatibility");
+    expect(portabilityBootstrap).toContain('["127.0.0.1", "localhost", "::1"]');
+    expect(portabilityBootstrap).toContain('hostname.replace(/^\\[|\\]$/g, "")');
+    expect(portabilityBootstrap).toContain('localHost ? "disable" : "require"');
   });
 
   it("has no Supabase SDK, CLI, or runtime package dependency", () => {

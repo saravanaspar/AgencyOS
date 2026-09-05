@@ -1,5 +1,6 @@
 import "@fontsource-variable/inter";
 import "./globals.css";
+import "./documents.css";
 import "./reports-executive.css";
 
 import type { Metadata } from "next";

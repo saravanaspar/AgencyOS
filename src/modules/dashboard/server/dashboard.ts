@@ -7,15 +7,21 @@ import { withInfrastructureRetry } from "@/lib/server/retry";
 import type {
   DashboardListItem,
   DashboardMetric,
-  DashboardMode,
   DashboardSection,
   DashboardWorkspaceData,
   FounderAttentionItem,
 } from "@/modules/dashboard/dashboard";
+import { loadDashboardContext } from "@/modules/dashboard/server/dashboard-context";
 import { modulePermissionKeys } from "@/modules/permissions/module-access";
 import { getCrmForecastDataForContext } from "@/modules/crm/server/forecast";
 import { getProjectProfitabilityForContext } from "@/modules/projects/server/profitability";
-import { ensureFounderReportSchedulesForContext } from "@/modules/reports/server/founder-packs";
+import {
+  appendFounderReportAutomationWarning,
+  enrichFounderAttentionQueue,
+  ensureFounderReportAutomation,
+  loadDelegatedFounderWork,
+  loadFounderWorkDelegates,
+} from "@/modules/dashboard/server/founder-work";
 import type { AuthorizationFailureReason } from "@/modules/permissions/server/authorization";
 import { authorizeCurrentUser } from "@/modules/permissions/server/authorization";
 import type { CurrentPermissionContext } from "@/modules/permissions/server/effective-permissions";
@@ -24,10 +30,6 @@ export type DashboardWorkspaceResult =
   | { allowed: true; data: DashboardWorkspaceData }
   | { allowed: false; reason: AuthorizationFailureReason };
 
-interface OrganizationRow {
-  default_currency: string;
-  number_format: string;
-}
 interface AggregateRow {
   value_one: string | number;
   value_two?: string | number;
@@ -47,12 +49,6 @@ function toNumber(value: string | number | null | undefined): number {
   return Number(value ?? 0);
 }
 
-function modeFromCapabilities(context: CurrentPermissionContext): DashboardMode {
-  if (context.permissions.has("reports.founder_pack.view")) return "owner";
-  if (context.permissions.has("reports.management_pack.view")) return "manager";
-  return "employee";
-}
-
 function listItems(
   rows: readonly ItemRow[],
   tone: DashboardListItem["tone"] = "neutral",
@@ -66,17 +62,6 @@ function listItems(
     status: row.status,
     tone,
   }));
-}
-
-async function basicContext(database: Sql, context: CurrentPermissionContext) {
-  const organizations = await database<OrganizationRow[]>`
-    select default_currency, number_format
-    from public.organizations where id = ${context.membership.organizationId}::uuid limit 1
-  `;
-  return {
-    organization: organizations[0] ?? { default_currency: "USD", number_format: "en-US" },
-    mode: modeFromCapabilities(context),
-  };
 }
 
 async function founderAttentionQueue(
@@ -281,6 +266,9 @@ async function founderAttentionQueue(
       select id, title, counterparty_name, renewal_date::text, end_date::text
       from public.legal_contracts
       where organization_id = ${org}::uuid and status = 'active'
+        and private.legal_contract_membership_access_allowed(
+          id, ${member}::uuid, 'legal.contract.view'
+        )
         and coalesce(renewal_date, end_date) between current_date and current_date + 7
       order by coalesce(renewal_date, end_date)
       limit 8
@@ -299,8 +287,10 @@ async function founderAttentionQueue(
     );
   }
 
+  const visibleAttention = await enrichFounderAttentionQueue(database, context, attention);
+
   const bucketRank = { critical: 0, today: 1, this_week: 2 } as const;
-  return attention
+  return visibleAttention
     .sort(
       (left, right) =>
         bucketRank[left.bucket] - bucketRank[right.bucket] ||
@@ -1202,45 +1192,36 @@ export async function getDashboardWorkspaceData(): Promise<DashboardWorkspaceRes
   if (!authorization.allowed) return authorization;
   const context = authorization.context;
   const database = getDatabaseClient();
-  const basic = await withInfrastructureRetry(() => basicContext(database, context), {
+  const basic = await withInfrastructureRetry(() => loadDashboardContext(database, context), {
     attempts: 2,
     operationName: "Dashboard context loading",
   });
-  const [loaded, attention, founderReportsReady] = await Promise.all([
-    withInfrastructureRetry(
-      async () => {
-        if (basic.mode === "owner") return ownerDashboard(database, context);
-        if (basic.mode === "manager") return managerDashboard(database, context);
-        return employeeDashboard(database, context);
-      },
-      { attempts: 2, operationName: "Dashboard data loading" },
-    ),
-    basic.mode === "owner"
-      ? withInfrastructureRetry(
-          () => founderAttentionQueue(database, context, basic.organization.default_currency),
-          { attempts: 2, operationName: "Founder attention queue loading" },
-        )
-      : Promise.resolve([] as FounderAttentionItem[]),
-    basic.mode === "owner"
-      ? withInfrastructureRetry(() => ensureFounderReportSchedulesForContext(context), {
-          attempts: 2,
-          operationName: "Founder report automation setup",
-        })
-          .then((result) => result !== null)
-          .catch(() => false)
-      : Promise.resolve(true),
-  ]);
-  if (!founderReportsReady) {
-    attention.unshift({
-      id: "founder-report-automation",
-      bucket: "today",
-      title: "Founder report automation needs attention",
-      meta: "Daily and weekly report schedules could not be verified",
-      reason: "Reporting automation setup failed",
-      href: "/reports?section=founder_daily",
-      tone: "warning",
-    });
-  }
+  const [loaded, attention, founderReportsReady, attentionDelegates, delegatedFounderWork] =
+    await Promise.all([
+      withInfrastructureRetry(
+        async () => {
+          if (basic.mode === "owner") return ownerDashboard(database, context);
+          if (basic.mode === "manager") return managerDashboard(database, context);
+          return employeeDashboard(database, context);
+        },
+        { attempts: 2, operationName: "Dashboard data loading" },
+      ),
+      basic.mode === "owner"
+        ? withInfrastructureRetry(
+            () => founderAttentionQueue(database, context, basic.organization.default_currency),
+            { attempts: 2, operationName: "Founder attention queue loading" },
+          )
+        : Promise.resolve([] as FounderAttentionItem[]),
+      basic.mode === "owner"
+        ? withInfrastructureRetry(() => ensureFounderReportAutomation(context), {
+            attempts: 2,
+            operationName: "Founder report automation setup",
+          })
+        : Promise.resolve(true),
+      basic.mode === "owner" ? loadFounderWorkDelegates(database, context) : Promise.resolve([]),
+      loadDelegatedFounderWork(database, context),
+    ]);
+  appendFounderReportAutomationWarning(attention, founderReportsReady);
 
   const revenueMinor =
     "revenue" in loaded && typeof loaded.revenue === "number" ? loaded.revenue : null;
@@ -1262,8 +1243,20 @@ export async function getDashboardWorkspaceData(): Promise<DashboardWorkspaceRes
       generatedAt: new Date().toISOString(),
       greetingName,
       metrics: loaded.metrics,
-      sections: loaded.sections,
+      sections: delegatedFounderWork.length
+        ? [
+            {
+              id: "delegated-founder-work",
+              title: "Delegated founder work",
+              description: "Founder attention items assigned to you.",
+              href: "/dashboard",
+              items: delegatedFounderWork,
+            },
+            ...loaded.sections,
+          ].slice(0, 12)
+        : loaded.sections,
       attention,
+      attentionDelegates,
       comparison: {
         periodLabel: "Previous month",
         revenueMinor,

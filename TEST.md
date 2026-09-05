@@ -2,23 +2,34 @@
 
 > **Current database/auth architecture (August 2026):** AgencyOS owns authentication and runs on ordinary PostgreSQL. Use `DATABASE_URL`/`DATABASE_ADMIN_URL`, `npm run db:status`, `npm run db:migrate`, `npm run db:doctor`, and `npm run db:test`. Older sections that describe the former hosted provider are historical acceptance notes only; do not configure or link that provider for current verification.
 
-Last updated: 2026-07-21
+Last updated: 2026-09-02
+
+Coolify/B2 production approval also requires the staging API/deployment test, disposable Compliance
+Object Lock preflight, a second unchanged deploy proving named-volume identity, an injected migration
+failure proving startup is gated, and a complete isolated PostgreSQL/MinIO/Vaultwarden restore.
+Source tests cannot mark provider retention or a live rollout as passed; see `docs/COOLIFY.md` and
+`docs/BACKUP_RECOVERY.md`.
 
 This file is the required manual and browser-MCP verification guide for every delivered feature. Every future feature must update this file in the same change set before it can be marked complete in `TASK.md`.
 
-## Current release-candidate status (2026-07-21)
+## Current release-candidate status (2026-09-02)
 
 This section is authoritative when older feature notes below describe an earlier foundation state.
 
-- Unit suite: **111 files, 519 tests** after documentation consolidation and removal of restore-template-only contracts. The previously failing timezone and Finance/HR PDF tests pass in this Linux runtime. PDF rendering must still be repeated inside the exact deployment image through `npm run test:pdf-runtime`.
+- Automated release gate: `npm run verify` passed on 2026-09-02: formatting, ESLint, TypeScript, framework/supply-chain/tenant/mutation/sensitive-content security checks, complexity budget, **135 Vitest files / 641 tests**, migration validation, and the 42-page production build. `npm run test:pdf-runtime` separately passed **3 files / 16 tests** against the verified local Chrome executable. A second smoke test launched bundled Chromium as UID 1001 inside the exact standalone Podman image and generated a valid PDF; the runtime image now installs the minimal NSS/NSPR/Expat libraries required by that bundled browser.
 - Browser suite: Playwright is now the required browser harness. It runs public and authenticated route checks at 1440, 1024, 768, and 375 CSS pixels, captures traces/screenshots on failure, runs Axe, records ARIA snapshots, checks keyboard focus, opens disclosures/tabs, checks 200% zoom and horizontal overflow, and compares discovered interactive controls with exercised controls. Failure video is opt-in because Playwright requires its separate ffmpeg package: run `npx playwright install ffmpeg` once, then `PLAYWRIGHT_VIDEO=1 npm run test:e2e`.
-- Local browser evidence: the eight public routes passed at 1440 px and 375 px on 2026-07-21. The 1024 px and 768 px projects are configured; authenticated route evidence still requires disposable multi-role credentials and an isolated seeded environment.
+- Local browser evidence: the eight public routes passed at 1440 px and 375 px. Using the disposable `agencyos-e2e` organization and its seeded Owner account, every one of the 34 authenticated route audits passed at 1440, 1024, 768, and 375 px across the complete matrix plus focused reruns on 2026-09-02. This route audit is deliberately non-mutating; it proves rendering, accessibility, responsive layout, navigation, console/network cleanliness, and authorization for the Owner, but it is not a substitute for the multi-role state-changing scenarios below.
 - Source inventory: `test-results/ui-controls.json` now inventories buttons, links, tabs, disclosures, textboxes, checkboxes, and selects. It is a machine-readable coverage index, not proof that a business workflow succeeded.
-- AI: `/ai` is a real permission-gated workspace with server-side Gemini and DeepSeek adapters. Models may call only MCP tools visible to the signed-in membership. Provider keys never reach the browser.
+- Database and dependencies: all **67/67 migrations** are applied with no pending files or checksum drift; all **50 pgTAP files** pass transactionally. PostgreSQL 17.10, Redis authentication/read-write/TTL/delete, all four MinIO buckets, and ClamAV readiness passed against the Podman-only local stack.
+- Local environment: `.env.local` is mode `0600`; generated database, Redis, MinIO, encryption, worker, VAPID, disposable Owner-test credentials, and both PDF renderer paths (the verified local `/usr/bin/google-chrome-stable`) are populated. Values that cannot be invented locally remain empty: the audit-alert webhook pair, Vaultwarden URL, Resend key, live CRM OAuth client pairs, and Gemini/DeepSeek keys. The ClamAV protocol does not need `PRIVATE_FILE_SCANNER_BEARER_TOKEN`, so that optional field is also empty. Set the Chromium path again for the actual deployment host/image if it differs.
+- Podman image: `localhost/agencyos:local` was rebuilt from the digest-pinned Node 22.23.2 base after the final fixes. It runs as the non-root `nextjs` user. With explicit local-only overrides for unavailable external TLS/webhook services, `/api/health/live` and `/api/health/ready` pass and readiness reports PostgreSQL, Redis, MinIO, and the scanner healthy; the protected `/api/health/status` correctly returns 401 without a session. Bundled-Chromium PDF generation also passes inside this image. This is local image evidence, not deployed HTTPS evidence.
+- React Doctor: the advisory scan completes with **0 errors / 104 non-blocking warnings** and the security scan completes with **0 errors / 1 warning**. Its one code error identified an implicit sign-out session boundary; sign-out now explicitly validates a current session while still clearing expired/malformed credentials safely.
+- Dependency audit: the high-severity Browserslist advisory is fixed at 4.28.8. `npm audit --omit=dev` still reports three moderate paths for `minio@8.0.7 -> query-string@7.1.3 -> decode-uri-component@0.2.2`. AgencyOS uses MinIO's object-storage client and does not expose the vulnerable query-string decode path; npm's proposed `--force` resolution is a breaking downgrade to MinIO 7.0.26, so it was not applied. Recheck when MinIO publishes a compatible dependency update.
+- AI: `/ai` is a real permission-gated workspace with server-side Gemini and DeepSeek adapters. Models receive only the three lazy AgencyOS gateway schemas (catalog search, exact description, and invocation), then discover only tools visible to the signed-in membership. Provider keys and the full 113-tool schema registry never enter the model context.
 - MCP: **113 tools** are registered. Dashboard, Calendar read/create/cancel, Reports, Automation read/create/enable/retry, and Global Search are connected. Read tools use permission-scoped, short-lived Redis caching; mutations invalidate the organization cache generation.
 - MCP transport: the same-origin cookie-authenticated Streamable HTTP endpoint validates `Origin`, `Accept`, `MCP-Protocol-Version`, and `Mcp-Session-Id`, enforces initialize/initialized lifecycle state in Redis, returns 405 for GET because SSE is not offered, and supports DELETE session termination.
 - Security: local `.env.local` must be mode `0600` and must never be distributed. Production authenticated rate limits fail closed when Redis is unavailable. `/api/health/live` and `/api/health/ready` are available for platform probes.
-- External release checks remain mandatory: rotate every credential from any previously shared archive, configure HTTPS/TLS production integrations, execute disposable multi-role authenticated Playwright runs, verify linked migration/pgTAP parity, run deployment HTTP checks, and test backup recovery in an isolated environment. Source changes do not substitute for deployed verification.
+- External release checks remain mandatory and are not marked passed by this local run: configure real HTTPS audit-alert/Vaultwarden/email/AI/CRM credentials, execute the Admin/Sales/Project-member/Restricted state-changing browser scenarios, run the deployment verifier against the real HTTPS release host, exercise PDF generation on that host, and restore a backup into an isolated recovery environment. The restore verifier was also checked to fail closed when `AGENCYOS_RESTORE_DRILL=1` and the required recovery evidence are absent.
 
 Required release candidate commands:
 
@@ -1475,7 +1486,7 @@ Pass when default system roles can save after the forward permission repair, eve
 Before these tests, start local MinIO and verify the private buckets:
 
 ```bash
-docker compose --env-file .env.local -f compose.minio.yaml up -d
+npm run storage:start
 npm run storage:setup
 npm run storage:check
 ```
@@ -2261,7 +2272,7 @@ Expected automated evidence:
 
 ```bash
 npm run check
-npm test -- --maxWorkers=1 tests/unit/documents.test.ts tests/unit/documents-contract.test.ts tests/unit/private-files.test.ts
+npm test -- --maxWorkers=1 tests/unit/documents.test.ts tests/unit/documents-contract.test.ts tests/unit/private-files.test.ts tests/unit/mcp-tool-discovery.test.ts tests/unit/vendor-bill-documents-contract.test.ts
 npm test -- --maxWorkers=1
 npm run db:check
 npm run db:test
@@ -2275,17 +2286,21 @@ Expected automated evidence:
 - `tests/unit/documents.test.ts` verifies classification, review/expiry, and legal-hold retention-state behavior.
 - `tests/unit/documents-contract.test.ts` verifies shared private-file reuse, advisory-locked immutable versions, SHA-256 checks, audited preview/download, permission-scope helpers, current-membership RLS wrappers, related-module visibility checks, dedicated workspace controls, and metadata-only MCP exposure.
 - `tests/unit/private-files.test.ts` verifies PDF/image/text signatures and rejects generic ZIP files disguised as DOCX/XLSX unless Office package markers are present.
+- `tests/unit/mcp-tool-discovery.test.ts` verifies catalog results remain compact, schemas load only after search, invocation requires description, and permission-hidden tools cannot be invoked through the lazy gateway.
+- `tests/unit/vendor-bill-documents-contract.test.ts` verifies direct bill upload reuses the private Documents pipeline and bill source links remain permission checked.
 - `database/tests/documents_foundation.test.sql` verifies all ten document tables, RLS, append-only version/comment/history triggers, role scopes, legal-hold/archive constraints, safe authenticated column grants, service-only arbitrary-membership helpers, and the authenticated current-membership access wrapper.
-- `npm run db:check` must validate 42 migrations and 122 public tables after the legal compliance-record extension.
+- `database/tests/document_library_discovery.test.sql` verifies document date/reference metadata, safe authenticated column grants, restored contract relationships, and same-organization enforcement.
+- `npm run db:check` must validate 66 migrations and 206 public tables.
 
 ### Folder, category, and tag flow
 
 1. Sign in as Owner or Legal Manager and open `/documents`.
-2. Create a root folder and a child folder. Move the child between roots and confirm its displayed path changes.
-3. Attempt to make a folder its own parent or create a longer cycle through direct database writes. Confirm the database trigger rejects it.
-4. Create duplicate active sibling folder names with case differences and confirm the unique index rejects the duplicate.
-5. Create active and inactive categories and multiple tags. Confirm inactive categories remain visible on existing records but cannot be selected for a new upload.
-6. Archive and restore a folder. Confirm archived folders remain historical but are not offered for new uploads.
+2. Run the suggested starter-structure action. Confirm it creates Legal, Finance & Tax, Corporate, HR, Vendors, and Projects roots plus the current Indian fiscal-year branches without duplicating folders when repeated.
+3. Under `Legal / FY YYYY-YY / Board meetings`, create a dated meeting folder, upload minutes, then navigate from the sidebar tree, child-folder cards, and breadcrumbs. Create a root folder and child folder manually, move the child between roots, and confirm its full displayed path changes.
+4. Attempt to make a folder its own parent or create a longer cycle through direct database writes. Confirm the database trigger rejects it.
+5. Create duplicate active sibling folder names with case differences and confirm the unique index rejects the duplicate.
+6. Create active and inactive categories and multiple tags. Confirm inactive categories remain visible on existing records but cannot be selected for a new upload.
+7. Archive and restore a folder. Confirm archived folders remain historical but are not offered for new uploads.
 
 ### Upload, scanning, preview, and download
 
@@ -2339,7 +2354,7 @@ Expected automated evidence:
 
 ### Search, comments, dates, and retention
 
-1. Search by title and description and switch Active, Archived, and All filters.
+1. Search by title, description, document date/reference, category, tag, original filename, immediate folder, and an ancestor folder such as `Legal`; switch Active, Archived, and All filters. Confirm search spans all permission-visible folders regardless of the currently open folder.
 2. Confirm file contents, comments, access-grant names, and legal-hold reasons are not part of general search or MCP search.
 3. Add comments as owner, creator, or explicit commenter. Confirm comments cannot be edited or deleted.
 4. Set review, expiry, and retain-until dates. Confirm review-due, expired, active-retention, expired-retention, and legal-hold states render correctly.
@@ -2352,6 +2367,7 @@ Expected automated evidence:
 3. Search by title and confirm the response contains only bounded document metadata, status, classification, folder/category, dates, tags, related-record labels, version number, and checksum metadata intended by the tool.
 4. Confirm MCP never returns file bytes, storage bucket/path, comments, access lists, legal-hold reason, event details, malware-scanner internals, or private-file access rules.
 5. Ask the assistant to download or reveal document contents through chat. Confirm no download/content tool exists and the assistant directs the user to the permission-checked Documents workspace.
+6. Inspect the AI provider request and confirm it contains only `agencyos.tools.search_catalog`, `agencyos.tools.describe`, and `agencyos.tools.invoke`. Confirm the assistant searches, describes the exact result, and only then invokes it; direct MCP clients may continue using permission-filtered registered tool names for compatibility.
 
 ### Responsive and accessibility checks
 
@@ -2895,6 +2911,7 @@ Expected focused coverage:
 
 - `tests/unit/vendors.test.ts` validates Vendor, request, quotation, Purchase-order, receipt, and bill schemas plus stable keys, request totals, and exact PO-to-bill matching.
 - `tests/unit/vendors-contract.test.ts` validates RLS, tenant/access helpers, shared approvals, append-only history, audit and notification reuse, Legal/Documents relationships, Asset Vendor linkage, responsive UI, and metadata-only MCP output.
+- `tests/unit/vendor-bill-documents-contract.test.ts` validates that a bill file uses the shared Documents upload/scanning pipeline and that source-document links are exposed only with document access.
 - `database/tests/vendor_procurement_foundation.test.sql` validates the Vendor and order-to-pay tables, required identifiers, Asset linkage, access helpers, approval synchronization, and RLS policies.
 
 ### Human workflow
@@ -2909,7 +2926,7 @@ Expected focused coverage:
 8. As Procurement/Operations, record quotations from at least two Vendors with totals, lead times, validity, terms, and optional source Documents. Select one quotation.
 9. Issue a Purchase order with issue date, expected delivery, delivery address, payment terms, and an already-linked Vendor contract. Confirm organization-scoped sequential numbering and copied line-item lineage.
 10. Record a partial accepted receipt, then a final complete receipt. Confirm quantities cannot exceed outstanding amounts and order/request status advances only for non-rejected receipts.
-11. Record a Vendor bill matching the Purchase-order total, then another mismatched bill. Confirm Match and Exception states derive exactly from integer minor-unit totals.
+11. Record a Vendor bill matching the Purchase-order total by uploading its PDF directly in the bill form. Confirm a quarantined Documents record is created with the bill date/reference, linked to the Purchase order, and shown as the bill source; it must not download until scanning marks it available. Record another bill by choosing an existing accessible document, then a mismatched bill. Confirm Match and Exception states derive exactly from integer minor-unit totals.
 12. As Finance, set the bill to Approved, Partially paid, and Paid with a payment reference. Confirm payment state and timestamps remain audited.
 13. Link a clean Documents record directly to the Purchase order and confirm bidirectional Vendor/Purchase-order entity links in Documents.
 
@@ -3199,7 +3216,6 @@ Expected focused coverage:
 - `tests/unit/security-hardening-contract.test.ts` validates privileged MFA, HTTP-only cookie handling, session enforcement, reauthentication boundaries, rate limits, headers, RLS/evidence contracts, and synchronized operational runbooks.
 - `database/tests/final_security_operational_readiness.test.sql` validates security tables, sensitive permissions, RLS, append-only triggers, membership-driven revocation, and safe authenticated grants.
 
-
 ### Security-control closure patch — agent-runnable focused regression
 
 These checks are safe for a coding/test agent to run because they inspect repository enforcement, execute unit/static gates, or use an explicitly configured non-production database. They **do not** certify that a real infrastructure restore occurred.
@@ -3401,6 +3417,27 @@ The migration push should include `20260718005100_closure_workflows.sql`. If the
 
 ## Deployment and recovery verification
 
+### Podman container stack
+
+1. Install rootless Podman and a Compose provider, then confirm `podman info` and
+   `podman-compose version` succeed as the deployment user without `sudo`.
+2. Copy `.env.example` to `.env.local`; replace the PostgreSQL and MinIO placeholder secrets and
+   keep the file private.
+3. Run `npm run dependencies:start`. Confirm `agencyos-postgres`, `agencyos-redis`,
+   `agencyos-minio`, and `agencyos-clamav` become healthy and bind only to loopback ports.
+4. Run `npm run db:migrate`, `npm run db:test`, `npm run redis:check`,
+   `npm run storage:setup`, `npm run storage:check`, and `npm run scanner:check`.
+5. Run `npm run container:build`, set `.env.production` and an immutable `AGENCYOS_IMAGE`
+   digest, then run `npm run production:start` and `npm run production:status`.
+6. Confirm app readiness, worker execution, Nginx ingress, read-only filesystems, resource limits,
+   private service networking, and SELinux-labelled bind mounts.
+7. Run `npm run production:stop` and `npm run dependencies:stop`. Confirm named PostgreSQL,
+   Redis, MinIO, and ClamAV volumes remain; these stop commands must not delete persistent data.
+   Pass when every project-owned container workflow uses Podman/OCI Containerfiles, the database
+   image includes pgTAP, service ports remain loopback-only, production uses only rootless Podman,
+   and the release workflow publishes signed GitHub provenance and SPDX SBOM attestations for the
+   Podman-built digest.
+
 ### Focused automated contracts
 
 ```bash
@@ -3487,7 +3524,6 @@ npm run db:test
 
 Confirm pgTAP includes `advanced_reports.test.sql`.
 
-
 ### Founder next-phase reporting patch — agent-runnable focused regression
 
 This regression pack covers the no-migration founder-reporting update: client concentration risk, the centralized metric-definition catalogue, and KPI source drill-down. It intentionally reuses the existing Reports, Finance, CRM, Founder Daily/Weekly, snapshot, and `href` models.
@@ -3544,7 +3580,6 @@ Negative checks the agent should include:
 - A single client name differing only by normalization/case does not create separate concentration buckets when the implementation's normalization rules treat it as the same party.
 - Empty authorized source sets render the existing empty state and do not produce `NaN`, division-by-zero percentages, fake zero-currency slices, or broken source links.
 - The founder-reporting patch introduces no new database migration, analytics table, free-form SQL surface, or currency-conversion assumption.
-
 
 ### Founder execution-layer patch — agent-runnable focused regression
 
@@ -3634,6 +3669,55 @@ Negative checks the agent should include:
 - Reminder delivery never crosses organization boundaries and does not infer licence reminders from unrelated compliance-record types.
 - A malformed/legacy optional template section is bounded or skipped rather than causing unbounded inserts; label/checklist/dependency/recurrence replay remains subject to the existing database tenant and read-only project triggers.
 - This patch introduces no second AI provider stack, command API, notification store, project-template table, or new database migration.
+
+### Founder operating-depth patch — agent-runnable migration-backed regression
+
+This batch closes the remaining founder operating items that require durable state: 30/60/90 cash forecasting, automated collections, Universal My Work, salary-revision approval, the monthly board pack, and recipient-specific Slack/Telegram/webhook report delivery. The implementation must reuse the existing Finance, CRM, Approval, Dashboard, Reports, Notifications, and worker boundaries.
+
+Run source/unit contracts before applying the migration:
+
+```bash
+npm run typecheck
+npm test -- --run \
+  tests/unit/founder-next-phase-depth.test.ts \
+  tests/unit/founder-next-phase-execution.test.ts \
+  tests/unit/founder-next-phase-reports.test.ts \
+  tests/unit/finance-reports-contract.test.ts \
+  tests/unit/notifications.test.ts \
+  tests/unit/hr-salary-contract.test.ts
+npm run db:check
+npm run security:tenant-scope
+npm run security:mutation-boundaries
+npm run security:sensitive-content
+```
+
+Then apply and test the forward migration in a disposable/test database:
+
+```bash
+npm run db:migrate
+npm run db:status
+npm run db:test
+```
+
+The pgTAP run must include `founder_next_phase_depth.test.sql`. Pass when all new tables have RLS, new sensitive permissions are not granted to Employee, collection evidence is append-only, salary structures require an approved shared Approval request, and `founder_monthly` plus external delivery channels satisfy their database constraints.
+
+Latest local verification (2026-09-02):
+
+- `npm run verify` passed formatting, ESLint, TypeScript, framework/supply-chain/tenant-scope/mutation-boundary/sensitive-content security checks, complexity budget, all 135 Vitest files / 641 tests, migration validation, and the production build.
+- Static migration validation passed all 67 migrations and 206 public tables.
+- The Podman PostgreSQL test database has all 67 migrations applied with no pending/checksum drift, and `npm run db:test` passed all 50 pgTAP files transactionally, including `founder_next_phase_depth.test.sql`.
+
+Agent acceptance checks:
+
+1. **Cash forecast:** seed at least two currencies and known receivables, approved expenses, vendor obligations, payroll, recurring items, and optional CRM pipeline. Verify conservative/base/optimistic 30/60/90 results remain currency-separated, show source provenance, change when scenario policy changes, and never label the result as bank balance. Confirm past-due cash movements are counted from today rather than before the forecast window, old recurring schedules fast-forward to their first in-window occurrence, and month-end monthly/quarterly/annual schedules clamp without rolling into the wrong month. Remove HR/CRM/vendor permissions in turn and verify those source classes disappear rather than leak through the aggregate.
+2. **Collections:** seed issued invoices at pre-due, due-today, 7/14/30-day overdue stages. Run `finance-collections`; verify one durable case per invoice, stage-specific CRM follow-up/owner notification, configurable template rendering, append-only success/failure evidence, founder escalation, promise-to-pay and dispute suppression, and retry after delivery failure. Confirm failure attempt count, next-attempt timestamp, and bounded last error persist; transient failures use the shared exponential backoff; overlapping workers acquire one delivery claim; stage and per-channel reminder evidence remain unique; and manual promise/dispute/resolution changes clear stale retry state. Re-run without state changes and confirm idempotency.
+3. **Founder Inbox/My Work:** exercise Snooze 1d, Snooze 7d, Delegate, Reclaim, and Handled against existing attention items. Confirm handled/snoozed work disappears at the right time without mutating the source record; delegated work appears on the assignee dashboard with source deep link, reason, metadata, urgency bucket, tone, due date, and money-at-risk snapshot and sends one ordinary notification. Confirm support and legal attention queries enforce their existing record-level membership-access helpers. Cross-organization delegation must fail.
+4. **Salary approval:** submit a salary revision and confirm no `hr_salary_structures` row appears while approval is pending. The requester must not self-approve. Approval by the configured other HR Manager/Owner must create exactly one effective-dated structure and components from the immutable request snapshot. Rejection must create none. Concurrent/pending proposals for the same member/effective date must be rejected.
+5. **Monthly board pack:** generate the owner monthly pack and verify last-completed-month revenue/cash/expense comparison, current receivables, 30/60/90 base cash movement, pipeline/concentration, project contribution/margin, delivery/people/utilization, risks/decisions, metric definitions, and source links. Confirm the system view is versioned and the automatic schedule is monthly on day 1.
+6. **External report destinations:** configure one destination per channel. Confirm destination secrets are encrypted at rest and never returned to the browser. Slack must accept only `https://hooks.slack.com/services/...`; generic webhooks must reject localhost, local/internal names, private/reserved IPs, IPv4-mapped IPv6, CGNAT, documentation/benchmark networks, 6to4, and DNS results resolving privately. Confirm Slack/webhook delivery pins the actual TLS connection to the validated DNS address, rejects redirects, and accepts successful empty `204` responses without attempting a redirect or a second resolution. Telegram/Webhook must transmit the recipient-specific snapshot bytes; Slack must send the authenticated recipient snapshot link.
+7. **Recipient authorization:** schedule a report to two members with different permissions. Confirm the delivery worker calls `generateReportSnapshot` separately under each recipient context and never reuses the founder/owner snapshot. Missing destinations are suppressed per recipient, transient failures retry with the existing backoff, and final batch evidence reports delivered/failed/suppressed counts.
+
+Do not mark the batch accepted if typecheck fails, if `db:check` or pgTAP fails, if an external channel bypasses recipient-specific snapshot authorization, if cross-currency forecast values are summed, or if salary approval can be bypassed with a direct insert.
 
 ### Saved-view and builder workflow
 
@@ -3791,7 +3875,7 @@ AGENCYOS_E2E_CONFIRM_ISOLATED=1 \
 npm run test:e2e
 ```
 
-Complete role and destructive-control run:
+Complete role control-visibility run (non-mutating):
 
 ```bash
 AGENCYOS_E2E_BASE_URL=https://isolated-e2e.example.test \
@@ -3805,9 +3889,10 @@ AGENCYOS_E2E_ACCOUNTS_JSON='[
   {"name":"restricted","email":"restricted@example.test","password":"<password>","routes":["/dashboard","/settings/security"]}
 ]' \
 AGENCYOS_E2E_CONFIRM_ISOLATED=1 \
-AGENCYOS_E2E_CLICK_DESTRUCTIVE=1 \
 npm run test:e2e
 ```
+
+The generic crawler always leaves `allowMutations` disabled. It may open safe UI states and inventory destructive controls, but it does not submit valid mutation forms and must never be cited as proof of a destructive success path. Execute destructive/state-changing success and denial paths through the matching route-specific Playwright spec or the explicit `Fxx` manual scenario, using unique synthetic records in the isolated environment.
 
 Playwright writes JSON and HTML results plus failure traces and screenshots under `test-results/playwright`. Failure video is recorded only when `PLAYWRIGHT_VIDEO=1` after the Playwright ffmpeg package has been installed with `npx playwright install ffmpeg`. Retain only secret-free artifacts associated with the disposable run key.
 
@@ -3816,7 +3901,7 @@ Pass criteria:
 1. Every route allowed to each supplied account loads without an unexpected sign-in loop.
 2. Every discovered interactive control has an accessible name or associated label.
 3. Every non-destructive visible control discovered after opening tabs and disclosures is represented in the exercised-control evidence.
-4. Destructive success paths run only in the explicitly confirmed disposable fixture environment.
+4. Destructive controls are inventoried but skipped by the generic crawl; their success paths run only through explicit feature assertions in the confirmed disposable fixture environment.
 5. No interaction produces a JavaScript page error, failed request, unexpected HTTP `5xx`, serious Axe violation, keyboard trap, or horizontal page overflow.
 6. Native validation, dialog opening, navigation, status/alert updates, successful form paths, downloads, and relevant network activity are asserted by route-specific specs.
 7. ARIA snapshots, JSON/HTML results, traces, screenshots, and optional failure video are retained with the test run key, never passwords, MFA secrets, cookies, provider keys, response bodies, or private record contents.

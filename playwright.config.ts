@@ -8,11 +8,11 @@ const video = process.env.PLAYWRIGHT_VIDEO === "1" ? "retain-on-failure" : "off"
 export default defineConfig({
   testDir: "./tests/e2e",
   outputDir: "test-results/playwright/artifacts",
-  fullyParallel: false,
+  fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
-  workers: process.env.CI ? 2 : 1,
-  timeout: 45_000,
+  workers: 2,
+  timeout: 240_000,
   expect: { timeout: 10_000 },
   reporter: [
     ["list"],

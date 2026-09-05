@@ -40,6 +40,7 @@ import {
   type VendorRiskClassification,
   type VendorStatus,
 } from "@/modules/vendors/vendors";
+import { getVendorBillWorkspaceRows } from "@/modules/vendors/server/vendor-bill-workspace";
 
 export interface VendorCategorySummary {
   id: string;
@@ -234,6 +235,8 @@ export interface VendorBillSummary {
   statusLabel: string;
   sourceDocumentId: string | null;
   sourceDocumentTitle: string | null;
+  sourceDocumentCurrentVersionId: string | null;
+  sourceDocumentCanOpen: boolean;
   approvalRequestId: string | null;
   paymentReference: string | null;
   approvedAt: string | null;
@@ -282,6 +285,7 @@ export interface PurchaseOrderSummary {
 
 export interface VendorWorkspaceData {
   generatedAt: string;
+  currentMembershipId: string;
   vendors: VendorSummary[];
   purchaseRequests: PurchaseRequestSummary[];
   purchaseOrders: PurchaseOrderSummary[];
@@ -290,6 +294,7 @@ export interface VendorWorkspaceData {
   departments: Array<{ id: string; name: string }>;
   projects: Array<{ id: string; name: string }>;
   documents: Array<{ id: string; title: string }>;
+  billSourceDocuments: Array<{ id: string; title: string }>;
   contracts: Array<{ id: string; title: string }>;
   summary: {
     activeVendors: number;
@@ -308,6 +313,8 @@ export interface VendorWorkspaceData {
     canManagePurchaseOrders: boolean;
     canRecordReceipt: boolean;
     canManageBills: boolean;
+    canUploadBillDocument: boolean;
+    billDocumentClassification: "internal" | "confidential";
   };
 }
 
@@ -881,49 +888,11 @@ export async function getVendorWorkspaceData(filters?: {
             order by receipt_item.created_at
           `
         : Promise.resolve([]),
-      purchaseOrderIds.length
-        ? database<
-            Array<
-              OrderChildRow & {
-                id: string;
-                bill_reference: string;
-                invoice_date: string;
-                due_date: string | null;
-                subtotal_minor: string | number;
-                tax_minor: string | number;
-                total_minor: string | number;
-                currency: string;
-                match_status: VendorBillMatchStatus;
-                status: VendorBillStatus;
-                source_document_id: string | null;
-                source_document_title: string | null;
-                approval_request_id: string | null;
-                payment_reference: string | null;
-                approved_at: string | null;
-                paid_at: string | null;
-                can_payment: boolean;
-                can_submit_approval: boolean;
-              }
-            >
-          >`
-            select bill.purchase_order_id, bill.id, bill.bill_reference,
-              bill.invoice_date::text, bill.due_date::text, bill.subtotal_minor,
-              bill.tax_minor, bill.total_minor, bill.currency, bill.match_status,
-              bill.status, bill.source_document_id, document.title as source_document_title,
-              bill.approval_request_id, bill.payment_reference, bill.approved_at::text, bill.paid_at::text,
-              private.purchase_order_membership_access_allowed(
-                bill.purchase_order_id, ${membershipId}::uuid, ${vendorPermissionKeys.billPayment}
-              ) as can_payment,
-              (bill.match_status = 'matched' and bill.status in ('matched', 'revision_requested', 'rejected') and
-                private.purchase_order_membership_access_allowed(
-                  bill.purchase_order_id, ${membershipId}::uuid, ${vendorPermissionKeys.billSubmit}
-                )) as can_submit_approval
-            from public.procurement_vendor_bills bill
-            left join public.documents document on document.id = bill.source_document_id
-            where bill.purchase_order_id = any(${purchaseOrderIds}::uuid[])
-            order by bill.invoice_date desc, bill.created_at desc
-          `
-        : Promise.resolve([]),
+      getVendorBillWorkspaceRows({
+        purchaseOrderIds,
+        organizationId,
+        membershipId,
+      }),
       purchaseOrderIds.length
         ? database<
             Array<
@@ -977,30 +946,45 @@ export async function getVendorWorkspaceData(filters?: {
     context.permissions.has(documentPermissionKeys.update) &&
     (context.permissions.has(vendorPermissionKeys.linkDocument) ||
       context.permissions.has(vendorPermissionKeys.purchaseOrderLinkDocument));
+  const canManageBills = context.permissions.has(vendorPermissionKeys.billManage);
+  const canUploadBillDocument =
+    canManageBills &&
+    context.permissions.has(documentPermissionKeys.workspace) &&
+    context.permissions.has(documentPermissionKeys.view) &&
+    context.permissions.has(documentPermissionKeys.create);
+  const billDocumentClassification =
+    (context.permissionScopes.get(documentPermissionKeys.create) ?? "own") === "own"
+      ? "internal"
+      : "confidential";
+  const canChooseBillSourceDocument =
+    canManageBills &&
+    context.permissions.has(documentPermissionKeys.workspace) &&
+    context.permissions.has(documentPermissionKeys.view);
   const canLinkContracts =
     context.permissions.has(vendorPermissionKeys.linkContract) &&
     context.permissions.has(legalPermissionKeys.view);
   const canCreateRequest = context.permissions.has(vendorPermissionKeys.requestCreate);
   const projectScope = context.permissionScopes.get(projectPermissionKeys.projectView) ?? "own";
-  const [members, departments, projects, documents, contracts] = await Promise.all([
-    context.permissions.has(vendorPermissionKeys.create) ||
-    context.permissions.has(vendorPermissionKeys.update)
-      ? database<Array<{ id: string; name: string }>>`
+  const [members, departments, projects, documents, contracts, billSourceDocuments] =
+    await Promise.all([
+      context.permissions.has(vendorPermissionKeys.create) ||
+      context.permissions.has(vendorPermissionKeys.update)
+        ? database<Array<{ id: string; name: string }>>`
           select membership.id, private.membership_display_name(membership.id) as name
           from public.memberships membership
           where membership.organization_id = ${organizationId}::uuid and membership.status = 'active'
           order by name
         `
-      : Promise.resolve([]),
-    canCreateRequest
-      ? database<Array<{ id: string; name: string }>>`
+        : Promise.resolve([]),
+      canCreateRequest
+        ? database<Array<{ id: string; name: string }>>`
           select id, name from public.departments
           where organization_id = ${organizationId}::uuid and status = 'active'
           order by name
         `
-      : Promise.resolve([]),
-    canCreateRequest && context.permissions.has(projectPermissionKeys.projectView)
-      ? database<Array<{ id: string; name: string }>>`
+        : Promise.resolve([]),
+      canCreateRequest && context.permissions.has(projectPermissionKeys.projectView)
+        ? database<Array<{ id: string; name: string }>>`
           select project.id, concat(project.code, ' — ', project.name) as name
           from public.projects project
           where project.organization_id = ${organizationId}::uuid and project.archived_at is null
@@ -1010,9 +994,9 @@ export async function getVendorWorkspaceData(filters?: {
             )
           order by project.name
         `
-      : Promise.resolve([]),
-    canLinkDocuments
-      ? database<Array<{ id: string; title: string }>>`
+        : Promise.resolve([]),
+      canLinkDocuments
+        ? database<Array<{ id: string; title: string }>>`
           select document.id, document.title from public.documents document
           where document.organization_id = ${organizationId}::uuid and document.status = 'active'
             and private.document_membership_access_allowed(
@@ -1020,9 +1004,9 @@ export async function getVendorWorkspaceData(filters?: {
             )
           order by document.updated_at desc limit 500
         `
-      : Promise.resolve([]),
-    canLinkContracts
-      ? database<Array<{ id: string; title: string }>>`
+        : Promise.resolve([]),
+      canLinkContracts
+        ? database<Array<{ id: string; title: string }>>`
           select contract.id, contract.title from public.legal_contracts contract
           where contract.organization_id = ${organizationId}::uuid
             and private.legal_contract_membership_access_allowed(
@@ -1030,8 +1014,18 @@ export async function getVendorWorkspaceData(filters?: {
             )
           order by contract.updated_at desc limit 500
         `
-      : Promise.resolve([]),
-  ]);
+        : Promise.resolve([]),
+      canChooseBillSourceDocument
+        ? database<Array<{ id: string; title: string }>>`
+          select document.id, document.title from public.documents document
+          where document.organization_id = ${organizationId}::uuid and document.status = 'active'
+            and private.document_membership_access_allowed(
+              document.id, ${membershipId}::uuid, 'view'
+            )
+          order by document.updated_at desc limit 500
+        `
+        : Promise.resolve([]),
+    ]);
 
   const contactsByVendor = groupBy(contactRows, (row) => row.vendor_id);
   const categoryLinksByVendor = groupBy(categoryLinkRows, (row) => row.vendor_id);
@@ -1269,6 +1263,8 @@ export async function getVendorWorkspaceData(filters?: {
       statusLabel: vendorBillStatusLabels[bill.status],
       sourceDocumentId: bill.source_document_id,
       sourceDocumentTitle: bill.source_document_title,
+      sourceDocumentCurrentVersionId: bill.source_document_current_version_id,
+      sourceDocumentCanOpen: bill.source_document_can_open,
       approvalRequestId: bill.approval_request_id,
       paymentReference: bill.payment_reference,
       approvedAt: bill.approved_at,
@@ -1297,6 +1293,7 @@ export async function getVendorWorkspaceData(filters?: {
     allowed: true,
     data: {
       generatedAt: new Date().toISOString(),
+      currentMembershipId: context.membership.id,
       vendors,
       purchaseRequests,
       purchaseOrders,
@@ -1305,6 +1302,7 @@ export async function getVendorWorkspaceData(filters?: {
       departments,
       projects,
       documents,
+      billSourceDocuments,
       contracts,
       summary: {
         activeVendors: vendors.filter((vendor) => vendor.status === "active").length,
@@ -1333,7 +1331,9 @@ export async function getVendorWorkspaceData(filters?: {
         canManageQuotations: context.permissions.has(vendorPermissionKeys.quotationManage),
         canManagePurchaseOrders: context.permissions.has(vendorPermissionKeys.purchaseOrderManage),
         canRecordReceipt: context.permissions.has(vendorPermissionKeys.receiptRecord),
-        canManageBills: context.permissions.has(vendorPermissionKeys.billManage),
+        canManageBills,
+        canUploadBillDocument,
+        billDocumentClassification,
       },
     },
   };

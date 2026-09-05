@@ -57,24 +57,33 @@ export const financeFiltersSchema = z.object({
     .catch("invoices"),
   status: z.preprocess(emptyToNull, z.string().trim().max(40).nullable()).catch(null),
   company: z.preprocess(emptyToNull, uuid.nullable()).catch(null),
-  currency: z.preprocess(
-    emptyToNull,
-    z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/).nullable(),
-  ).catch(null),
-  scope: z.preprocess(
-    emptyToNull,
-    z
-      .enum([
-        "issued_revenue",
-        "open_receivables",
-        "overdue_receivables",
-        "actionable_issue",
-        "collections_due",
-        "expected_issue",
-        "expected_collection",
-      ])
-      .nullable(),
-  ).catch(null),
+  currency: z
+    .preprocess(
+      emptyToNull,
+      z
+        .string()
+        .trim()
+        .toUpperCase()
+        .regex(/^[A-Z]{3}$/)
+        .nullable(),
+    )
+    .catch(null),
+  scope: z
+    .preprocess(
+      emptyToNull,
+      z
+        .enum([
+          "issued_revenue",
+          "open_receivables",
+          "overdue_receivables",
+          "actionable_issue",
+          "collections_due",
+          "expected_issue",
+          "expected_collection",
+        ])
+        .nullable(),
+    )
+    .catch(null),
   from: z.preprocess(emptyToNull, z.iso.date().nullable()).catch(null),
   to: z.preprocess(emptyToNull, z.iso.date().nullable()).catch(null),
 });

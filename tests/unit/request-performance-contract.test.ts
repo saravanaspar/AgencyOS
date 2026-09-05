@@ -37,11 +37,13 @@ describe("request performance contracts", () => {
     expect(support).toContain("[companies, contacts, projects, documents] = await Promise.all");
   });
 
-  it("fails over quickly and backs off when optional Redis is unavailable", () => {
+  it("fails over quickly without closing healthy or in-flight Redis clients", () => {
     const redis = source("src/integrations/redis/client.ts");
 
     expect(redis).toContain("const RETRY_COOLDOWN_MS = 5 * 60_000");
     expect(redis).toContain("connectTimeout: 750");
-    expect(redis).toContain("socketTimeout: 1_000");
+    expect(redis).toContain("reconnectStrategy: false");
+    expect(redis).toContain("if (connecting) return connecting");
+    expect(redis).not.toContain("socketTimeout:");
   });
 });

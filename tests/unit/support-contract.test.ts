@@ -51,6 +51,8 @@ describe("support ticket contracts", () => {
     const server = source("src/modules/support/server/support.ts");
     expect(server).toContain("private.crm_scope_allows_membership");
     expect(server).toContain("private.project_is_visible");
+    expect(server).toContain('project.company_id as "companyId"');
+    expect(server).not.toContain('project.crm_company_id as "companyId"');
     expect(server).toContain("private.document_membership_access_allowed");
     const actions = source("src/modules/support/actions/support.ts");
     expect(actions).toContain("requireDocumentEntityAccess");

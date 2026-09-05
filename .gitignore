@@ -16,6 +16,21 @@ tsconfig.tsbuildinfo
 
 # Generated operator evidence.
 deployment-verification-summary.json
+coolify-deployment-evidence.json
+release-manifest.json
+app-image-digest.txt
+operations-image-digest.txt
+
+# Backup state, encrypted-repository cache, staging, and isolated restore output.
+.backup-state/
+.backup-stage/
+.restic-cache/
+recovery/
+.env.recovery
+*.pem
+*.key
+id_rsa
+id_ed25519
 
 # Local browser and source-control audit output.
 test-results/

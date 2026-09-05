@@ -15,7 +15,11 @@ import Link from "next/link";
 
 import { getDateTimeFormatter, getNumberFormatter } from "@/lib/intl-formatters";
 import { formatMinorMoney } from "@/modules/finance/calculations";
-import { generateFounderWeeklyReviewAction } from "@/modules/reports/actions/founder-packs";
+import {
+  generateFounderMonthlyBoardPackAction,
+  generateFounderWeeklyReviewAction,
+} from "@/modules/reports/actions/founder-packs";
+import { updateFounderWorkItemAction } from "@/modules/dashboard/actions/founder-work";
 import type {
   DashboardMetric,
   DashboardSection,
@@ -124,6 +128,88 @@ function Section({ section, data }: { section: DashboardSection; data: Dashboard
   );
 }
 
+function FounderWorkSnapshotFields({
+  item,
+}: {
+  item: DashboardWorkspaceData["attention"][number];
+}) {
+  return (
+    <>
+      <input type="hidden" name="itemKey" value={item.id} />
+      <input type="hidden" name="itemTitle" value={item.title} />
+      <input type="hidden" name="sourceHref" value={item.href} />
+      <input type="hidden" name="sourceReason" value={item.reason} />
+      <input type="hidden" name="sourceMeta" value={item.meta} />
+      <input type="hidden" name="sourceBucket" value={item.bucket} />
+      <input type="hidden" name="sourceTone" value={item.tone ?? "neutral"} />
+      <input type="hidden" name="sourceDueAt" value={item.dueAt ?? ""} />
+      <input type="hidden" name="sourceAmountMinor" value={item.amountMinor ?? ""} />
+      <input type="hidden" name="sourceCurrency" value={item.currency ?? ""} />
+    </>
+  );
+}
+
+function FounderWorkControls({
+  item,
+  data,
+}: {
+  item: DashboardWorkspaceData["attention"][number];
+  data: DashboardWorkspaceData;
+}) {
+  return (
+    <div
+      className="founder-attention-item__controls"
+      aria-label={`Work controls for ${item.title}`}
+    >
+      <form action={updateFounderWorkItemAction}>
+        <FounderWorkSnapshotFields item={item} />
+        <input type="hidden" name="state" value="snoozed" />
+        <button type="submit" name="snoozeDays" value="1" className="text-link">
+          Snooze 1d
+        </button>
+        <button type="submit" name="snoozeDays" value="7" className="text-link">
+          Snooze 7d
+        </button>
+      </form>
+      {data.attentionDelegates.length ? (
+        <form action={updateFounderWorkItemAction}>
+          <FounderWorkSnapshotFields item={item} />
+          <input type="hidden" name="state" value="delegated" />
+          <select name="delegatedToMembershipId" aria-label="Delegate to" defaultValue="">
+            <option value="" disabled>
+              Delegate…
+            </option>
+            {data.attentionDelegates.map((delegate) => (
+              <option key={delegate.membershipId} value={delegate.membershipId}>
+                {delegate.name}
+              </option>
+            ))}
+          </select>
+          <button type="submit" className="text-link">
+            Assign
+          </button>
+        </form>
+      ) : null}
+      {item.workState === "delegated" ? (
+        <form action={updateFounderWorkItemAction}>
+          <FounderWorkSnapshotFields item={item} />
+          <input type="hidden" name="state" value="active" />
+          <button type="submit" className="text-link">
+            Reclaim
+          </button>
+        </form>
+      ) : null}
+      <form action={updateFounderWorkItemAction}>
+        <FounderWorkSnapshotFields item={item} />
+        <input type="hidden" name="state" value="handled" />
+        <button type="submit" className="text-link">
+          Handled
+        </button>
+      </form>
+    </div>
+  );
+}
+
 function FounderAttentionQueue({ data }: { data: DashboardWorkspaceData }) {
   if (data.mode !== "owner") return null;
   const buckets = [
@@ -150,6 +236,11 @@ function FounderAttentionQueue({ data }: { data: DashboardWorkspaceData }) {
               Generate weekly founder report
             </button>
           </form>
+          <form action={generateFounderMonthlyBoardPackAction}>
+            <button className="button button--secondary" type="submit">
+              Generate monthly board pack
+            </button>
+          </form>
         </div>
       </header>
       {data.attention.length ? (
@@ -168,17 +259,23 @@ function FounderAttentionQueue({ data }: { data: DashboardWorkspaceData }) {
                 </h3>
                 <div>
                   {items.map((item) => (
-                    <Link href={item.href} key={item.id} className="founder-attention-item">
-                      <span>
-                        <strong>{item.title}</strong>
-                        <small>{item.reason}</small>
-                        <small>{item.meta}</small>
-                      </span>
-                      {item.amountMinor != null && item.currency ? (
-                        <b>{formatMinorMoney(item.amountMinor, item.currency, data.locale)}</b>
-                      ) : null}
-                      <ArrowUpRight aria-hidden="true" size={15} />
-                    </Link>
+                    <article key={item.id} className="founder-attention-item">
+                      <Link href={item.href} className="founder-attention-item__source">
+                        <span>
+                          <strong>{item.title}</strong>
+                          <small>{item.reason}</small>
+                          <small>{item.meta}</small>
+                          {item.delegatedToName ? (
+                            <small>Delegated to {item.delegatedToName}</small>
+                          ) : null}
+                        </span>
+                        {item.amountMinor != null && item.currency ? (
+                          <b>{formatMinorMoney(item.amountMinor, item.currency, data.locale)}</b>
+                        ) : null}
+                        <ArrowUpRight aria-hidden="true" size={15} />
+                      </Link>
+                      <FounderWorkControls item={item} data={data} />
+                    </article>
                   ))}
                 </div>
               </section>

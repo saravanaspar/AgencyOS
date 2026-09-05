@@ -353,7 +353,7 @@ function ProjectsReport({ data }: { data: ReportsWorkspaceData }) {
               <p>Progress, overdue work, time, and financial contribution.</p>
             </div>
           </header>
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0} aria-label="Saved report views table">
             <table className="data-table">
               <thead>
                 <tr>
@@ -406,7 +406,7 @@ function ProjectsReport({ data }: { data: ReportsWorkspaceData }) {
               <p>Open work, overdue work, estimated effort, actual time, and capacity use.</p>
             </div>
           </header>
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0} aria-label="Recent report exports table">
             <table className="data-table">
               <thead>
                 <tr>
@@ -783,7 +783,7 @@ function ActiveSection({ data }: { data: ReportsWorkspaceData }) {
   if (section === "hr") return <HrReport data={data} />;
   if (section === "support") return <SupportReport data={data} />;
   if (section === "legal") return <LegalReport data={data} />;
-  if (section === "founder_daily" || section === "founder_weekly")
+  if (section === "founder_daily" || section === "founder_weekly" || section === "founder_monthly")
     return <FounderPackReport data={data} />;
   return (
     <div className="reports-overview">

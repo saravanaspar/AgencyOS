@@ -34,6 +34,8 @@ export const financePermissionKeys = {
   expenseCategoryManage: "finance.expense_category.manage",
   expenseReceiptManage: "finance.expense_receipt.manage",
   reportView: "finance.report.view",
+  cashForecastManage: "finance.cash_forecast.manage",
+  collectionManage: "finance.collection.manage",
   documentDownload: "finance.document.download",
   documentSend: "finance.document.send",
 } as const;

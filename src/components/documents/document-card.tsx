@@ -81,6 +81,8 @@ function VersionUpload({ document }: { document: DocumentSummary }) {
       formData.set("documentId", document.id);
       formData.set("title", document.title);
       formData.set("description", document.description ?? "");
+      formData.set("documentDate", document.documentDate ?? "");
+      formData.set("referenceCode", document.referenceCode ?? "");
       formData.set("folderId", document.folderId ?? "");
       formData.set("categoryId", document.categoryId ?? "");
       formData.set("classification", document.classification);
@@ -151,6 +153,14 @@ function MetadataEditor({
             rows={3}
             maxLength={2000}
           />
+        </label>
+        <label className="field">
+          <span>Document date</span>
+          <input name="documentDate" type="date" defaultValue={document.documentDate ?? ""} />
+        </label>
+        <label className="field">
+          <span>Reference code</span>
+          <input name="referenceCode" maxLength={120} defaultValue={document.referenceCode ?? ""} />
         </label>
         <label className="field">
           <span>Owner</span>
@@ -527,6 +537,13 @@ export function DocumentCard({
             {document.folderPath ?? "Library root"} · {document.categoryName ?? "Uncategorized"} ·
             Owner: {document.ownerName}
           </small>
+          {document.documentDate || document.referenceCode ? (
+            <small className="document-card__reference">
+              {document.documentDate ? `Document date: ${document.documentDate}` : null}
+              {document.documentDate && document.referenceCode ? " · " : null}
+              {document.referenceCode ? `Reference: ${document.referenceCode}` : null}
+            </small>
+          ) : null}
         </div>
         {latest && document.access.canDownload ? (
           <div className="document-card__primary-actions">

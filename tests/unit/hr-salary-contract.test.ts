@@ -47,7 +47,7 @@ describe("HR salary and private-slip contract", () => {
     const actions = read("src/modules/hr/actions/salary.ts");
     const service = read("src/modules/hr/server/salary-slip-service.ts");
     const download = read("src/app/api/hr/salary-slips/[salarySlipId]/route.ts");
-    expect(actions).toContain('action: "hr.salary_revision_created"');
+    expect(actions).toContain('action: "hr.salary_revision_submitted"');
     expect(actions).toContain('action: "hr.salary_slip_acknowledged"');
     expect(service).toContain('"hr.salary_slip_generated"');
     expect(service).toContain('"hr.salary_slip_uploaded"');

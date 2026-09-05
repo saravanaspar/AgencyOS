@@ -29,8 +29,17 @@ function scannerEndpoint(value: string | null): {
     if (url.protocol === "clamav:") {
       const hostname = url.hostname.toLowerCase();
       const localHosts = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
+      const trustedPrivateService =
+        process.env.NODE_ENV === "production" &&
+        process.env.AGENCYOS_TRUST_PRIVATE_SERVICE_NETWORK === "1" &&
+        hostname === "clamav";
       const port = Number(url.port || 3310);
-      if (!localHosts.has(hostname) || !Number.isInteger(port) || port < 1 || port > 65_535) {
+      if (
+        (!localHosts.has(hostname) && !trustedPrivateService) ||
+        !Number.isInteger(port) ||
+        port < 1 ||
+        port > 65_535
+      ) {
         return null;
       }
       if (url.pathname && url.pathname !== "/") return null;

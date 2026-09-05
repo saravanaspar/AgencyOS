@@ -117,6 +117,7 @@ select lives_ok(
       status,
       priority,
       visibility,
+      currency,
       owner_membership_id,
       created_by_membership_id,
       created_by
@@ -129,6 +130,7 @@ select lives_ok(
       'planned',
       'normal',
       'members',
+      organization.default_currency,
       membership.id,
       membership.id,
       membership.user_id
@@ -170,8 +172,8 @@ select is(
     join public.projects as project on project.id = item.project_id
     where project.code = 'PRJ-9001'
   ),
-  4,
-  'Project creation seeds the closure checklist'
+  8,
+  'Project creation seeds the complete closure checklist'
 );
 
 select * from finish();

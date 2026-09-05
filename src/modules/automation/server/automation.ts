@@ -256,11 +256,12 @@ export async function getAutomationWorkspaceData(
             select
               definition.id, definition.name, definition.trigger_key, definition.handler_key,
               definition.enabled, definition.allowed_modules,
-              coalesce(nullif(profile.display_name, ''), membership.email) as owner_name,
+              coalesce(nullif(profile.display_name, ''), account.email) as owner_name,
               definition.last_execution_at, definition.last_result, definition.error_count,
               definition.created_at
             from public.automation_definitions as definition
             join public.memberships as membership on membership.id = definition.owner_membership_id
+            join public.identity_accounts as account on account.id = membership.user_id
             left join public.profiles as profile on profile.id = membership.user_id
             where definition.organization_id = ${organizationId}::uuid
             order by definition.enabled desc, definition.updated_at desc
@@ -301,12 +302,13 @@ export async function getAutomationWorkspaceData(
       ? database<AiIntentRow[]>`
             select
               intent.id,
-              coalesce(nullif(profile.display_name, ''), membership.email) as requester_name,
+              coalesce(nullif(profile.display_name, ''), account.email) as requester_name,
               intent.tool_name, intent.status, intent.approval_request_id,
               request.status as approval_status, intent.created_at, intent.executed_at,
               intent.failure_code
             from public.automation_ai_mutation_intents as intent
             join public.memberships as membership on membership.id = intent.requester_membership_id
+            join public.identity_accounts as account on account.id = membership.user_id
             left join public.profiles as profile on profile.id = membership.user_id
             left join public.approval_requests as request on request.id = intent.approval_request_id
             where intent.organization_id = ${organizationId}::uuid
@@ -322,11 +324,12 @@ export async function getAutomationWorkspaceData(
       ? database<AiExecutionRow[]>`
             select
               event.id,
-              coalesce(nullif(profile.display_name, ''), membership.email) as actor_name,
+              coalesce(nullif(profile.display_name, ''), account.email) as actor_name,
               event.tool_name, event.operation_mode, event.status, event.error_code,
               event.started_at, event.completed_at
             from public.automation_ai_execution_events as event
             join public.memberships as membership on membership.id = event.actor_membership_id
+            join public.identity_accounts as account on account.id = membership.user_id
             left join public.profiles as profile on profile.id = membership.user_id
             where event.organization_id = ${organizationId}::uuid
               and (
@@ -376,7 +379,7 @@ export async function getAutomationWorkspaceData(
                       and private.crm_scope_allows_membership(
                         ${context.membership.id}::uuid,
                         ${clientScope ?? "own"},
-                        company.owner_membership_id,
+                        company.account_owner_membership_id,
                         company.created_by_membership_id
                       )
                   )
@@ -413,7 +416,7 @@ export async function getAutomationWorkspaceData(
               and private.crm_scope_allows_membership(
                 ${context.membership.id}::uuid,
                 ${clientScope ?? "own"},
-                company.owner_membership_id,
+                company.account_owner_membership_id,
                 company.created_by_membership_id
               )
             order by entity_type, label
@@ -648,7 +651,7 @@ export async function revokeVaultwardenLink(
                 and private.crm_scope_allows_membership(
                   ${context.membership.id}::uuid,
                   ${clientScope ?? "own"},
-                  company.owner_membership_id,
+                  company.account_owner_membership_id,
                   company.created_by_membership_id
                 )
             )

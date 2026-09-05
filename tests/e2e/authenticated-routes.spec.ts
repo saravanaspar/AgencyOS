@@ -46,6 +46,7 @@ test.describe("authenticated route evidence", () => {
           });
           const exercised = await exerciseVisibleControls(page, entry.route, {
             allowDestructive: process.env.AGENCYOS_E2E_CLICK_DESTRUCTIVE === "1",
+            allowMutations: false,
           });
           await testInfo.attach("exercised-controls.json", {
             body: JSON.stringify(exercised, null, 2),

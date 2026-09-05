@@ -1,5 +1,9 @@
 # AgencyOS
 
+Production self-hosting uses the complete Coolify stack and immutable release workflow in
+[`docs/COOLIFY.md`](docs/COOLIFY.md). Encrypted deduplicated B2 backups, Object Lock constraints,
+and safe recovery are in [`docs/BACKUP_RECOVERY.md`](docs/BACKUP_RECOVERY.md).
+
 AgencyOS is a security-first Next.js operations platform for one agency or company. It combines CRM, projects, finance, HR, documents, legal, support, assets, vendors, calendar, approvals, notifications, search, automation, audit, founder reporting, and permission-aware AI.
 
 AgencyOS owns its authentication and application data. Runtime infrastructure is ordinary PostgreSQL, MinIO, and optional Redis/ClamAV integrations. PostgreSQL may be Neon, local/self-hosted PostgreSQL, or another compatible provider. No Supabase service, SDK, CLI, Auth, Realtime, or Storage dependency is required.
@@ -77,14 +81,14 @@ openssl rand -base64 32
 
 ```bash
 npm ci
+npm run dependencies:start
 npm run db:migrate
 npm run db:doctor
 npm run db:test
-docker compose --env-file .env.local -f compose.minio.yaml up -d
-npm run scanner:start
 npm run storage:setup
 npm run storage:check
 npm run scanner:check
+npm run redis:check
 npm run dev
 ```
 

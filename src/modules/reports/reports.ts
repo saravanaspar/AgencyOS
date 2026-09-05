@@ -5,6 +5,7 @@ export const reportsPermissionKeys = {
   scheduleManage: "reports.schedule.manage",
   snapshotCreate: "reports.snapshot.create",
   snapshotDownload: "reports.snapshot.download",
+  deliveryDestinationManage: "reports.delivery_destination.manage",
 } as const;
 
 export const reportSections = [
@@ -17,6 +18,7 @@ export const reportSections = [
   "legal",
   "founder_daily",
   "founder_weekly",
+  "founder_monthly",
 ] as const;
 export const reportComparisons = ["none", "previous_period", "previous_year"] as const;
 export const reportPeriodModes = [
@@ -60,6 +62,7 @@ export const reportSectionLabels: Record<ReportSection, string> = {
   legal: "Legal",
   founder_daily: "Founder Daily Brief",
   founder_weekly: "Founder Weekly Review",
+  founder_monthly: "Founder Monthly / Board Pack",
 };
 
 export const reportComparisonLabels: Record<ReportComparison, string> = {
@@ -127,7 +130,7 @@ export interface FounderReportBlock {
 }
 
 export interface FounderReportPack {
-  kind: "daily" | "weekly";
+  kind: "daily" | "weekly" | "monthly";
   blocks: FounderReportBlock[];
 }
 

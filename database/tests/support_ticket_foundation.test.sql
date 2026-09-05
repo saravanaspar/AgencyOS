@@ -2,7 +2,7 @@ begin;
 
 \ir ./_helpers/pgtap-bootstrap.inc
 
-select plan(18);
+select plan(19);
 
 select has_table('public', 'support_tickets', 'support tickets table exists');
 select has_table('public', 'support_ticket_categories', 'support categories table exists');
@@ -16,10 +16,14 @@ select has_column('public', 'support_tickets', 'satisfaction_score', 'satisfacti
 select has_function('private', 'support_ticket_membership_access_allowed', array['uuid','uuid','text'], 'membership access helper exists');
 select has_function('private', 'support_ticket_access_allowed', array['uuid','text'], 'current-session access helper exists');
 select has_function('private', 'support_ticket_sla_minutes', array['text','text'], 'SLA calculation helper exists');
-select row_security_active('public', 'support_tickets', 'support tickets use RLS');
-select row_security_active('public', 'support_ticket_messages', 'support messages use RLS');
-select row_security_active('public', 'support_ticket_watchers', 'support watchers use RLS');
-select row_security_active('public', 'support_ticket_events', 'support events use RLS');
+select ok(
+  position('project.company_id' in pg_get_functiondef('private.validate_support_ticket()'::regprocedure)) > 0,
+  'ticket project/client validation uses the canonical project company column'
+);
+select is((select relrowsecurity from pg_class where oid = 'public.support_tickets'::regclass), true, 'support tickets use RLS');
+select is((select relrowsecurity from pg_class where oid = 'public.support_ticket_messages'::regclass), true, 'support messages use RLS');
+select is((select relrowsecurity from pg_class where oid = 'public.support_ticket_watchers'::regclass), true, 'support watchers use RLS');
+select is((select relrowsecurity from pg_class where oid = 'public.support_ticket_events'::regclass), true, 'support events use RLS');
 select col_is_fk('public', 'support_tickets', 'client_company_id', 'ticket client reuses CRM company');
 select col_is_fk('public', 'support_tickets', 'project_id', 'ticket project reuses Projects');
 

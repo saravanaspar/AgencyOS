@@ -1049,7 +1049,14 @@ function ApprovalControls({
     <form action={action} className="finance-inline-actions">
       <input type="hidden" name="entityId" value={entityId} />
       <input type="hidden" name="entityType" value={entityType} />
-      <Button type="submit" name="decision" value="submit" size="sm" variant="secondary" disabled={pending}>
+      <Button
+        type="submit"
+        name="decision"
+        value="submit"
+        size="sm"
+        variant="secondary"
+        disabled={pending}
+      >
         {pending ? "Submitting" : "Submit approval"}
       </Button>
       <ActionMessage state={state} />

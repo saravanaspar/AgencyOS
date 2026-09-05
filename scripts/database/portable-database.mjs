@@ -6,6 +6,11 @@ import postgres from "postgres";
 
 export const migrationsDirectory = path.join(process.cwd(), "database", "migrations");
 
+function isLocalDatabaseHost(hostname) {
+  const normalizedHostname = hostname.replace(/^\[|\]$/g, "");
+  return ["127.0.0.1", "localhost", "::1"].includes(normalizedHostname);
+}
+
 export function getAdminDatabaseUrl() {
   const adminUrl = process.env.DATABASE_ADMIN_URL?.trim();
   if (adminUrl) return adminUrl;
@@ -16,7 +21,7 @@ export function getAdminDatabaseUrl() {
   }
 
   const parsed = new URL(runtimeUrl);
-  const localHost = ["127.0.0.1", "localhost", "::1"].includes(parsed.hostname);
+  const localHost = isLocalDatabaseHost(parsed.hostname);
   if (!localHost) {
     throw new Error(
       "DATABASE_ADMIN_URL is required for remote migrations. Keep DATABASE_URL for pooled runtime traffic.",
@@ -232,14 +237,13 @@ export async function readAppliedMigrations(sql) {
 
 export function connectionEnvironment(databaseUrl) {
   const parsed = new URL(databaseUrl);
+  const localHost = isLocalDatabaseHost(parsed.hostname);
   return {
     PGHOST: parsed.hostname,
     PGPORT: parsed.port || "5432",
     PGUSER: decodeURIComponent(parsed.username),
     PGPASSWORD: decodeURIComponent(parsed.password),
     PGDATABASE: decodeURIComponent(parsed.pathname.replace(/^\//, "")),
-    PGSSLMODE:
-      parsed.searchParams.get("sslmode") ||
-      (parsed.hostname === "localhost" ? "disable" : "require"),
+    PGSSLMODE: parsed.searchParams.get("sslmode") || (localHost ? "disable" : "require"),
   };
 }

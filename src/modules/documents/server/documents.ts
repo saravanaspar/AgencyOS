@@ -21,6 +21,7 @@ import {
 } from "@/modules/documents/documents";
 import { financePermissionKeys } from "@/modules/finance/finance";
 import { hrPermissionKeys } from "@/modules/hr/hr";
+import { legalPermissionKeys } from "@/modules/legal/legal";
 import type { AuthorizationFailureReason } from "@/modules/permissions/server/authorization";
 import {
   getCurrentPermissionContext,
@@ -29,6 +30,10 @@ import {
 import { projectPermissionKeys } from "@/modules/projects/projects";
 import { supportPermissionKeys } from "@/modules/support/support";
 import { vendorPermissionKeys } from "@/modules/vendors/vendors";
+import {
+  getDocumentEntityOptions,
+  type DocumentEntityOption,
+} from "@/modules/documents/server/document-entity-options";
 
 export interface DocumentFolderSummary {
   id: string;
@@ -135,6 +140,8 @@ export interface DocumentSummary {
   id: string;
   title: string;
   description: string | null;
+  documentDate: string | null;
+  referenceCode: string | null;
   folderId: string | null;
   folderPath: string | null;
   categoryId: string | null;
@@ -174,11 +181,7 @@ export interface DocumentSummary {
   };
 }
 
-export interface DocumentEntityOption {
-  type: DocumentEntityType;
-  id: string;
-  label: string;
-}
+export type { DocumentEntityOption } from "@/modules/documents/server/document-entity-options";
 
 export interface DocumentWorkspaceData {
   documents: DocumentSummary[];
@@ -189,7 +192,11 @@ export interface DocumentWorkspaceData {
   departments: Array<{ id: string; name: string }>;
   teams: Array<{ id: string; name: string }>;
   entityOptions: DocumentEntityOption[];
-  filters: { query: string; status: "active" | "archived" | "all" };
+  filters: {
+    query: string;
+    status: "active" | "archived" | "all";
+    folderId: string | null;
+  };
   summary: {
     visible: number;
     active: number;
@@ -224,6 +231,8 @@ interface DocumentRow {
   id: string;
   title: string;
   description: string | null;
+  document_date: string | null;
+  reference_code: string | null;
   folder_id: string | null;
   category_id: string | null;
   category_name: string | null;
@@ -360,196 +369,6 @@ function folderPaths(rows: FolderRow[]): DocumentFolderSummary[] {
     archivedAt: row.archived_at,
     path: pathFor(row),
   }));
-}
-
-async function getDocumentEntityOptions(
-  context: CurrentPermissionContext,
-  sql: QuerySql,
-): Promise<DocumentEntityOption[]> {
-  if (!context.permissions.has(documentPermissionKeys.update)) return [];
-  const membershipId = context.membership.id;
-  const organizationId = context.membership.organizationId;
-  const options: DocumentEntityOption[] = [];
-
-  if (context.permissions.has(crmPermissionKeys.companyView)) {
-    const scope = context.permissionScopes.get(crmPermissionKeys.companyView) ?? "own";
-    options.push(
-      ...(await sql<DocumentEntityOption[]>`
-        select 'client'::text as type, company.id, company.display_name as label
-        from public.crm_companies as company
-        where company.organization_id = ${organizationId}::uuid
-          and private.crm_scope_allows_membership(
-            ${membershipId}::uuid, ${scope},
-            company.account_owner_membership_id, company.created_by_membership_id
-          )
-        order by company.display_name limit 300
-      `),
-    );
-  }
-  if (context.permissions.has(crmPermissionKeys.contactView)) {
-    const scope = context.permissionScopes.get(crmPermissionKeys.contactView) ?? "own";
-    options.push(
-      ...(await sql<DocumentEntityOption[]>`
-        select 'contact'::text as type, contact.id,
-          concat_ws(' ', contact.first_name, contact.last_name) as label
-        from public.crm_contacts as contact
-        where contact.organization_id = ${organizationId}::uuid
-          and private.crm_scope_allows_membership(
-            ${membershipId}::uuid, ${scope}, contact.owner_membership_id, contact.created_by_membership_id
-          )
-        order by label limit 300
-      `),
-    );
-  }
-  if (context.permissions.has(crmPermissionKeys.leadView)) {
-    const scope = context.permissionScopes.get(crmPermissionKeys.leadView) ?? "own";
-    options.push(
-      ...(await sql<DocumentEntityOption[]>`
-        select 'lead'::text as type, lead.id, lead.name as label
-        from public.crm_leads as lead
-        where lead.organization_id = ${organizationId}::uuid
-          and private.crm_scope_allows_membership(
-            ${membershipId}::uuid, ${scope}, lead.owner_membership_id, lead.created_by_membership_id
-          )
-        order by lead.name limit 300
-      `),
-    );
-  }
-  if (context.permissions.has(projectPermissionKeys.projectView)) {
-    const scope = context.permissionScopes.get(projectPermissionKeys.projectView) ?? "own";
-    options.push(
-      ...(await sql<DocumentEntityOption[]>`
-        select 'project'::text as type, project.id,
-          concat(project.code, ' — ', project.name) as label
-        from public.projects as project
-        where project.organization_id = ${organizationId}::uuid
-          and private.project_is_visible(project.id, ${membershipId}::uuid, ${scope})
-        order by project.name limit 300
-      `),
-    );
-  }
-  if (context.permissions.has(projectPermissionKeys.taskView)) {
-    const scope = context.permissionScopes.get(projectPermissionKeys.taskView) ?? "own";
-    options.push(
-      ...(await sql<DocumentEntityOption[]>`
-        select 'task'::text as type, task.id,
-          concat(task.task_number, ' — ', task.title) as label
-        from public.project_tasks as task
-        where task.organization_id = ${organizationId}::uuid
-          and private.project_is_visible(task.project_id, ${membershipId}::uuid, ${scope})
-        order by task.updated_at desc limit 300
-      `),
-    );
-  }
-  if (context.permissions.has(financePermissionKeys.invoiceView)) {
-    const scope = context.permissionScopes.get(financePermissionKeys.invoiceView) ?? "own";
-    options.push(
-      ...(await sql<DocumentEntityOption[]>`
-        select 'invoice'::text as type, invoice.id,
-          coalesce(invoice.invoice_number, invoice.draft_reference) as label
-        from public.finance_invoices as invoice
-        where invoice.organization_id = ${organizationId}::uuid
-          and private.crm_scope_allows_membership(
-            ${membershipId}::uuid, ${scope},
-            invoice.created_by_membership_id, invoice.created_by_membership_id
-          )
-        order by invoice.created_at desc limit 300
-      `),
-    );
-  }
-  if (context.permissions.has(financePermissionKeys.estimateView)) {
-    const scope = context.permissionScopes.get(financePermissionKeys.estimateView) ?? "own";
-    options.push(
-      ...(await sql<DocumentEntityOption[]>`
-        select 'estimate'::text as type, estimate.id, estimate.estimate_number as label
-        from public.finance_estimates as estimate
-        where estimate.organization_id = ${organizationId}::uuid
-          and private.crm_scope_allows_membership(
-            ${membershipId}::uuid, ${scope},
-            estimate.created_by_membership_id, estimate.created_by_membership_id
-          )
-        order by estimate.created_at desc limit 300
-      `),
-    );
-  }
-  if (context.permissions.has(hrPermissionKeys.employeeView)) {
-    const scope = context.permissionScopes.get(hrPermissionKeys.employeeView) ?? "own";
-    options.push(
-      ...(await sql<DocumentEntityOption[]>`
-        select 'employee'::text as type, membership.id,
-          private.membership_display_name(membership.id) as label
-        from public.memberships as membership
-        where membership.organization_id = ${organizationId}::uuid and membership.status = 'active'
-          and private.crm_scope_allows_membership(
-            ${membershipId}::uuid, ${scope}, membership.id, membership.id
-          )
-        order by label limit 300
-      `),
-    );
-  }
-
-  if (context.permissions.has(supportPermissionKeys.view)) {
-    options.push(
-      ...(await sql<DocumentEntityOption[]>`
-        select 'ticket'::text as type, ticket.id,
-          concat('SUP-', lpad(ticket.ticket_number::text, 6, '0'), ' — ', ticket.subject) as label
-        from public.support_tickets as ticket
-        where ticket.organization_id = ${organizationId}::uuid
-          and private.support_ticket_membership_access_allowed(
-            ticket.id, ${membershipId}::uuid, ${supportPermissionKeys.view}
-          )
-        order by ticket.last_activity_at desc limit 300
-      `),
-    );
-  }
-  if (context.permissions.has(assetPermissionKeys.view)) {
-    options.push(
-      ...(await sql<DocumentEntityOption[]>`
-        select 'asset'::text as type, asset.id,
-          concat(asset.asset_tag, ' — ', asset.name) as label
-        from public.assets as asset
-        where asset.organization_id = ${organizationId}::uuid
-          and private.asset_membership_access_allowed(
-            asset.id, ${membershipId}::uuid, ${assetPermissionKeys.view}
-          )
-        order by asset.asset_tag limit 300
-      `),
-    );
-  }
-  if (context.permissions.has(vendorPermissionKeys.view)) {
-    options.push(
-      ...(await sql<DocumentEntityOption[]>`
-        select 'vendor'::text as type, vendor.id,
-          concat('VEN-', lpad(vendor.vendor_number::text, 6, '0'), ' — ', vendor.display_name) as label
-        from public.vendors as vendor
-        where vendor.organization_id = ${organizationId}::uuid
-          and private.vendor_membership_access_allowed(
-            vendor.id, ${membershipId}::uuid, ${vendorPermissionKeys.view}
-          )
-        order by vendor.display_name limit 300
-      `),
-    );
-  }
-  if (context.permissions.has(vendorPermissionKeys.purchaseOrderView)) {
-    options.push(
-      ...(await sql<DocumentEntityOption[]>`
-        select 'purchase_order'::text as type, purchase_order.id,
-          concat('PO-', lpad(purchase_order.purchase_order_number::text, 6, '0'), ' — ', vendor.display_name) as label
-        from public.procurement_purchase_orders as purchase_order
-        join public.vendors as vendor on vendor.id = purchase_order.vendor_id
-        where purchase_order.organization_id = ${organizationId}::uuid
-          and private.purchase_order_membership_access_allowed(
-            purchase_order.id, ${membershipId}::uuid, ${vendorPermissionKeys.purchaseOrderView}
-          )
-        order by purchase_order.purchase_order_number desc limit 300
-      `),
-    );
-  }
-  return options.sort((left, right) =>
-    left.type === right.type
-      ? left.label.localeCompare(right.label)
-      : left.type.localeCompare(right.type),
-  );
 }
 
 function groupBy<T extends { document_id: string }>(rows: T[]): Map<string, T[]> {
@@ -723,6 +542,13 @@ export async function requireDocumentEntityAccess(
       ) as allowed
     `;
     allowed = rows[0]?.allowed === true;
+  } else if (entityType === "contract" && context.permissions.has(legalPermissionKeys.view)) {
+    const rows = await sql<Array<{ allowed: boolean }>>`
+      select private.legal_contract_membership_access_allowed(
+        ${entityId}::uuid, ${membershipId}::uuid, ${legalPermissionKeys.view}
+      ) as allowed
+    `;
+    allowed = rows[0]?.allowed === true;
   } else if (entityType === "employee" && context.permissions.has(hrPermissionKeys.employeeView)) {
     const scope = context.permissionScopes.get(hrPermissionKeys.employeeView) ?? "own";
     const rows = await sql<Array<{ allowed: boolean }>>`
@@ -784,6 +610,8 @@ export async function getDocumentWorkspaceData(
   input: {
     query?: string;
     status?: string;
+    folderId?: string;
+    allFolders?: boolean;
   } = {},
 ): Promise<DocumentWorkspaceResult> {
   const permissionResult = await getCurrentPermissionContext();
@@ -798,6 +626,13 @@ export async function getDocumentWorkspaceData(
 
   const query = (input.query ?? "").trim().slice(0, 100);
   const status = input.status === "archived" || input.status === "all" ? input.status : "active";
+  const folderId =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      input.folderId ?? "",
+    )
+      ? (input.folderId ?? null)
+      : null;
+  const allFolders = input.allFolders === true;
   const search = `%${query.replaceAll("%", "\\%").replaceAll("_", "\\_")}%`;
   const organizationId = context.membership.organizationId;
   const membershipId = context.membership.id;
@@ -820,14 +655,26 @@ export async function getDocumentWorkspaceData(
     documentRows,
   ] = await Promise.all([
     db<FolderRow[]>`
+      with recursive visible_document_folders as (
+        select folder.id, folder.parent_folder_id
+        from public.document_folders as folder
+        join public.documents as document on document.folder_id = folder.id
+        where folder.organization_id = ${organizationId}::uuid
+          and document.organization_id = ${organizationId}::uuid
+          and private.document_membership_access_allowed(
+            document.id, ${membershipId}::uuid, 'view'
+          )
+        union
+        select parent.id, parent.parent_folder_id
+        from public.document_folders as parent
+        join visible_document_folders as child on child.parent_folder_id = parent.id
+        where parent.organization_id = ${organizationId}::uuid
+      )
       select id, parent_folder_id, name, description, classification, archived_at::text
       from public.document_folders
       where organization_id = ${organizationId}::uuid
-        and (classification = 'internal' or ${canManageFolders} or exists (
-          select 1 from public.documents as document
-          where document.folder_id = document_folders.id
-            and private.document_membership_access_allowed(document.id, ${membershipId}::uuid, 'view')
-        ))
+        and (classification = 'internal' or ${canManageFolders}
+          or id in (select id from visible_document_folders))
       order by archived_at nulls first, name
     `,
     db<
@@ -874,7 +721,8 @@ export async function getDocumentWorkspaceData(
     `,
     getDocumentEntityOptions(context, db),
     db<DocumentRow[]>`
-      select document.id, document.title, document.description, document.folder_id,
+      select document.id, document.title, document.description, document.document_date::text,
+        document.reference_code, document.folder_id,
         document.category_id, category.name as category_name, document.classification,
         document.owner_membership_id,
         private.membership_display_name(document.owner_membership_id) as owner_name,
@@ -895,8 +743,47 @@ export async function getDocumentWorkspaceData(
       where document.organization_id = ${organizationId}::uuid
         and private.document_membership_access_allowed(document.id, ${membershipId}::uuid, 'view')
         and (${status} = 'all' or document.status = ${status})
+        and (
+          ${query} <> ''
+          or ${allFolders}
+          or document.folder_id is not distinct from ${folderId}::uuid
+        )
         and (${query} = '' or document.title ilike ${search} escape '\\'
-          or coalesce(document.description, '') ilike ${search} escape '\\')
+          or coalesce(document.description, '') ilike ${search} escape '\\'
+          or coalesce(document.document_date::text, '') ilike ${search} escape '\\'
+          or coalesce(document.reference_code, '') ilike ${search} escape '\\'
+          or coalesce(category.name, '') ilike ${search} escape '\\'
+          or exists (
+            with recursive search_folders as (
+              select folder.id, folder.parent_folder_id, folder.name,
+                array[folder.id]::uuid[] as visited_ids, 1 as depth
+              from public.document_folders as folder
+              where folder.id = document.folder_id
+                and folder.organization_id = document.organization_id
+              union all
+              select parent.id, parent.parent_folder_id, parent.name,
+                child.visited_ids || parent.id, child.depth + 1
+              from public.document_folders as parent
+              join search_folders as child on child.parent_folder_id = parent.id
+              where parent.organization_id = document.organization_id
+                and not parent.id = any(child.visited_ids)
+                and child.depth < 25
+            )
+            select 1 from search_folders
+            where name ilike ${search} escape '\\'
+          )
+          or exists (
+            select 1 from public.document_tag_links search_link
+            join public.document_tags search_tag on search_tag.id = search_link.tag_id
+            where search_link.document_id = document.id
+              and search_tag.name ilike ${search} escape '\\'
+          )
+          or exists (
+            select 1 from public.document_versions search_version
+            join public.private_files search_file on search_file.id = search_version.private_file_id
+            where search_version.document_id = document.id
+              and search_file.original_file_name ilike ${search} escape '\\'
+          ))
       order by document.updated_at desc limit 300
     `,
   ]);
@@ -944,6 +831,7 @@ export async function getDocumentWorkspaceData(
               when 'asset' then (select concat(asset_tag, ' — ', name) from public.assets where id = link.entity_id)
               when 'vendor' then (select concat('VEN-', lpad(vendor_number::text, 6, '0'), ' — ', display_name) from public.vendors where id = link.entity_id)
               when 'purchase_order' then (select concat('PO-', lpad(purchase_order.purchase_order_number::text, 6, '0'), ' — ', vendor.display_name) from public.procurement_purchase_orders purchase_order join public.vendors vendor on vendor.id = purchase_order.vendor_id where purchase_order.id = link.entity_id)
+              when 'contract' then (select concat(internal_reference, ' — ', title) from public.legal_contracts where id = link.entity_id)
               when 'employee' then (select coalesce(employee.preferred_name, employee.legal_name, member_profile.display_name,
                 split_part(coalesce(member_user.email, ''), '@', 1), 'Employee')
                 from public.memberships as member
@@ -1031,6 +919,8 @@ export async function getDocumentWorkspaceData(
       ]);
 
   const folders = folderPaths(folderRows);
+  const visibleFolderId =
+    folderId && folders.some((folder) => folder.id === folderId) ? folderId : null;
   const folderMap = new Map(folders.map((folder) => [folder.id, folder.path]));
   const versions = groupBy(versionRows);
   const tagLinks = groupBy(tagLinkRows);
@@ -1051,6 +941,8 @@ export async function getDocumentWorkspaceData(
     id: row.id,
     title: row.title,
     description: row.description,
+    documentDate: row.document_date,
+    referenceCode: row.reference_code,
     folderId: row.folder_id,
     folderPath: row.folder_id ? (folderMap.get(row.folder_id) ?? null) : null,
     categoryId: row.category_id,
@@ -1173,7 +1065,7 @@ export async function getDocumentWorkspaceData(
       departments: departmentRows,
       teams: teamRows,
       entityOptions: entityRows,
-      filters: { query, status },
+      filters: { query, status, folderId: visibleFolderId },
       summary: {
         visible: documents.length,
         active: documents.filter((document) => document.status === "active").length,

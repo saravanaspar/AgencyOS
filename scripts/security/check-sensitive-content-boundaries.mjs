@@ -72,31 +72,46 @@ const medicalNames = new Set([
   "disabilities",
 ]);
 function normalizedName(value) {
-  return String(value).replace(/[^a-z0-9]/gi, "").toLowerCase();
+  return String(value)
+    .replace(/[^a-z0-9]/gi, "")
+    .toLowerCase();
 }
 function isMedicalName(value) {
   const normalized = normalizedName(value);
-  return medicalNames.has(normalized) || [...medicalNames].some((name) => normalized.startsWith(name));
+  return (
+    medicalNames.has(normalized) || [...medicalNames].some((name) => normalized.startsWith(name))
+  );
 }
 function nameText(name) {
   if (!name) return null;
-  if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) return name.text;
+  if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name))
+    return name.text;
   return null;
 }
 
 let dedicatedMedicalCodeFound = false;
 for (const file of await filesUnder(hrRoot, new Set([".ts", ".tsx"]))) {
-  const source = ts.createSourceFile(file, await readFile(file, "utf8"), ts.ScriptTarget.Latest, true);
+  const source = ts.createSourceFile(
+    file,
+    await readFile(file, "utf8"),
+    ts.ScriptTarget.Latest,
+    true,
+  );
   const dedicated = relative(hrRoot, file).split(/[\\/]/).includes("medical");
   function visit(node) {
     if (
-      (ts.isPropertySignature(node) || ts.isPropertyDeclaration(node) || ts.isPropertyAssignment(node) ||
-        ts.isParameter(node) || ts.isVariableDeclaration(node)) &&
+      (ts.isPropertySignature(node) ||
+        ts.isPropertyDeclaration(node) ||
+        ts.isPropertyAssignment(node) ||
+        ts.isParameter(node) ||
+        ts.isVariableDeclaration(node)) &&
       isMedicalName(nameText(node.name) ?? "")
     ) {
       if (!dedicated) {
         const pos = source.getLineAndCharacterOfPosition(node.getStart(source));
-        failures.push(`${relative(root, file)}:${pos.line + 1} adds medical data outside src/modules/hr/medical`);
+        failures.push(
+          `${relative(root, file)}:${pos.line + 1} adds medical data outside src/modules/hr/medical`,
+        );
       } else {
         dedicatedMedicalCodeFound = true;
       }
@@ -108,11 +123,15 @@ for (const file of await filesUnder(hrRoot, new Set([".ts", ".tsx"]))) {
 
 let dedicatedMedicalTableFound = false;
 const sqlFiles = await filesUnder(migrationsRoot, new Set([".sql"]));
-const columnPattern = /^\s*(medical(?:_[a-z0-9_]+)?|diagnos(?:is|es)(?:_[a-z0-9_]+)?|allerg(?:y|ies)(?:_[a-z0-9_]+)?|medications?(?:_[a-z0-9_]+)?|blood_type|health_record(?:_[a-z0-9_]+)?|medical_condition(?:_[a-z0-9_]+)?|disabilit(?:y|ies)(?:_[a-z0-9_]+)?)\s+(?:text|varchar|jsonb|uuid|date|boolean|integer|bigint|numeric|timestamp|timestamptz)\b/i;
-const addColumnPattern = /alter\s+table\s+public\.([a-z0-9_]+)[\s\S]{0,500}?add\s+column(?:\s+if\s+not\s+exists)?\s+(medical(?:_[a-z0-9_]+)?|diagnos(?:is|es)(?:_[a-z0-9_]+)?|allerg(?:y|ies)(?:_[a-z0-9_]+)?|medications?(?:_[a-z0-9_]+)?|blood_type|health_record(?:_[a-z0-9_]+)?|medical_condition(?:_[a-z0-9_]+)?|disabilit(?:y|ies)(?:_[a-z0-9_]+)?)/gi;
+const columnPattern =
+  /^\s*(medical(?:_[a-z0-9_]+)?|diagnos(?:is|es)(?:_[a-z0-9_]+)?|allerg(?:y|ies)(?:_[a-z0-9_]+)?|medications?(?:_[a-z0-9_]+)?|blood_type|health_record(?:_[a-z0-9_]+)?|medical_condition(?:_[a-z0-9_]+)?|disabilit(?:y|ies)(?:_[a-z0-9_]+)?)\s+(?:text|varchar|jsonb|uuid|date|boolean|integer|bigint|numeric|timestamp|timestamptz)\b/i;
+const addColumnPattern =
+  /alter\s+table\s+public\.([a-z0-9_]+)[\s\S]{0,500}?add\s+column(?:\s+if\s+not\s+exists)?\s+(medical(?:_[a-z0-9_]+)?|diagnos(?:is|es)(?:_[a-z0-9_]+)?|allerg(?:y|ies)(?:_[a-z0-9_]+)?|medications?(?:_[a-z0-9_]+)?|blood_type|health_record(?:_[a-z0-9_]+)?|medical_condition(?:_[a-z0-9_]+)?|disabilit(?:y|ies)(?:_[a-z0-9_]+)?)/gi;
 for (const file of sqlFiles) {
   const text = await readFile(file, "utf8");
-  const tableBlocks = [...text.matchAll(/create\s+table\s+public\.([a-z0-9_]+)\s*\(([\s\S]*?)\n\);/gi)];
+  const tableBlocks = [
+    ...text.matchAll(/create\s+table\s+public\.([a-z0-9_]+)\s*\(([\s\S]*?)\n\);/gi),
+  ];
   for (const [, table, body] of tableBlocks) {
     for (const line of body.split(/\r?\n/)) {
       if (!columnPattern.test(line)) continue;
@@ -123,16 +142,18 @@ for (const file of sqlFiles) {
   }
   for (const match of text.matchAll(addColumnPattern)) {
     const table = match[1];
-    if (!table.startsWith("hr_medical_")) failures.push(`${relative(root, file)} adds medical column ${match[2]} to ${table}`);
+    if (!table.startsWith("hr_medical_"))
+      failures.push(`${relative(root, file)} adds medical column ${match[2]} to ${table}`);
     else dedicatedMedicalTableFound = true;
   }
 }
 
 if (dedicatedMedicalCodeFound || dedicatedMedicalTableFound) {
-  const permissionDefined = (await Promise.all(sqlFiles.map((file) => readFile(file, "utf8")))).some(
-    (text) => /\('hr'\s*,\s*'medical'\s*,\s*'(?:view|manage)'/i.test(text),
-  );
-  if (!permissionDefined) failures.push("Dedicated HR medical data exists without hr.medical.* permissions");
+  const permissionDefined = (
+    await Promise.all(sqlFiles.map((file) => readFile(file, "utf8")))
+  ).some((text) => /\('hr'\s*,\s*'medical'\s*,\s*'(?:view|manage)'/i.test(text));
+  if (!permissionDefined)
+    failures.push("Dedicated HR medical data exists without hr.medical.* permissions");
 }
 
 if (failures.length) {
@@ -140,5 +161,9 @@ if (failures.length) {
   for (const failure of failures) console.error(`- ${failure}`);
   process.exit(1);
 }
-console.log(`Sensitive content boundaries: PASS (${runtimeFiles.length} runtime files, ${sqlFiles.length} migrations)`);
-console.log("Rich HTML rendering remains allowlist-only; medical fields cannot enter the general HR model.");
+console.log(
+  `Sensitive content boundaries: PASS (${runtimeFiles.length} runtime files, ${sqlFiles.length} migrations)`,
+);
+console.log(
+  "Rich HTML rendering remains allowlist-only; medical fields cannot enter the general HR model.",
+);

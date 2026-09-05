@@ -5,10 +5,7 @@ import type { Sql } from "postgres";
 import { crmPermissionKeys } from "@/modules/crm/crm";
 import { financePermissionKeys } from "@/modules/finance/finance";
 import type { CurrentPermissionContext } from "@/modules/permissions/server/effective-permissions";
-import type {
-  ClientConcentrationKind,
-  ClientConcentrationMetric,
-} from "@/modules/reports/reports";
+import type { ClientConcentrationKind, ClientConcentrationMetric } from "@/modules/reports/reports";
 
 interface ConcentrationSourceRow {
   kind: ClientConcentrationKind;
@@ -131,7 +128,9 @@ export function summarizeClientConcentration(
         receivables: 1,
         pipeline: 2,
       };
-      return kindOrder[left.kind] - kindOrder[right.kind] || left.currency.localeCompare(right.currency);
+      return (
+        kindOrder[left.kind] - kindOrder[right.kind] || left.currency.localeCompare(right.currency)
+      );
     });
 }
 

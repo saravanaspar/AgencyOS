@@ -100,9 +100,9 @@ export const reportScheduleSchema = z
     format: z.enum(["csv", "pdf"]),
     audience: z.enum(["owner", "named", "view_access", "section_access"]).default("owner"),
     deliveryChannels: z
-      .array(z.enum(["in_app", "email"]))
+      .array(z.enum(["in_app", "email", "slack", "telegram", "webhook"]))
       .min(1)
-      .max(2)
+      .max(5)
       .default(["in_app"]),
     recipientIds: z.array(z.uuid()).max(100).default([]),
     graceSeconds: z.coerce.number().int().min(0).max(30).default(5),

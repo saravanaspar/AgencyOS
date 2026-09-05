@@ -2,6 +2,11 @@ name: Release Gate
 
 on:
   workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type DEPLOY to publish and deploy production"
+        required: true
+        type: string
   push:
     tags:
       - "v*"
@@ -9,6 +14,9 @@ on:
 permissions:
   contents: read
   packages: write
+  id-token: write
+  attestations: write
+  artifact-metadata: write
 
 concurrency:
   group: agencyos-release
@@ -18,7 +26,7 @@ jobs:
   release:
     environment: release
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 90
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       DATABASE_ADMIN_URL: ${{ secrets.DATABASE_ADMIN_URL }}
@@ -32,6 +40,11 @@ jobs:
       AGENCYOS_E2E_OWNER_MFA_SECRET: ${{ secrets.AGENCYOS_E2E_OWNER_MFA_SECRET }}
       AGENCYOS_E2E_CONFIRM_ISOLATED: "1"
     steps:
+      - name: Require explicit manual confirmation
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+        run: test "$CONFIRM" = "DEPLOY"
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -50,54 +63,142 @@ jobs:
           npm audit --omit=dev --audit-level=high
       - name: Verify database target
         run: |
+          npm run db:migrate
           npm run db:status
           npm run db:doctor
       - name: Run release verification against isolated release target
         run: npm run verify:release
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends podman
       - name: Log in to GitHub Container Registry
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: echo "$GHCR_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-      - name: Build once, attest, and publish immutable application image
-        id: image
+        run: echo "$GHCR_TOKEN" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Build once and publish immutable application and operations images
+        id: images
         shell: bash
         run: |
           set -euo pipefail
           repository="$(printf '%s' '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
-          image="ghcr.io/${repository}:sha-${GITHUB_SHA}"
-          docker buildx build \
-            --pull \
-            --push \
-            --sbom=true \
-            --provenance=mode=max \
-            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
-            --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
-            --tag "$image" \
-            --metadata-file build-metadata.json \
-            .
-          digest="$(node -e "const m=require('./build-metadata.json'); const d=m['containerimage.digest']; if(!d)process.exit(1); process.stdout.write(d)")"
-          immutable="ghcr.io/${repository}@${digest}"
-          echo "image=$image" >> "$GITHUB_OUTPUT"
-          echo "digest=$digest" >> "$GITHUB_OUTPUT"
-          echo "immutable=$immutable" >> "$GITHUB_OUTPUT"
+          app_name="ghcr.io/${repository}"
+          operations_name="ghcr.io/${repository}-operations"
+          app_tag="${app_name}:sha-${GITHUB_SHA}"
+          operations_tag="${operations_name}:sha-${GITHUB_SHA}"
+          source="https://github.com/${{ github.repository }}"
+          podman build --pull=always --format=oci --file Containerfile --target runtime \
+            --build-arg "AGENCYOS_REVISION=${GITHUB_SHA}" --build-arg "AGENCYOS_SOURCE=${source}" \
+            --tag "$app_tag" .
+          podman build --pull=always --format=oci --file Containerfile.operations --target operations \
+            --build-arg "AGENCYOS_REVISION=${GITHUB_SHA}" --build-arg "AGENCYOS_SOURCE=${source}" \
+            --tag "$operations_tag" .
+          podman run --rm --entrypoint node "$operations_tag" scripts/database/validate-migrations.mjs
+          podman run --rm --read-only --tmpfs /tmp:rw,size=536870912 --entrypoint node "$app_tag" -e '
+            const chromium = require("@sparticuz/chromium");
+            const puppeteer = require("puppeteer-core");
+            (async () => {
+              const browser = await puppeteer.launch({args: chromium.args, executablePath: await chromium.executablePath(), headless: true});
+              try { const page = await browser.newPage(); await page.setContent("<h1>AgencyOS PDF smoke</h1>"); const pdf = await page.pdf(); if (pdf.length < 100) throw new Error("Empty PDF"); }
+              finally { await browser.close(); }
+            })().catch(() => process.exit(1));'
+          podman push --digestfile app-image-digest.txt "$app_tag"
+          podman push --digestfile operations-image-digest.txt "$operations_tag"
+          app_digest="$(tr -d '\n' < app-image-digest.txt)"
+          operations_digest="$(tr -d '\n' < operations-image-digest.txt)"
+          [[ "$app_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "$operations_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          app_immutable="${app_name}@${app_digest}"
+          operations_immutable="${operations_name}@${operations_digest}"
+          npm sbom --omit=dev --sbom-format spdx > sbom.spdx.json
+          cp sbom.spdx.json operations-sbom.spdx.json
+          node -e "for(const path of ['sbom.spdx.json','operations-sbom.spdx.json']){const value=require('./'+path);if(value.spdxVersion!=='SPDX-2.3')process.exit(1)}"
+          {
+            echo "app_name=$app_name"
+            echo "app_digest=$app_digest"
+            echo "app_immutable=$app_immutable"
+            echo "operations_name=$operations_name"
+            echo "operations_digest=$operations_digest"
+            echo "operations_immutable=$operations_immutable"
+          } >> "$GITHUB_OUTPUT"
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            tag_image="ghcr.io/${repository}:${GITHUB_REF_NAME}"
-            docker buildx imagetools create --tag "$tag_image" "$immutable"
+            podman tag "$app_tag" "${app_name}:${GITHUB_REF_NAME}"
+            podman tag "$operations_tag" "${operations_name}:${GITHUB_REF_NAME}"
+            podman push "${app_name}:${GITHUB_REF_NAME}"
+            podman push "${operations_name}:${GITHUB_REF_NAME}"
           fi
+      - name: Attest application SLSA build provenance
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
+        with:
+          subject-name: ${{ steps.images.outputs.app_name }}
+          subject-digest: ${{ steps.images.outputs.app_digest }}
+          push-to-registry: true
+      - name: Attest application SPDX software bill of materials
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
+        with:
+          subject-name: ${{ steps.images.outputs.app_name }}
+          subject-digest: ${{ steps.images.outputs.app_digest }}
+          sbom-path: sbom.spdx.json
+          push-to-registry: true
+      - name: Attest operations SLSA build provenance
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
+        with:
+          subject-name: ${{ steps.images.outputs.operations_name }}
+          subject-digest: ${{ steps.images.outputs.operations_digest }}
+          push-to-registry: true
+      - name: Attest operations SPDX software bill of materials
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
+        with:
+          subject-name: ${{ steps.images.outputs.operations_name }}
+          subject-digest: ${{ steps.images.outputs.operations_digest }}
+          sbom-path: operations-sbom.spdx.json
+          push-to-registry: true
       - name: Generate release manifest
-        shell: bash
+        env:
+          APP_IMAGE: ${{ steps.images.outputs.app_immutable }}
+          OPERATIONS_IMAGE: ${{ steps.images.outputs.operations_immutable }}
         run: |
           node - <<'NODE'
-          const fs = require('node:fs');
+          const { createHash } = require('node:crypto');
+          const { readdirSync, readFileSync, writeFileSync, appendFileSync } = require('node:fs');
+          const hash = createHash('sha256');
+          for (const name of readdirSync('database/migrations').filter((name) => name.endsWith('.sql')).sort()) {
+            hash.update(name).update('\0').update(readFileSync(`database/migrations/${name}`));
+          }
           const manifest = {
+            schemaVersion: 1,
             commit: process.env.GITHUB_SHA,
-            image: '${{ steps.image.outputs.immutable }}',
+            appImage: process.env.APP_IMAGE,
+            operationsImage: process.env.OPERATIONS_IMAGE,
+            migrationSetSha256: hash.digest('hex'),
             sourceRef: process.env.GITHUB_REF,
             generatedAt: new Date().toISOString(),
             verification: 'npm run verify:release',
-            provenance: 'BuildKit max provenance + SBOM attestation',
           };
-          fs.writeFileSync('release-manifest.json', JSON.stringify(manifest, null, 2) + '\n');
-          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## AgencyOS immutable release\n\n- Commit: \`${manifest.commit}\`\n- Image: \`${manifest.image}\`\n- Verification: \`${manifest.verification}\`\n- Supply chain: ${manifest.provenance}\n`);
+          writeFileSync('release-manifest.json', JSON.stringify(manifest, null, 2) + '\n', { mode: 0o600 });
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## AgencyOS immutable release\n\n- Commit: \`${manifest.commit}\`\n- App: \`${manifest.appImage}\`\n- Operations: \`${manifest.operationsImage}\`\n`);
           NODE
-          cat release-manifest.json
+      - name: Hand immutable digests to Coolify and verify deployment
+        env:
+          COOLIFY_BASE_URL: ${{ vars.COOLIFY_BASE_URL }}
+          COOLIFY_APPLICATION_UUID: ${{ vars.COOLIFY_APPLICATION_UUID }}
+          COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+          PRODUCTION_APP_URL: ${{ vars.PRODUCTION_APP_URL }}
+          AGENCYOS_RELEASE_ID: ${{ github.sha }}
+          AGENCYOS_IMAGE: ${{ steps.images.outputs.app_immutable }}
+          AGENCYOS_OPERATIONS_IMAGE: ${{ steps.images.outputs.operations_immutable }}
+        run: node scripts/release/deploy-coolify.mjs
+      - name: Upload release and deployment evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: agencyos-release-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 90
+          path: |
+            release-manifest.json
+            app-image-digest.txt
+            operations-image-digest.txt
+            sbom.spdx.json
+            operations-sbom.spdx.json
+            coolify-deployment-evidence.json

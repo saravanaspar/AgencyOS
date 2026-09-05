@@ -266,7 +266,12 @@ export function WorkspaceShell({
             </nav>
           </div>
 
-          <button className="global-search" type="button" onClick={() => setCommandOpen(true)}>
+          <button
+            className="global-search"
+            type="button"
+            aria-label="Search records and modules"
+            onClick={() => setCommandOpen(true)}
+          >
             <Search aria-hidden="true" size={17} />
             <span>Search records and modules</span>
             <kbd>⌘ K</kbd>

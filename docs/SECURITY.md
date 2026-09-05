@@ -1,5 +1,10 @@
 # AgencyOS Security
 
+The single-host production exception permits plaintext Redis, MinIO, and ClamAV only on exact
+Compose service names behind an internal network and explicit opt-in. Redis stays authenticated,
+MinIO uses a non-root app identity, stateful ports are not published, and remote endpoints still
+require TLS. Backup writer, maintenance, and restore credentials remain separate.
+
 ## Authentication and privileged access
 
 AgencyOS owns email/password authentication, opaque sessions, email verification/reset, and TOTP MFA. Privileged accounts should use MFA. Recent reauthentication is required for critical access-management and security actions. Sessions can be reviewed and revoked from the security workspace. Suspending or deactivating access must invalidate active sessions.

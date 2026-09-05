@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 
 import { ProjectActionMessage } from "@/components/projects/project-action-message";
+import { projectGroupLabel } from "@/components/projects/project-workspace-utils";
 import { CreateQueryDetails } from "@/components/shell/create-query-details";
 import {
   ProjectAlternateView,
@@ -614,17 +615,6 @@ function CreateFromTemplatePanel({ data }: { data: ProjectsWorkspaceData }) {
   );
 }
 
-function projectGroupLabel(
-  project: ProjectSummary,
-  group: ProjectsWorkspaceData["filters"]["group"],
-): string {
-  if (group === "status") return project.status.replaceAll("_", " ");
-  if (group === "owner") return project.ownerName;
-  if (group === "client") return project.companyName ?? "Internal";
-  if (group === "health") return project.health.replaceAll("_", " ");
-  return "Projects";
-}
-
 function ProjectList({
   data,
   openCreateProject = false,
@@ -644,7 +634,9 @@ function ProjectList({
           <h2>Projects</h2>
           <p>{data.projects.length} visible</p>
         </div>
-        {data.capabilities.canCreateProjects ? <CreateProjectForm data={data} openFromCommand={openCreateProject} /> : null}
+        {data.capabilities.canCreateProjects ? (
+          <CreateProjectForm data={data} openFromCommand={openCreateProject} />
+        ) : null}
       </header>
       <CreateFromTemplatePanel data={data} />
       <div className="project-list">
@@ -862,7 +854,7 @@ function CreateTaskForm({
   const defaultStatus =
     data.statuses.find((status) => status.slug === "backlog") ?? data.statuses[0];
   return (
-<CreateQueryDetails className="project-inline-panel project-inline-panel--task" target="task">
+    <CreateQueryDetails className="project-inline-panel project-inline-panel--task" target="task">
       <summary>
         <Plus size={15} aria-hidden="true" /> Create task
       </summary>

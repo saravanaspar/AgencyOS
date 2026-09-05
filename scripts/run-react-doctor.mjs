@@ -9,7 +9,16 @@ const temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), "agencyos-react-
 const reportPath = path.join(temporaryDirectory, "report.json");
 
 const modeArguments = {
-  advisory: ["--verbose", "--blocking", "none", "--max-duration", "300"],
+  advisory: [
+    "--verbose",
+    "--blocking",
+    "none",
+    "--max-duration",
+    "300",
+    // React Doctor's dead-code worker can emit truncated JSON on large projects.
+    // AgencyOS validates source inventory separately, so keep this advisory scan deterministic.
+    "--no-dead-code",
+  ],
   security: [
     "--verbose",
     "--category",

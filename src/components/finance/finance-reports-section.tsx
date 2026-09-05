@@ -24,6 +24,8 @@ import type {
   FinanceWorkspaceData,
 } from "@/modules/finance/server/finance";
 import { getDateTimeFormatter, getNumberFormatter } from "@/lib/intl-formatters";
+import { CashForecastSection } from "@/components/finance/cash-forecast-section";
+import { CollectionsSection } from "@/components/finance/collections-section";
 
 function formatMonth(value: string, locale: string): string {
   const [year, month] = value.split("-").map(Number);
@@ -288,6 +290,9 @@ export function FinanceReportsSection({ data }: { data: FinanceWorkspaceData }) 
           </p>
         </div>
       </div>
+
+      <CashForecastSection data={data} />
+      <CollectionsSection data={data} />
 
       <div className="finance-report-layout">
         <article className="finance-report-panel finance-report-panel--wide">

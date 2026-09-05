@@ -6,7 +6,9 @@ import { redirect } from "next/navigation";
 import { getDatabaseClient } from "@/integrations/postgres/database";
 import { getRequestSecurityContext } from "@/lib/server/request-context";
 import {
+  clearIdentitySessionCookie,
   createIdentitySession,
+  getCurrentIdentitySession,
   identityRequiresMfa,
   revokeCurrentIdentitySession,
   revokeIdentitySessionsForUser,
@@ -259,7 +261,14 @@ export async function resetPasswordAction(
 }
 
 export async function signOutAction(): Promise<void> {
-  await revokeCurrentIdentitySession();
+  const session = await getCurrentIdentitySession({ allowPendingMfa: true }).catch(() => null);
+  if (session) {
+    await revokeCurrentIdentitySession();
+  } else {
+    // An expired, malformed, or unreachable server-side session must not keep a
+    // browser credential around merely because there is nothing left to revoke.
+    await clearIdentitySessionCookie();
+  }
   revalidatePath("/", "layout");
   redirect("/login");
 }

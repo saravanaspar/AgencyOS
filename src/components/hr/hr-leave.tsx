@@ -533,7 +533,7 @@ export function HrLeave({ data }: { data: HrWorkspaceData }) {
         <p className="empty-state">No leave requests are visible yet.</p>
       ) : null}
 
-      <div className="table-wrap">
+      <div className="table-wrap" tabIndex={0} aria-label="Leave balances table">
         <table className="data-table hr-leave-balance-table">
           <caption>Leave balances for {data.leave.currentYear}</caption>
           <thead>

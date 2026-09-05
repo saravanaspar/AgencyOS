@@ -1,12 +1,13 @@
 "use client";
 
-import { FolderCog, Tags } from "lucide-react";
+import { FolderCog, Sparkles, Tags } from "lucide-react";
 import { useActionState } from "react";
 
 import { DocumentActionMessage } from "@/components/documents/document-action-message";
 import { Button } from "@/components/ui/button";
 import {
   archiveDocumentFolderAction,
+  createDocumentStarterStructureAction,
   createDocumentTagAction,
   saveDocumentCategoryAction,
   saveDocumentFolderAction,
@@ -16,12 +17,72 @@ import {
   documentClassifications,
 } from "@/modules/documents/documents";
 import type { DocumentActionState } from "@/modules/documents/schemas/documents";
-import type { DocumentWorkspaceData } from "@/modules/documents/server/documents";
+import type {
+  DocumentFolderSummary,
+  DocumentWorkspaceData,
+} from "@/modules/documents/server/documents";
 
 const initialState: DocumentActionState = { status: "idle", message: "" };
 
+function FolderEditor({
+  data,
+  folder,
+}: {
+  data: DocumentWorkspaceData;
+  folder: DocumentFolderSummary;
+}) {
+  const [state, action, pending] = useActionState(saveDocumentFolderAction, initialState);
+  return (
+    <details className="document-folder-editor">
+      <summary>{folder.path}</summary>
+      <form action={action} className="document-admin-form">
+        <input type="hidden" name="folderId" value={folder.id} />
+        <label className="field">
+          <span>Name</span>
+          <input name="name" required maxLength={120} defaultValue={folder.name} />
+        </label>
+        <label className="field">
+          <span>Parent folder</span>
+          <select name="parentFolderId" defaultValue={folder.parentFolderId ?? ""}>
+            <option value="">Library root</option>
+            {data.folders.map((candidate) =>
+              candidate.archivedAt || candidate.id === folder.id ? null : (
+                <option key={candidate.id} value={candidate.id}>
+                  {candidate.path}
+                </option>
+              ),
+            )}
+          </select>
+        </label>
+        <label className="field">
+          <span>Classification</span>
+          <select name="classification" defaultValue={folder.classification}>
+            {documentClassifications.map((value) => (
+              <option key={value} value={value}>
+                {documentClassificationLabels[value]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field document-admin-form__wide">
+          <span>Description</span>
+          <input name="description" maxLength={500} defaultValue={folder.description ?? ""} />
+        </label>
+        <Button type="submit" size="sm" disabled={pending}>
+          {pending ? "Saving" : "Save folder"}
+        </Button>
+        <DocumentActionMessage state={state} />
+      </form>
+    </details>
+  );
+}
+
 function FolderManager({ data }: { data: DocumentWorkspaceData }) {
   const [state, action, pending] = useActionState(saveDocumentFolderAction, initialState);
+  const [starterState, starterAction, starterPending] = useActionState(
+    createDocumentStarterStructureAction,
+    initialState,
+  );
   return (
     <details className="document-admin-panel">
       <summary>
@@ -34,7 +95,7 @@ function FolderManager({ data }: { data: DocumentWorkspaceData }) {
         </label>
         <label className="field">
           <span>Parent folder</span>
-          <select name="parentFolderId" defaultValue="">
+          <select name="parentFolderId" defaultValue={data.filters.folderId ?? ""}>
             <option value="">Library root</option>
             {data.folders.map((folder) =>
               folder.archivedAt ? null : (
@@ -64,13 +125,32 @@ function FolderManager({ data }: { data: DocumentWorkspaceData }) {
         </Button>
         <DocumentActionMessage state={state} />
       </form>
+      <form action={starterAction} className="document-starter-structure">
+        <input type="hidden" name="intent" value="create-starter-structure" />
+        <div>
+          <strong>Suggested agency structure</strong>
+          <small>
+            Legal, Finance & Tax, Corporate, HR, Vendors, and Projects with the current fiscal year.
+          </small>
+        </div>
+        <Button type="submit" size="sm" variant="secondary" disabled={starterPending}>
+          <Sparkles size={15} aria-hidden="true" />
+          {starterPending ? "Creating folders" : "Create suggested folders"}
+        </Button>
+        <DocumentActionMessage state={starterState} />
+      </form>
       <ul className="document-admin-list">
         {data.folders.map((folder) => (
           <li key={folder.id}>
-            <span>{folder.path}</span>
+            <FolderEditor data={data} folder={folder} />
             <form action={archiveDocumentFolderAction}>
               <input type="hidden" name="folderId" value={folder.id} />
-              <Button type="submit" size="sm" variant="ghost">
+              <Button
+                type="submit"
+                size="sm"
+                variant="ghost"
+                aria-label={`${folder.archivedAt ? "Restore" : "Archive"} ${folder.path}`}
+              >
                 {folder.archivedAt ? "Restore" : "Archive"}
               </Button>
             </form>

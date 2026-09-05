@@ -101,6 +101,7 @@ const EXECUTIVE_ANALYSIS_TOOL_ALLOWLIST = new Set([
   "agencyos.assets.search_assets",
   "agencyos.vendors.search_procurement",
   "agencyos.support.search_tickets",
+  "agencyos.documents.search_library",
   "agencyos.legal.search_contracts",
   "agencyos.legal.search_compliance_records",
   "agencyos.finance.get_workspace",

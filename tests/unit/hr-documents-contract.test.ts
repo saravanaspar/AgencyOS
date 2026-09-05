@@ -29,8 +29,9 @@ describe("HR private-document source contracts", () => {
     expect(route).toContain("512 KB");
     expect(storage).toContain("MINIO_DOCUMENT_TEMPLATE_BUCKET");
     expect(storage).toContain("validateAndNormalizeHrTemplateHtml");
-    expect(compiler).toContain("blockedElements");
-    expect(compiler).toContain("external-resource");
+    expect(compiler).toContain("allowedElements");
+    expect(compiler).toContain("blocked-element");
+    expect(compiler).toContain("containsUnsafeCss");
     expect(compiler).toContain("unsupported-placeholder");
     expect(compiler).toContain("integrity-mismatch");
   });

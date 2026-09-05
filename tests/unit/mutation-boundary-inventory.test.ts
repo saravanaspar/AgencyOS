@@ -67,7 +67,7 @@ describe("mutation-boundary AST inventory", () => {
     const fixtureRoot = writeFixture({
       "src/modules/example/actions.ts": `
         "use server";
-        export async function createThingAction(_previous: unknown, formData: FormData) {
+        export async function createThingAction(_previous: ExampleActionState, formData: FormData) {
           const parsed = createSchema.safeParse({ name: formData.get("name") });
           if (!parsed.success) return;
           await createThing(parsed.data);

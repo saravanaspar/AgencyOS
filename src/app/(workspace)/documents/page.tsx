@@ -5,12 +5,16 @@ import { getDocumentWorkspaceData } from "@/modules/documents/server/documents";
 export const metadata = { title: "Documents" };
 
 type DocumentsPageProps = {
-  searchParams: Promise<{ q?: string; status?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; folder?: string }>;
 };
 
 export default async function DocumentsPage({ searchParams }: DocumentsPageProps) {
   const filters = await searchParams;
-  const result = await getDocumentWorkspaceData({ query: filters.q, status: filters.status });
+  const result = await getDocumentWorkspaceData({
+    query: filters.q,
+    status: filters.status,
+    folderId: filters.folder,
+  });
   if (!result.allowed) {
     return <PageAccessFailure reason={result.reason} nextPath="/documents" />;
   }

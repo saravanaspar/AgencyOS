@@ -50,11 +50,7 @@ import {
   updateLeadStageAction,
   updatePipelineStageAction,
 } from "@/modules/crm/actions/crm";
-import {
-  crmActivityTypes,
-  crmLeadTypes,
-  crmStageRequiredFields,
-} from "@/modules/crm/crm";
+import { crmActivityTypes, crmLeadTypes, crmStageRequiredFields } from "@/modules/crm/crm";
 import type { CrmActionState } from "@/modules/crm/schemas/crm";
 import type {
   CrmCompany,

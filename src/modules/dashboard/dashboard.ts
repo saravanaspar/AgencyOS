@@ -18,6 +18,9 @@ export interface DashboardListItem {
   dueAt?: string | null;
   status?: string | null;
   tone?: "neutral" | "success" | "warning" | "danger";
+  reason?: string | null;
+  amountMinor?: number | null;
+  currency?: string | null;
 }
 
 export interface DashboardSection {
@@ -31,8 +34,13 @@ export interface DashboardSection {
 export interface FounderAttentionItem extends DashboardListItem {
   bucket: "critical" | "today" | "this_week";
   reason: string;
-  amountMinor?: number | null;
-  currency?: string | null;
+  workState?: "active" | "delegated";
+  delegatedToName?: string | null;
+}
+
+export interface FounderWorkDelegateOption {
+  membershipId: string;
+  name: string;
 }
 
 export interface DashboardWorkspaceData {
@@ -44,6 +52,7 @@ export interface DashboardWorkspaceData {
   metrics: DashboardMetric[];
   sections: DashboardSection[];
   attention: FounderAttentionItem[];
+  attentionDelegates: FounderWorkDelegateOption[];
   comparison: {
     periodLabel: string;
     revenueMinor: number | null;

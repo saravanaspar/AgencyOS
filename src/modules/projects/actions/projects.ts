@@ -208,7 +208,6 @@ async function insertProjectRecord(
   return { id, code };
 }
 
-
 interface ProjectMutationRow {
   id: string;
   code: string;
@@ -1129,7 +1128,11 @@ export async function saveProjectTaskAssigneeAction(
         recipientMembershipId: parsed.data.membershipId,
         category: "assignment",
         severity: "info",
-        title: `Task assigned: #${assignmentNotification.taskNumber} ${assignmentNotification.title}`.slice(0, 160),
+        title:
+          `Task assigned: #${assignmentNotification.taskNumber} ${assignmentNotification.title}`.slice(
+            0,
+            160,
+          ),
         message: "A project task has been assigned to you.",
         deepLink: `/projects?project=${assignmentNotification.projectId}`,
         sourceModule: "projects",
@@ -2042,7 +2045,11 @@ export async function saveProjectTemplateAction(
         parsed.data.projectId,
         projectPermissionKeys.projectView,
       );
-      const blueprint = await captureProjectBlueprint(sql, project.id, context.membership.organizationId);
+      const blueprint = await captureProjectBlueprint(
+        sql,
+        project.id,
+        context.membership.organizationId,
+      );
       await sql`
         insert into public.project_templates (
           organization_id, name, description, blueprint, created_by_membership_id
@@ -2173,7 +2180,11 @@ export async function duplicateProjectAction(
         parsed.data.projectId,
         projectPermissionKeys.projectView,
       );
-      const blueprint = await captureProjectBlueprint(sql, source.id, context.membership.organizationId);
+      const blueprint = await captureProjectBlueprint(
+        sql,
+        source.id,
+        context.membership.organizationId,
+      );
       const ownerMembershipId = context.permissions.has(projectPermissionKeys.projectAssign)
         ? source.owner_membership_id
         : context.membership.id;

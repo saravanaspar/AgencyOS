@@ -1,10 +1,17 @@
 import "server-only";
 
 import { createHash, randomUUID } from "node:crypto";
+import { request as httpsRequest } from "node:https";
+import { isIP, type LookupFunction } from "node:net";
 
 import { sendEmailWithResend } from "@/integrations/email/resend";
 import { getDatabaseClient } from "@/integrations/postgres/database";
 import { toJsonValue } from "@/lib/server/json-value";
+import { getApplicationEnv } from "@/lib/validation/env";
+import {
+  activeReportDeliveryDestination,
+  resolveSafeExternalReportUrl,
+} from "@/modules/reports/server/delivery-destinations";
 import { notificationRetryDelaySeconds } from "@/modules/notifications/notification-delivery";
 import { getNotificationDeliveryConfiguration } from "@/modules/notifications/server/delivery-config";
 import { enqueueNotification } from "@/modules/notifications/server/notifications";
@@ -37,7 +44,7 @@ interface ClaimedSchedule {
   next_run_at: Date;
   consecutive_failure_count: number;
   audience: "owner" | "named" | "view_access" | "section_access";
-  delivery_channels: Array<"in_app" | "email">;
+  delivery_channels: Array<"in_app" | "email" | "slack" | "telegram" | "webhook">;
   grace_seconds: number;
 }
 
@@ -57,7 +64,7 @@ interface ClaimedBatch {
 interface DeliveryRow {
   id: string;
   recipient_membership_id: string;
-  channel: "in_app" | "email";
+  channel: "in_app" | "email" | "slack" | "telegram" | "webhook";
   status: "queued" | "failed";
   attempt_count: number;
 }
@@ -478,6 +485,141 @@ async function deliverEmail(
   });
 }
 
+async function externalFetch(url: URL | string, init: RequestInit): Promise<Response> {
+  return fetch(url, {
+    ...init,
+    redirect: "error",
+    signal: AbortSignal.timeout(10_000),
+  });
+}
+
+async function pinnedExternalPost(
+  destination: Awaited<ReturnType<typeof resolveSafeExternalReportUrl>>,
+  headers: HeadersInit,
+  body: string | Uint8Array,
+): Promise<Response> {
+  const lookup: LookupFunction = (_hostname, _options, callback) => {
+    callback(null, destination.address, destination.family);
+  };
+  return new Promise((resolve, reject) => {
+    const request = httpsRequest(
+      destination.url,
+      {
+        method: "POST",
+        headers: Object.fromEntries(new Headers(headers).entries()),
+        lookup,
+        servername: isIP(destination.hostname) ? undefined : destination.hostname,
+      },
+      (incoming) => {
+        const chunks: Buffer[] = [];
+        incoming.on("data", (chunk: Buffer | Uint8Array | string) =>
+          chunks.push(Buffer.from(chunk)),
+        );
+        incoming.on("end", () => {
+          const status = incoming.statusCode ?? 500;
+          const responseHeaders = new Headers();
+          for (const [name, value] of Object.entries(incoming.headers)) {
+            if (Array.isArray(value)) for (const item of value) responseHeaders.append(name, item);
+            else if (value !== undefined) responseHeaders.set(name, value);
+          }
+          resolve(
+            new Response([204, 205, 304].includes(status) ? null : Buffer.concat(chunks), {
+              status,
+              statusText: incoming.statusMessage,
+              headers: responseHeaders,
+            }),
+          );
+        });
+      },
+    );
+    request.setTimeout(10_000, () => request.destroy(new Error("report-external-timeout")));
+    request.on("error", reject);
+    request.end(body);
+  });
+}
+
+function reportDeepLink(snapshot: StoredReportSnapshot): string {
+  const app = new URL(getApplicationEnv().appUrl);
+  return new URL(`/api/reports/snapshots/${snapshot.id}`, app).toString();
+}
+
+async function deliverExternal(
+  batch: ClaimedBatch,
+  row: DeliveryRow,
+  snapshot: StoredReportSnapshot,
+): Promise<void> {
+  if (row.channel === "in_app" || row.channel === "email") return;
+  const destination = await activeReportDeliveryDestination(
+    batch.organization_id,
+    row.recipient_membership_id,
+    row.channel,
+  );
+  if (!destination) {
+    await markDelivery(row.id, {
+      outcome: "suppressed",
+      attemptCount: row.attempt_count + 1,
+      snapshotId: snapshot.id,
+      errorCode: `report_${row.channel}_destination_missing`,
+    });
+    return;
+  }
+  const idempotencyKey = createHash("sha256")
+    .update(`report:${batch.id}:${row.recipient_membership_id}:${row.channel}`)
+    .digest("hex");
+  let response: Response;
+  if (row.channel === "slack") {
+    const resolved = await resolveSafeExternalReportUrl(destination.config.url ?? "", "slack");
+    response = await pinnedExternalPost(
+      resolved,
+      { "content-type": "application/json" },
+      JSON.stringify({
+        text: `AgencyOS scheduled report: ${snapshot.fileName}\n${reportDeepLink(snapshot)}\nOpen the link while signed in to AgencyOS.`,
+      }),
+    );
+  } else if (row.channel === "telegram") {
+    const botToken = destination.config.botToken ?? "";
+    const chatId = destination.config.chatId ?? "";
+    if (!/^\d{6,12}:[A-Za-z0-9_-]{20,}$/.test(botToken) || !/^-?\d{5,30}$/.test(chatId)) {
+      throw new Error("report-telegram-destination-invalid");
+    }
+    const bytes = await downloadReportSnapshotBytes(snapshot);
+    const form = new FormData();
+    form.set("chat_id", chatId);
+    form.set("caption", `AgencyOS scheduled report · ${snapshot.fileName}`);
+    form.set(
+      "document",
+      new Blob([new Uint8Array(bytes)], {
+        type: snapshot.format === "pdf" ? "application/pdf" : "text/csv",
+      }),
+      snapshot.fileName,
+    );
+    response = await externalFetch(`https://api.telegram.org/bot${botToken}/sendDocument`, {
+      method: "POST",
+      body: form,
+    });
+  } else {
+    const resolved = await resolveSafeExternalReportUrl(destination.config.url ?? "", "webhook");
+    const bytes = await downloadReportSnapshotBytes(snapshot);
+    const headers: Record<string, string> = {
+      "content-type": snapshot.format === "pdf" ? "application/pdf" : "text/csv; charset=utf-8",
+      "content-disposition": `attachment; filename="${snapshot.fileName.replace(/[\r\n"]+/g, "_")}"`,
+      "x-agencyos-report-snapshot": snapshot.id,
+      "x-agencyos-report-file": snapshot.fileName,
+      "idempotency-key": idempotencyKey,
+    };
+    if (destination.config.bearerToken)
+      headers.authorization = `Bearer ${destination.config.bearerToken}`;
+    response = await pinnedExternalPost(resolved, headers, new Uint8Array(bytes));
+  }
+  if (!response.ok) throw new Error(`report-${row.channel}-http-${response.status}`);
+  await markDelivery(row.id, {
+    outcome: "delivered",
+    attemptCount: row.attempt_count + 1,
+    snapshotId: snapshot.id,
+    providerReference: `${destination.id}:${response.status}:${idempotencyKey.slice(0, 12)}`,
+  });
+}
+
 async function processDeliveryRow(
   batch: ClaimedBatch,
   row: DeliveryRow,
@@ -510,7 +652,8 @@ async function processDeliveryRow(
       snapshots.set(row.recipient_membership_id, snapshot);
     }
     if (row.channel === "in_app") await deliverInApp(batch, row, context, snapshot);
-    else await deliverEmail(batch, row, context, snapshot);
+    else if (row.channel === "email") await deliverEmail(batch, row, context, snapshot);
+    else await deliverExternal(batch, row, snapshot);
   } catch (error) {
     const attemptCount = row.attempt_count + 1;
     const errorCode =

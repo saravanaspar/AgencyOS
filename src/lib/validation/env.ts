@@ -268,21 +268,43 @@ export function validateProductionEnvironment(): void {
   assertEncryptionKey("CRM_CONNECTOR_ENCRYPTION_KEY");
   validateOptionalCrmOAuthEnvironment();
 
+  const trustPrivateServiceNetwork = envFlag("AGENCYOS_TRUST_PRIVATE_SERVICE_NETWORK", false);
+
   if (policy.redisRequired) {
     const redis = getRedisEnv();
-    if (!redis?.redisUrl.startsWith("rediss://")) {
+    const parsed = redis ? new URL(redis.redisUrl) : null;
+    const privateRedis =
+      trustPrivateServiceNetwork &&
+      parsed?.protocol === "redis:" &&
+      parsed.hostname === "redis" &&
+      (parsed.port || "6379") === "6379" &&
+      parsed.username === "default" &&
+      parsed.password.length >= 32 &&
+      parsed.pathname === "/0" &&
+      !parsed.search &&
+      !parsed.hash;
+    if (!redis?.redisUrl.startsWith("rediss://") && !privateRedis) {
       throw new Error("REDIS_URL must use rediss:// when Redis is required in production.");
     }
   }
 
   if (policy.minioRequired) {
     const minio = getMinioEnv();
-    if (!minio.endpoint.startsWith("https://")) {
+    const privateMinio =
+      trustPrivateServiceNetwork &&
+      minio.endpoint === "http://minio:9000" &&
+      minio.secretKey.length >= 32 &&
+      minio.accessKey.toLowerCase() !== "minioadmin";
+    if (!minio.endpoint.startsWith("https://") && !privateMinio) {
       throw new Error("MINIO_ENDPOINT must use HTTPS when MinIO is required in production.");
     }
   }
 
-  if (policy.privateFileScannerRequired && !process.env.PRIVATE_FILE_SCANNER_URL?.trim()) {
-    throw new Error("PRIVATE_FILE_SCANNER_URL is required in production.");
+  if (policy.privateFileScannerRequired) {
+    const scanner = process.env.PRIVATE_FILE_SCANNER_URL?.trim();
+    const privateScanner = trustPrivateServiceNetwork && scanner === "clamav://clamav:3310";
+    if (!scanner || (scanner.startsWith("clamav://") && !privateScanner)) {
+      throw new Error("PRIVATE_FILE_SCANNER_URL is required in production.");
+    }
   }
 }

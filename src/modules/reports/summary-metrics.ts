@@ -20,10 +20,12 @@ export function buildSummaryMetrics(data: {
   const metrics: ReportMetric[] = [];
   const reportHref = (section: ReportSection) =>
     `/reports?${reportQueryString(data.filters, { section })}`;
-  const financeInvoiceHref = (options: {
-    status?: string;
-    scope?: NonNullable<FinanceFilters["scope"]>;
-  } = {}) => {
+  const financeInvoiceHref = (
+    options: {
+      status?: string;
+      scope?: NonNullable<FinanceFilters["scope"]>;
+    } = {},
+  ) => {
     const params = new URLSearchParams({
       tab: "invoices",
       from: data.filters.from,

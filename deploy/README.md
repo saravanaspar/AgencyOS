@@ -1,13 +1,17 @@
 # AgencyOS container deployment
 
+For the complete persistent Coolify topology, automatic migration gate, two-image release handoff,
+and backups, use [`docs/COOLIFY.md`](../docs/COOLIFY.md). The Podman flow below remains useful for
+release-candidate verification but is not the complete stateful production stack.
+
 AgencyOS requires ordinary PostgreSQL plus the dependencies declared required by runtime policy. Production defaults `REDIS_REQUIRED`, `MINIO_REQUIRED`, and `PRIVATE_FILE_SCANNER_REQUIRED` to true; explicitly set a flag to `0` only for an intentional degraded deployment. PostgreSQL may be hosted by Neon, a local/self-hosted server, or another compatible provider. No Supabase service or CLI is required.
 
 Build and publish one immutable application image:
 
 ```bash
-docker build --pull -t registry.example.com/agencyos:0.1.0 .
-docker push registry.example.com/agencyos:0.1.0
-docker inspect --format='{{index .RepoDigests 0}}' registry.example.com/agencyos:0.1.0
+podman build --pull=always --format=oci -f Containerfile -t registry.example.com/agencyos:0.1.0 .
+podman push --digestfile agencyos-image-digest.txt registry.example.com/agencyos:0.1.0
+printf '%s@%s\n' registry.example.com/agencyos "$(tr -d '\n' < agencyos-image-digest.txt)"
 ```
 
 Set `AGENCYOS_IMAGE` to the resulting digest, keep runtime secrets in a private `.env.production`, and configure:
@@ -29,7 +33,7 @@ npm run db:migrate
 npm run db:doctor
 npm run db:test
 AGENCYOS_IMAGE=registry.example.com/agencyos@sha256:REPLACE_ME \
-  docker compose -f compose.production.yaml up -d
+  podman-compose --project-name agencyos-production -f compose.production.yaml up -d
 ```
 
 The manifest runs independent web and worker processes, waits for dependency-aware readiness, uses restart supervision, and puts a buffering 28 MiB ingress limit in front of all route handlers. Terminate TLS at the load balancer in front of loopback port 8080. The bundled Nginx configuration canonicalizes forwarded IP/protocol headers; if a CDN or load balancer is placed in front of Nginx, configure Nginx `real_ip` with only that provider's trusted CIDRs so `$remote_addr` represents the actual client before relying on IP-based security signals.
@@ -40,4 +44,8 @@ Container resource controls default to 2 GiB memory, 2 CPUs, and 256 PIDs for ap
 
 Back up PostgreSQL and every MinIO bucket before migrations. Use provider snapshots or `pg_dump --format=custom` for PostgreSQL and a version-pinned MinIO client to mirror all buckets into encrypted, access-controlled, off-host storage. Record checksums, retain at least one immutable copy, and test both restores in an isolated environment on a schedule. Do not continue a deployment when either backup or restore verification is stale.
 
-The GitHub Release Gate verifies the reviewed framework floor and dependency audit, runs the full release suite, then builds the application image once with SBOM/provenance attestations. Promote the emitted `name@sha256:...` value between environments; do not rebuild source separately for production.
+The GitHub Release Gate verifies the reviewed framework floor and dependency audit, runs the full
+release suite, then builds and pushes the application image once with Podman. GitHub's official
+attestation action signs both SLSA provenance and the npm-generated SPDX SBOM for the pushed image.
+Promote the emitted `name@sha256:...` value between environments; do not rebuild source separately
+for production.

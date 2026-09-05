@@ -17,6 +17,7 @@ import {
   documentIdSchema,
   documentLegalHoldSchema,
   documentMetadataSchema,
+  documentStarterStructureSchema,
   documentTagSchema,
   type DocumentActionState,
 } from "@/modules/documents/schemas/documents";
@@ -39,6 +40,10 @@ const text = (formData: FormData, key: string) => formData.get(key);
 const isUniqueViolation = (error: unknown) =>
   Boolean(
     error && typeof error === "object" && "code" in error && Reflect.get(error, "code") === "23505",
+  );
+const isFolderHierarchyViolation = (error: unknown) =>
+  Boolean(
+    error && typeof error === "object" && "code" in error && Reflect.get(error, "code") === "23514",
   );
 
 function refreshDocuments() {
@@ -109,8 +114,128 @@ export async function saveDocumentFolderAction(
     return failure(
       isUniqueViolation(error)
         ? "A folder with this name already exists here."
-        : "Folder could not be saved.",
+        : isFolderHierarchyViolation(error)
+          ? "Choose a valid parent folder outside this folder's descendants."
+          : "Folder could not be saved.",
     );
+  }
+}
+
+export async function createDocumentStarterStructureAction(
+  _previous: DocumentActionState,
+  _formData: FormData,
+): Promise<DocumentActionState> {
+  const parsed = documentStarterStructureSchema.safeParse({
+    intent: _formData.get("intent"),
+  });
+  if (!parsed.success) return failure("The starter-folder request is invalid.");
+  const authorization = await authorizeCurrentUser([
+    documentPermissionKeys.workspace,
+    documentPermissionKeys.folderManage,
+  ]);
+  if (!authorization.allowed) return failure("You cannot manage document folders.");
+  const context = authorization.context;
+  const today = new Date();
+  const startYear = today.getUTCMonth() >= 3 ? today.getUTCFullYear() : today.getUTCFullYear() - 1;
+  const fiscalYear = `FY ${startYear}-${String(startYear + 1).slice(-2)}`;
+  const definitions = [
+    { key: "legal", parent: null, name: "Legal", classification: "confidential" },
+    { key: "legal_fy", parent: "legal", name: fiscalYear, classification: "confidential" },
+    {
+      key: "board_meetings",
+      parent: "legal_fy",
+      name: "Board meetings",
+      classification: "confidential",
+    },
+    { key: "contracts", parent: "legal_fy", name: "Contracts", classification: "confidential" },
+    { key: "finance", parent: null, name: "Finance & Tax", classification: "confidential" },
+    { key: "finance_fy", parent: "finance", name: fiscalYear, classification: "confidential" },
+    { key: "itr", parent: "finance_fy", name: "ITR", classification: "confidential" },
+    { key: "gst", parent: "finance_fy", name: "GST", classification: "confidential" },
+    { key: "accounts", parent: "finance_fy", name: "Accounts", classification: "confidential" },
+    { key: "corporate", parent: null, name: "Corporate", classification: "confidential" },
+    {
+      key: "registrations",
+      parent: "corporate",
+      name: "Registrations",
+      classification: "confidential",
+    },
+    {
+      key: "resolutions",
+      parent: "corporate",
+      name: "Board resolutions",
+      classification: "confidential",
+    },
+    { key: "insurance", parent: "corporate", name: "Insurance", classification: "confidential" },
+    { key: "hr", parent: null, name: "HR", classification: "restricted" },
+    {
+      key: "employee_records",
+      parent: "hr",
+      name: "Employee records",
+      classification: "restricted",
+    },
+    { key: "vendors", parent: null, name: "Vendors", classification: "internal" },
+    {
+      key: "vendor_bills",
+      parent: "vendors",
+      name: "Bills & supporting documents",
+      classification: "confidential",
+    },
+    { key: "projects", parent: null, name: "Projects", classification: "internal" },
+    {
+      key: "project_records",
+      parent: "projects",
+      name: "Project records",
+      classification: "internal",
+    },
+  ] as const;
+
+  try {
+    let createdCount = 0;
+    await getDatabaseClient().begin(async (sql) => {
+      const folderIds = new Map<string, string>();
+      for (const definition of definitions) {
+        const parentId = definition.parent ? folderIds.get(definition.parent) : null;
+        const existing = await sql<Array<{ id: string }>>`
+          select id from public.document_folders
+          where organization_id = ${context.membership.organizationId}::uuid
+            and parent_folder_id is not distinct from ${parentId ?? null}::uuid
+            and lower(btrim(name)) = lower(${definition.name})
+            and archived_at is null
+          limit 1
+        `;
+        let folderId = existing[0]?.id;
+        if (!folderId) {
+          const inserted = await sql<Array<{ id: string }>>`
+            insert into public.document_folders (
+              organization_id, parent_folder_id, name, description, classification,
+              created_by_membership_id
+            ) values (
+              ${context.membership.organizationId}::uuid, ${parentId ?? null}::uuid,
+              ${definition.name}, ${`Suggested AgencyOS filing structure: ${definition.name}.`},
+              ${definition.classification}, ${context.membership.id}::uuid
+            ) returning id
+          `;
+          folderId = inserted[0]?.id;
+          createdCount += 1;
+        }
+        if (!folderId) throw new Error("folder-create-failed");
+        folderIds.set(definition.key, folderId);
+      }
+      await writeAuditEvent(sql, context, {
+        action: "document.folder_structure.created",
+        entityType: "document_folder",
+        afterState: { fiscalYear, createdCount, template: "agency_operations" },
+      });
+    });
+    refreshDocuments();
+    return success(
+      createdCount
+        ? `Created ${createdCount} folders for ${fiscalYear}.`
+        : `The suggested ${fiscalYear} folder structure already exists.`,
+    );
+  } catch {
+    return failure("The suggested folder structure could not be created.");
   }
 }
 
@@ -243,6 +368,8 @@ export async function updateDocumentMetadataAction(
   const parsed = documentMetadataSchema.safeParse({
     title: text(formData, "title"),
     description: text(formData, "description"),
+    documentDate: text(formData, "documentDate"),
+    referenceCode: text(formData, "referenceCode"),
     folderId: text(formData, "folderId"),
     categoryId: text(formData, "categoryId"),
     classification: text(formData, "classification"),
@@ -292,6 +419,8 @@ export async function updateDocumentMetadataAction(
       const rows = await sql<Array<{ title: string }>>`
         update public.documents set
           title = ${parsed.data.title}, description = ${parsed.data.description},
+          document_date = ${parsed.data.documentDate}::date,
+          reference_code = ${parsed.data.referenceCode},
           folder_id = ${parsed.data.folderId}::uuid, category_id = ${parsed.data.categoryId}::uuid,
           classification = ${parsed.data.classification},
           owner_membership_id = ${parsed.data.ownerMembershipId}::uuid,
@@ -321,6 +450,8 @@ export async function updateDocumentMetadataAction(
           fields: [
             "title",
             "description",
+            "documentDate",
+            "referenceCode",
             "folder",
             "category",
             "classification",

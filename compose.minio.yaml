@@ -1,6 +1,7 @@
 services:
   minio:
-    image: minio/minio:RELEASE.2025-10-15T17-29-55Z
+    image: docker.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    container_name: agencyos-minio
     command: server /data --console-address ":9001"
     restart: unless-stopped
     environment:
@@ -11,6 +12,14 @@ services:
       - "127.0.0.1:9001:9001"
     volumes:
       - agencyos_minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    stop_grace_period: 30s
 
 volumes:
   agencyos_minio_data:
+    name: ${AGENCYOS_MINIO_VOLUME:-agencyos_minio_data}

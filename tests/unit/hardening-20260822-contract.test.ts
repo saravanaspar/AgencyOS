@@ -48,19 +48,55 @@ describe("August 2026 production hardening contracts", () => {
   it("enforces immutable CI and image inputs and build-once release provenance", () => {
     const supplyChain = source("scripts/security/verify-supply-chain.mjs");
     const release = source(".github/workflows/release.yml");
-    const dockerfile = source("Dockerfile");
+    const containerfile = source("Containerfile");
     expect(supplyChain).toContain("40-character commit SHA");
-    expect(dockerfile).toContain("node:22.23.2-bookworm-slim@sha256:");
-    expect(release).toContain("docker buildx build");
-    expect(release).toContain("--sbom=true");
-    expect(release).toContain("--provenance=mode=max");
-    expect(release).toContain("containerimage.digest");
+    expect(containerfile).toContain("node:22.23.2-bookworm-slim@sha256:");
+    for (const chromiumRuntimeLibrary of ["libexpat1", "libnspr4", "libnss3"]) {
+      expect(containerfile).toContain(chromiumRuntimeLibrary);
+    }
+    expect(containerfile).toContain("--no-install-recommends");
+    expect(release).toContain("podman build");
+    expect(release).toContain("podman push");
+    expect(release).toContain("npm sbom --omit=dev --sbom-format spdx");
+    expect(release).toContain("actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6");
+    expect(release).toContain("subject-digest: ${{ steps.images.outputs.app_digest }}");
+    expect(release).toContain("subject-digest: ${{ steps.images.outputs.operations_digest }}");
+  });
+
+  it("runs local dependencies and production containers through Podman", () => {
+    const packageJson = JSON.parse(source("package.json"));
+    const scripts = packageJson.scripts as Record<string, string>;
+    for (const name of [
+      "db:start",
+      "redis:start",
+      "storage:start",
+      "scanner:start",
+      "dependencies:start",
+      "container:build",
+      "production:start",
+    ]) {
+      expect(scripts[name]).toContain("podman");
+    }
+    expect(source("compose.database.yaml")).toContain("Containerfile.postgres");
+    expect(source("Containerfile.postgres")).toContain("postgresql-17-pgtap");
+    expect(source("compose.redis.yaml")).toContain("127.0.0.1:${AGENCYOS_REDIS_PORT:-6379}");
+    expect(source("compose.minio.yaml")).toContain("127.0.0.1:9000:9000");
+    expect(source("compose.minio.yaml")).toContain("minio/minio:");
+    expect(source("compose.minio.yaml")).toContain("@sha256:");
+    expect(source("compose.scanner.yaml")).toContain("127.0.0.1:3310:3310");
+    expect(source("compose.scanner.yaml")).toContain("clamav/clamav:");
+    expect(source("compose.scanner.yaml")).toContain("@sha256:");
+    expect(source("compose.production.yaml")).toContain(":ro,Z");
   });
 
   it("makes authenticated browser coverage part of PR CI", () => {
     const workflow = source(".github/workflows/react-doctor.yml");
+    const postgresContainer = source("Containerfile.postgres");
+    const redisCompose = source("compose.redis.yaml");
     expect(workflow).toContain("authenticated-e2e:");
-    expect(workflow).toContain("postgres:17.10-bookworm@sha256:");
+    expect(workflow).toContain("podman-compose");
+    expect(postgresContainer).toContain("postgres:17.10-bookworm@sha256:");
+    expect(redisCompose).toContain("redis:7.4.10-alpine@sha256:");
     expect(workflow).toContain("npm run db:migrate");
     expect(workflow).toContain("npm run db:test");
     expect(workflow).toContain("npm run test:e2e:seed");

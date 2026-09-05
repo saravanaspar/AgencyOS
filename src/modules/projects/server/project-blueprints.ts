@@ -190,7 +190,12 @@ export async function captureProjectBlueprint(
   return blueprint;
 }
 
-const blueprintDependencyRelationships = new Set(["blocks", "related_to", "duplicate_of", "parent_of"]);
+const blueprintDependencyRelationships = new Set([
+  "blocks",
+  "related_to",
+  "duplicate_of",
+  "parent_of",
+]);
 const blueprintRecurrenceUnits = new Set(["day", "week", "month"]);
 
 function blueprintLabelKey(value: string): string {
@@ -208,9 +213,10 @@ export async function instantiateProjectBlueprint(
   for (const label of (Array.isArray(blueprint.labels) ? blueprint.labels : []).slice(0, 100)) {
     const name = typeof label?.name === "string" ? label.name.trim().slice(0, 80) : "";
     if (!name) continue;
-    const color = typeof label.color === "string" && /^#[0-9A-Fa-f]{6}$/.test(label.color)
-      ? label.color
-      : "#2563eb";
+    const color =
+      typeof label.color === "string" && /^#[0-9A-Fa-f]{6}$/.test(label.color)
+        ? label.color
+        : "#2563eb";
     const labelRows = await sql<{ id: string }[]>`
       insert into public.project_labels (project_id, name, color, created_by_membership_id)
       values (${projectId}::uuid, ${name}, ${color}, ${context.membership.id}::uuid)
@@ -267,7 +273,8 @@ export async function instantiateProjectBlueprint(
       returning next_task_number - 1 as task_number
     `;
     const taskNumber = numberRows[0]?.task_number;
-    if (!taskNumber) throw new ProjectBlueprintError("Template task number could not be allocated.");
+    if (!taskNumber)
+      throw new ProjectBlueprintError("Template task number could not be allocated.");
     const taskRows = await sql<{ id: string }[]>`
       insert into public.project_tasks (
         organization_id, project_id, task_number, title, description, status_id, priority,
@@ -288,7 +295,10 @@ export async function instantiateProjectBlueprint(
     `;
     const taskId = taskRows[0]?.id;
     if (!taskId) throw new ProjectBlueprintError("Template task could not be created.");
-    const taskKey = typeof task.key === "string" && task.key.trim() ? task.key.trim() : `legacy-task-${taskIndex}`;
+    const taskKey =
+      typeof task.key === "string" && task.key.trim()
+        ? task.key.trim()
+        : `legacy-task-${taskIndex}`;
     taskIds.set(taskKey, taskId);
 
     const taskLabelNames = Array.isArray(task.labels) ? task.labels : [];

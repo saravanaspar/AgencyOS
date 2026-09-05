@@ -39,6 +39,10 @@ describe("Redis-backed coordination and caching contracts", () => {
     expect(client).toContain("error.constructor?.name");
     expect(client).toContain("Redis operation failed; using database-safe fallback");
     expect(client).not.toContain("Redis unavailable; using database-safe fallback");
+    expect(client.indexOf("if (connecting) return connecting")).toBeLessThan(
+      client.indexOf("const existing = globalThis.__agencyOsRedisClient"),
+    );
+    expect(client).not.toContain("socketTimeout:");
   });
 
   it("does not cache authentication claims or effective permission grants", () => {
