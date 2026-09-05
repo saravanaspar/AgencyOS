@@ -2,7 +2,8 @@
 
 This runbook deploys AgencyOS as one Coolify Docker Compose resource. Choose
 `compose.coolify.yaml` for bundled local services or `compose.coolify.cloud.yaml` for hosted
-PostgreSQL, Redis, and B2-compatible runtime storage. Both retain the same logical object names,
+PostgreSQL, Redis, and S3-compatible runtime storage. Both use the same object-storage variables and
+retain the same logical object names,
 release gate, backup history, Vaultwarden data, ClamAV signatures, and migration evidence.
 
 > **Data-loss boundary:** choose `AGENCYOS_VOLUME_PREFIX` once. Never rename it, delete the Coolify
@@ -25,7 +26,8 @@ Start with 4 vCPU and 80 GiB only for very small data; increase disk as measured
    [BACKUP_RECOVERY.md](BACKUP_RECOVERY.md). Configure Coolify's own instance backup to a different
    prefix and escrow its `APP_KEY` plus the restic password offline.
 4. Add the repository as a Docker Compose resource using `compose.coolify.yaml` (local) or
-   `compose.coolify.cloud.yaml` (cloud). Set its matching mode/provider variables. Disable automatic
+   `compose.coolify.cloud.yaml` (hosted). Set the common connection variables for the services you
+   selected. Disable automatic
    branch deployments. Switching a populated stack requires a verified data cutover.
 5. Generate independent URL-safe secrets with `openssl rand -hex 32`. Generate the two stable
    application encryption keys with `openssl rand -base64 32`.
@@ -41,11 +43,12 @@ Start with 4 vCPU and 80 GiB only for very small data; increase disk as measured
    - `APP_URL` to the public AgencyOS HTTPS origin and `VAULTWARDEN_URL` to the vault HTTPS origin
 
 8. Route the AgencyOS domain only to `gateway:8080`; route the vault domain only to
-   `vaultwarden:8080`. Never route PostgreSQL, Redis, MinIO, ClamAV, migrations, or backups. MinIO's
-   console is disabled.
+   `vaultwarden:8080`. Never route PostgreSQL, Redis, object storage, ClamAV, migrations, or backups.
+   The bundled object-storage console is disabled.
 
 The Compose opt-in permits plaintext transport only for authenticated `redis:6379`, non-root
-`minio:9000`, and `clamav:3310` on its `internal: true` network. Remote Redis/MinIO endpoints still
+`object-storage:9000`, and `clamav:3310` on its `internal: true` network. Remote Redis and
+object-storage endpoints still
 require TLS. All external runtime images are digest-pinned; the custom PostgreSQL build starts from
 a pinned image and includes pgTAP required by historical migrations.
 
@@ -54,16 +57,16 @@ a pinned image and includes pgTAP required by historical migrations.
 Create separate AgencyOS and Vaultwarden Neon-compatible databases, authenticated native TLS
 Redis, one mutable B2 runtime bucket, and a different Object-Lock-enabled B2 backup bucket. Use a
 pooled AgencyOS URL only for `DATABASE_URL`; migrations and dumps require direct TLS URLs. Map the
-four logical storage roles to non-overlapping prefixes (or separate buckets). Cloud preflight tests
-database identities, Redis, ClamAV, and write/read/delete access before backup or migration. It
-does not create provider resources.
+mutable bucket with `OBJECT_STORAGE_BUCKET`; AgencyOS assigns the four logical storage roles to
+non-overlapping prefixes internally. Dependency preflight tests database identities, Redis, ClamAV, and
+write/read/delete access before backup or migration. It does not create provider resources.
 
 ## Protected GitHub release environment
 
 Create a protected environment named `release`. Store `COOLIFY_API_TOKEN` as a secret and
 `COOLIFY_BASE_URL`, `COOLIFY_APPLICATION_UUID`, and `PRODUCTION_APP_URL` as variables. Keep existing
 release database/E2E values pointed at an isolated release-candidate environment—not production.
-GitHub never receives production database, MinIO, Vaultwarden, B2, or restic credentials.
+GitHub never receives production database, object-storage, Vaultwarden, B2, or restic credentials.
 
 The handoff currently uses Coolify `/api/v1/applications/{uuid}/envs`, `/api/v1/deploy`, and
 `/api/v1/deployments/{deployment_uuid}`. Validate those response shapes against the installed
@@ -88,15 +91,15 @@ reads them back, pins Coolify's source commit, starts one deployment, polls it, 
 health/security headers plus the running application's baked-in commit revision. It also tests
 Chromium PDF creation inside the built runtime image before publishing.
 
-Each local-mode deployment fails closed through this sequence: PostgreSQL, Redis, MinIO, and
-ClamAV health; idempotent Vaultwarden-database and MinIO-identity bootstrap; Vaultwarden health;
+Each bundled deployment fails closed through this sequence: PostgreSQL, Redis, object storage, and
+ClamAV health; idempotent Vaultwarden-database and object-storage identity bootstrap; Vaultwarden health;
 mandatory encrypted pre-deploy backup; existing advisory-locked/checksum-verified migrations plus
 status/doctor; then web, worker, and gateway startup.
 
-Each cloud-mode deployment instead waits for local ClamAV, runs the cloud preflight against the
+Each hosted-data deployment instead waits for local ClamAV, runs dependency preflight against the
 paired Neon runtime/admin URLs, authenticated Upstash `rediss://` URL, and mutable B2 runtime
 bucket, then waits for Vaultwarden and runs the same backup and migration gates before app startup.
-There is no local PostgreSQL, Redis, or MinIO container in cloud mode. The operations digest
+There is no local PostgreSQL, Redis, or object-storage container in the hosted-data manifest. The operations digest
 changes each release so Coolify recreates the one-shot gates. Prove the selected sequence with the
 staging Coolify version.
 

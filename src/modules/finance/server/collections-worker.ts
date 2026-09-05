@@ -104,7 +104,7 @@ async function sendClientReminder(
   if (!row.reminder_channels.includes("email")) return { attempted: false, delivered: true };
   const email = row.billing_email ?? row.company_email;
   if (!email) return { attempted: true, delivered: false, errorCode: "client_email_unavailable" };
-  const configuration = getNotificationDeliveryConfiguration().email;
+  const configuration = (await getNotificationDeliveryConfiguration(row.organization_id)).email;
   if (!configuration.configured || !configuration.resendApiKey || !configuration.from) {
     return { attempted: true, delivered: false, errorCode: "email_not_configured" };
   }

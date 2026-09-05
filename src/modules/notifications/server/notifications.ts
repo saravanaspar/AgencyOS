@@ -220,7 +220,9 @@ export async function getNotificationCenterData(filters: {
     occurred_today: 0,
     has_active_push_subscription: false,
   };
-  const deliveryConfiguration = publicNotificationDeliveryConfiguration();
+  const deliveryConfiguration = await publicNotificationDeliveryConfiguration(
+    context.membership.organizationId,
+  );
 
   return {
     allowed: true,

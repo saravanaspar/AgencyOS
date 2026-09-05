@@ -26,7 +26,7 @@ function hasAllowedOrigin(request: NextRequest): boolean {
   if (!origin) return false;
   try {
     const requestOrigin = request.nextUrl.origin;
-    const configuredOrigin = new URL(process.env.NEXT_PUBLIC_APP_URL ?? requestOrigin).origin;
+    const configuredOrigin = new URL(process.env.APP_URL ?? requestOrigin).origin;
     return origin === requestOrigin || origin === configuredOrigin;
   } catch {
     return false;

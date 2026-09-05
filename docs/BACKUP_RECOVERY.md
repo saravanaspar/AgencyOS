@@ -32,16 +32,16 @@ fail the job instead of being treated as an empty bucket.
 ## Data and consistency
 
 - AgencyOS and Vaultwarden use separate uncompressed custom `pg_dump` files with hash checks.
-- Current objects in the four logical storage locations are captured via the S3 API. Cloud mode
-  uses the mapped B2 prefixes and a separate read-only source key.
+- Current objects in the four logical storage locations are captured through the common S3 API
+  contract using a separate read-only source key.
 - Vaultwarden files, keys and configuration are copied from its data volume. Live SQLite is
   refused; the bundled vault uses PostgreSQL.
 - The encrypted manifest records capture boundaries, release ID and dump hashes.
 
 Each PostgreSQL dump is consistent. The dumps and file copies are not one cross-system transaction.
 Concurrent object deletion/replacement can cause mismatches. Verify referenced files during the
-restore drill, or use a maintenance window for an exact cross-store capture. Historical MinIO
-object-version payloads are not exported; previous captured states remain in restic snapshots.
+restore drill, or use a maintenance window for an exact cross-store capture. Historical provider
+object versions are not exported; previous captured states remain in restic snapshots.
 Redis and ClamAV signatures are reconstructible and excluded.
 
 Configure Coolify's own instance/configuration backup separately. Independently escrow its APP_KEY
@@ -91,8 +91,8 @@ require your credentials and have not run in the coding environment.
 ## Isolated recovery
 
 1. Create a separate PostgreSQL cluster with pgcrypto/pgTAP packages and two empty databases named
-   with `recovery`. Use that cluster's administrative account. Create a separate MinIO server or
-   provider-created B2 recovery bucket/prefixes.
+   with `recovery`. Use that cluster's administrative account. Create a separate S3-compatible
+   server or provider-created recovery bucket/prefixes.
 2. Stop recovery Vaultwarden and prepare an empty recovery data directory.
 3. Run the operations image with a recovery volume. Set `NODE_ENV=development`,
    `AGENCYOS_RESTORE_DRILL=1`, an exact `AGENCYOS_RESTORE_SNAPSHOT`, `AGENCYOS_RECOVERY_ID`, and
@@ -102,8 +102,7 @@ require your credentials and have not run in the coding environment.
    hashes and dump readability before service writes.
 5. Run `node scripts/backup/restore-components.mjs`. It refuses production/occupied targets,
    creates compatibility NOLOGIN roles on the isolated cluster, restores explicit database targets,
-   and copies objects and vault files. Canonical MinIO bucket names are retained on the isolated
-   server so database references continue to work.
+   and copies objects and vault files into the configured recovery prefixes.
 6. Start recovery using matching images and stable encryption keys. Check database doctor/status,
    permissions, file references, vault login/attachments, scanner, worker and representative PDFs.
    Run the existing restore-drill verifier. Only then deliberately cut over domains.

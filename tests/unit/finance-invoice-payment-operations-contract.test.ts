@@ -17,12 +17,12 @@ const attachmentDownload = read("src/app/api/finance/attachments/[attachmentId]/
 const delivery = read("src/modules/finance/server/document-delivery.ts");
 
 describe("finance invoice and payment operations contracts", () => {
-  it("stores invoice attachments through the existing quarantined MinIO private-file path", () => {
+  it("stores invoice attachments through the quarantined object-storage private-file path", () => {
     expect(migration).toContain("create table public.finance_invoice_attachments");
     expect(migration).toContain("Attachments on an issued invoice are immutable");
     expect(attachmentUpload).toContain("createQuarantinedPrivateFile");
     expect(attachmentUpload).toContain('moduleKey: "finance"');
-    expect(attachmentDownload).toContain("readMinioObject");
+    expect(attachmentDownload).toContain("readObject");
     expect(attachmentDownload).toContain('createHash("sha256")');
     expect(workspace).toContain("InvoiceAttachmentControls");
   });

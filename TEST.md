@@ -6,7 +6,7 @@ Last updated: 2026-09-02
 
 Coolify/B2 production approval also requires the staging API/deployment test, disposable Compliance
 Object Lock preflight, a second unchanged deploy proving named-volume identity, an injected migration
-failure proving startup is gated, and a complete isolated PostgreSQL/MinIO/Vaultwarden restore.
+failure proving startup is gated, and a complete isolated PostgreSQL/object-storage/Vaultwarden restore.
 Source tests cannot mark provider retention or a live rollout as passed; see `docs/COOLIFY.md` and
 `docs/BACKUP_RECOVERY.md`.
 
@@ -1608,7 +1608,7 @@ Pass when pending status is visible immediately, the open visible task refreshes
 Run:
 
 ```bash
-npm test -- tests/unit/private-files.test.ts tests/unit/minio-storage.test.ts tests/unit/minio-runtime-contract.test.ts
+npm test -- tests/unit/private-files.test.ts tests/unit/object-storage.test.ts tests/unit/object-storage-runtime-contract.test.ts
 npm test -- tests/unit/private-file-worker-contract.test.ts
 npm test -- tests/unit/project-private-file-contract.test.ts
 npm test -- tests/unit/project-attachments.test.ts
@@ -3334,6 +3334,21 @@ Expected result:
 ### Deliberately pending external proof
 
 - The application and runbooks are ready for a production-like full restore drill, but database, MinIO, secret-manager, worker process, DNS/TLS, and hosting recovery cannot be truthfully certified from the local source tree. Keep the final restore-proof item open until operators execute and record the exercise.
+
+## Feature 35 — Application-managed integration settings
+
+### F35-INTEGRATIONS-01: configure optional providers after startup
+
+Account: Owner or System Administrator.
+
+1. Open `/settings/integrations` after applying all migrations.
+2. Save synthetic AI provider keys and model allowlists, email delivery values, VAPID keys, and a Vaultwarden HTTPS URL.
+3. Refresh the page and confirm each configured status persists without displaying a saved secret.
+4. Open `/ai`, `/notifications`, and `/automation` and confirm the organization-scoped configuration is active.
+5. Open `/settings/audit` and confirm the settings update records only public configuration and configured secret names, never secret values.
+6. Remove a saved provider key with its explicit removal control and confirm the provider becomes unavailable.
+
+Expected: optional provider configuration is encrypted, organization-scoped, permission-gated, auditable, and manageable without changing `.env.local` or restarting AgencyOS.
 
 ## Closure workflows: Support routing, Asset approvals and returns, Vendor-bill approval, restore evidence
 

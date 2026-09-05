@@ -98,25 +98,18 @@ async function restoreDatabase(url, label, dump) {
 async function prepareObjectStorageTargets(sourceRoot, environment) {
   const { configuration, commandEnvironment } = recoveryObjectStorage(environment);
   const targets = [];
-  for (const sourceBucket of await readdir(join(sourceRoot, "minio"), { withFileTypes: true })) {
+  for (const sourceBucket of await readdir(join(sourceRoot, "object-storage"), {
+    withFileTypes: true,
+  })) {
     if (!sourceBucket.isDirectory()) continue;
     const target = resolveObjectStorageLocation(configuration, sourceBucket.name);
     const targetPath = `recovery/${target.physicalBucket}${target.physicalKey ? `/${target.physicalKey}` : ""}`;
-    if (configuration.provider === "minio") {
-      await checkedCommand({
-        command: "mc",
-        args: ["mb", "--ignore-existing", `recovery/${target.physicalBucket}`],
-        env: commandEnvironment,
-        timeoutMs: 60_000,
-      });
-    } else {
-      await checkedCommand({
-        command: "mc",
-        args: ["stat", `recovery/${target.physicalBucket}`],
-        env: commandEnvironment,
-        timeoutMs: 60_000,
-      });
-    }
+    await checkedCommand({
+      command: "mc",
+      args: ["stat", `recovery/${target.physicalBucket}`],
+      env: commandEnvironment,
+      timeoutMs: 60_000,
+    });
     const existing = await checkedCommand({
       command: "mc",
       args: ["ls", "--recursive", "--json", targetPath],
@@ -127,7 +120,7 @@ async function prepareObjectStorageTargets(sourceRoot, environment) {
       throw new Error(`Recovery object-storage location ${sourceBucket.name} is not empty.`);
     }
     targets.push({
-      sourcePath: join(sourceRoot, "minio", sourceBucket.name),
+      sourcePath: join(sourceRoot, "object-storage", sourceBucket.name),
       targetPath,
     });
   }

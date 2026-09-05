@@ -50,6 +50,7 @@ export function buildFinanceDocumentEmailTemplate(input: FinanceEmailTemplateInp
 }
 
 export async function deliverFinanceDocumentEmail(input: {
+  organizationId: string;
   deliveryId: string;
   recipientEmail: string;
   subject: string;
@@ -59,7 +60,7 @@ export async function deliverFinanceDocumentEmail(input: {
   messageText?: string;
   messageHtml?: string;
 }): Promise<FinanceEmailDeliveryResult> {
-  const configuration = getNotificationDeliveryConfiguration().email;
+  const configuration = (await getNotificationDeliveryConfiguration(input.organizationId)).email;
   if (!configuration.configured || !configuration.resendApiKey || !configuration.from) {
     return { delivered: false, errorCode: "email_not_configured" };
   }

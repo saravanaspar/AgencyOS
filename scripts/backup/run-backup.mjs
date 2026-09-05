@@ -37,7 +37,7 @@ function objectStorageEnvironment(configuration) {
   const source = configuration.objectStorage;
   const endpoint = new URL(source.endpoint);
   if (!["http:", "https:"].includes(endpoint.protocol) || endpoint.username || endpoint.password) {
-    throw new Error("MINIO_ENDPOINT must be a credential-free HTTP or HTTPS URL.");
+    throw new Error("OBJECT_STORAGE_ENDPOINT must be a credential-free HTTP or HTTPS URL.");
   }
   const username = encodeURIComponent(source.accessKey);
   const password = encodeURIComponent(source.secretKey);
@@ -112,14 +112,6 @@ export async function captureObjectStorage(
   { runCommand = checkedCommand } = {},
 ) {
   const environment = objectStorageEnvironment(configuration);
-  if (configuration.objectStorage.provider === "minio") {
-    await runCommand({
-      command: "mc",
-      args: ["ready", "agencyos"],
-      env: environment,
-      timeoutMs: 60_000,
-    });
-  }
   const inventory = [];
   for (const logicalBucket of SOURCE_BUCKETS) {
     const location = resolveObjectStorageLocation(configuration.objectStorage, logicalBucket);
@@ -207,7 +199,7 @@ export async function runBackup({ environment = process.env, reason = "scheduled
   await removePrivateTree(runDirectory);
   await mkdir(runDirectory, { mode: 0o700 });
   await mkdir(join(runDirectory, "databases"), { mode: 0o700 });
-  await mkdir(join(runDirectory, "minio"), { mode: 0o700 });
+  await mkdir(join(runDirectory, "object-storage"), { mode: 0o700 });
 
   try {
     const localRestic = await prepareLocalRepository(configuration, environment);
@@ -219,23 +211,26 @@ export async function runBackup({ environment = process.env, reason = "scheduled
     );
     const vaultwardenDatabase = await captureDatabase(
       configuration.vaultwardenDatabaseUrl,
-      configuration.objectStorage.mode === "cloud"
+      environment.VAULTWARDEN_DATABASE_ADMIN_URL?.trim()
         ? "VAULTWARDEN_DATABASE_ADMIN_URL"
         : "VAULTWARDEN_DATABASE_URL",
       join(runDirectory, "databases", "vaultwarden.dump"),
       configuration.commandTimeoutMs,
     );
-    const minioInventory = await captureObjectStorage(configuration, join(runDirectory, "minio"));
+    const objectStorageInventory = await captureObjectStorage(
+      configuration,
+      join(runDirectory, "object-storage"),
+    );
     const vaultwardenInventory = await captureVaultwarden(
       configuration,
       join(runDirectory, "vaultwarden-data"),
     );
     const sourceBoundaryEndedAt = new Date();
     const inventoryHash = createHash("sha256")
-      .update(JSON.stringify({ minioInventory, vaultwardenInventory }))
+      .update(JSON.stringify({ objectStorageInventory, vaultwardenInventory }))
       .digest("hex");
     const manifest = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       runId,
       reason,
       releaseId: configuration.releaseId,
@@ -243,10 +238,9 @@ export async function runBackup({ environment = process.env, reason = "scheduled
       sourceBoundaryEndedAt: sourceBoundaryEndedAt.toISOString(),
       consistency: "component-consistent; no cross-store transaction is claimed",
       databases: { agencyos: agencyDatabase, vaultwarden: vaultwardenDatabase },
-      minio: { objects: minioInventory.length },
       objectStorage: {
         ...redactedObjectStorageDescriptor(configuration.objectStorage),
-        objects: minioInventory.length,
+        objects: objectStorageInventory.length,
       },
       vaultwardenData: { files: vaultwardenInventory.length },
       inventorySha256: inventoryHash,
@@ -299,7 +293,7 @@ export async function runBackup({ environment = process.env, reason = "scheduled
       completedAt: completedAt.toISOString(),
       durationMs: completedAt.getTime() - startedAt.getTime(),
       inventorySha256: inventoryHash,
-      minioObjectCount: minioInventory.length,
+      objectStorageObjectCount: objectStorageInventory.length,
       vaultwardenFileCount: vaultwardenInventory.length,
     };
     await notify(environment.BACKUP_SUCCESS_HEARTBEAT_URL?.trim(), "", {

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import {
   checkDatabase,
-  checkMinio,
+  checkObjectStorage,
   checkPrivateFileScanner,
   checkRedis,
   type DependencyCheck,
@@ -23,17 +23,17 @@ function configurationCheck(): DependencyCheck {
 
 export async function GET() {
   const policy = getRuntimeDependencyPolicy();
-  const [database, redis, minio, scanner] = await Promise.all([
+  const [database, redis, objectStorage, scanner] = await Promise.all([
     checkDatabase(),
     checkRedis(),
-    checkMinio(),
+    checkObjectStorage(),
     checkPrivateFileScanner(),
   ]);
   const configuration = configurationCheck();
-  const checks = { configuration, database, redis, minio, scanner };
+  const checks = { configuration, database, redis, objectStorage, scanner };
   const required = [configuration, database];
   if (policy.redisRequired) required.push(redis);
-  if (policy.minioRequired) required.push(minio);
+  if (policy.objectStorageRequired) required.push(objectStorage);
   if (policy.privateFileScannerRequired) required.push(scanner);
   const ready = required.every((check) => check.status === "ok");
 

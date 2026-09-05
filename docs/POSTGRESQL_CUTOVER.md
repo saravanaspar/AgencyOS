@@ -11,7 +11,7 @@ AgencyOS no longer requires Supabase after cutover. The target architecture is:
 AgencyOS web + worker
         |
         +-- PostgreSQL (Neon, local/self-hosted, or another compatible provider)
-        +-- MinIO
+        +-- S3-compatible object storage
         +-- Redis (optional but recommended)
         +-- ClamAV / Resend / AI providers as configured
 ```
@@ -25,7 +25,7 @@ Authentication, sessions, password reset, email verification, and TOTP MFA are A
 - Non-bcrypt legacy/imported password hashes are intentionally not copied; those rare accounts use AgencyOS password reset.
 - Existing hosted-auth sessions are invalidated. Everyone signs in again after cutover.
 - Hosted-provider MFA secrets are not copied. Users whose organization requires MFA re-enroll their authenticator after first password sign-in.
-- MinIO remains the runtime object store; this database move does not move object bytes.
+- Object storage remains independent; this database move does not move object bytes.
 
 ## 1. Overlay and remove legacy source artifacts
 
@@ -147,7 +147,7 @@ Test at least:
 4. password reset sends/accepts a one-time link and revokes active sessions;
 5. organization, roles, permissions, dashboard, CRM, Projects, Finance, HR, Reports, Documents, and founder reports load correctly;
 6. report delivery, notification worker, project reminder worker, and other scheduled jobs run once without duplicate work;
-7. MinIO upload/download/scanner paths work;
+7. object-storage upload/download/scanner paths work;
 8. cross-organization and lower-scope users remain denied;
 9. `npm run db:doctor` reports no legacy compatibility objects;
 10. backup and restore of the Neon database is tested in isolation.

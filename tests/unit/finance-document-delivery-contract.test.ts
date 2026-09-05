@@ -24,8 +24,8 @@ describe("finance document delivery contracts", () => {
     expect(snapshots).toContain("PRIVATE_FILE_CLEAN_BUCKET");
     expect(snapshots).toContain("status = 'available'");
     expect(snapshots).toContain("finance-pdf-integrity-mismatch");
-    expect(snapshots).toContain("putMinioObject");
-    expect(snapshots).toContain("readMinioObject");
+    expect(snapshots).toContain("putObject");
+    expect(snapshots).toContain("readObject");
     expect(snapshots).not.toContain(".storage.from(");
   });
 

@@ -281,7 +281,11 @@ export async function runAgencyOsAgent(input: {
   messages: AiChatMessage[];
 }): Promise<AiChatResponse> {
   const governance = await requireCurrentAiGovernance(input.provider);
-  const configuration = requireAiProvider(input.provider, input.model);
+  const configuration = await requireAiProvider(
+    governance.context.membership.organizationId,
+    input.provider,
+    input.model,
+  );
   const history = safeHistory(input.messages);
   if (!history.length || history.at(-1)?.role !== "user") {
     throw new Error("A user message is required.");

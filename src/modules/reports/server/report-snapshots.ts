@@ -2,11 +2,7 @@ import "server-only";
 
 import { createHash, randomUUID } from "node:crypto";
 
-import {
-  putMinioObject,
-  readMinioObject,
-  removeMinioObject,
-} from "@/integrations/minio/object-storage";
+import { putObject, readObject, removeObject } from "@/integrations/object-storage/client";
 import { getDatabaseClient } from "@/integrations/postgres/database";
 import { renderHtmlToPdf } from "@/lib/server/html-to-pdf";
 import { toJsonValue } from "@/lib/server/json-value";
@@ -158,7 +154,7 @@ export async function generateReportSnapshot(
   });
   let uploaded = false;
   try {
-    await putMinioObject({
+    await putObject({
       bucket: PRIVATE_FILE_CLEAN_BUCKET,
       objectName: paths.cleanPath,
       body: bytes,
@@ -236,7 +232,7 @@ export async function generateReportSnapshot(
     return mapStoredSnapshot(stored);
   } finally {
     if (uploaded) {
-      await removeMinioObject(PRIVATE_FILE_CLEAN_BUCKET, paths.cleanPath).catch(() => undefined);
+      await removeObject(PRIVATE_FILE_CLEAN_BUCKET, paths.cleanPath).catch(() => undefined);
     }
   }
 }
@@ -262,7 +258,7 @@ export async function getReportSnapshot(
 }
 
 export async function downloadReportSnapshotBytes(snapshot: StoredReportSnapshot): Promise<Buffer> {
-  const bytes = await readMinioObject(snapshot.storageBucket, snapshot.storagePath, {
+  const bytes = await readObject(snapshot.storageBucket, snapshot.storagePath, {
     maxBytes: snapshot.sizeBytes + 1,
   });
   if (bytes.length !== snapshot.sizeBytes) throw new Error("report-snapshot-size-mismatch");

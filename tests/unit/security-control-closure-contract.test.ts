@@ -77,7 +77,7 @@ describe("security control closure", () => {
     expect(restoreVerifier).toContain("RESTORE_DRILL_BACKUP_SET_ID");
     expect(restoreVerifier).toContain("RESTORE_DRILL_TARGET_ID");
     expect(restoreVerifier).toContain("runDeploymentVerification");
-    expect(restoreVerifier).toContain("scripts/storage/check-minio.mjs");
+    expect(restoreVerifier).toContain("scripts/storage/check-object-storage.mjs");
     expect(restoreVerifier).toContain("scripts/scanner/check-clamav.mjs");
     expect(restoreVerifier).toContain("scripts/workers/run.mjs");
     expect(restoreVerifier).toContain("already-restored isolated environment");

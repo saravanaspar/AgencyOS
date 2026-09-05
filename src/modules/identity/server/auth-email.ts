@@ -27,7 +27,7 @@ async function sendAuthEmail(input: {
   link: string;
   idempotencySeed: string;
 }): Promise<boolean> {
-  const configuration = getNotificationDeliveryConfiguration();
+  const configuration = await getNotificationDeliveryConfiguration();
   if (
     !configuration.email.configured ||
     !configuration.email.resendApiKey ||

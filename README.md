@@ -6,7 +6,7 @@ and safe recovery are in [`docs/BACKUP_RECOVERY.md`](docs/BACKUP_RECOVERY.md).
 
 AgencyOS is a security-first Next.js operations platform for one agency or company. It combines CRM, projects, finance, HR, documents, legal, support, assets, vendors, calendar, approvals, notifications, search, automation, audit, founder reporting, and permission-aware AI.
 
-AgencyOS owns its authentication and application data. Runtime infrastructure is ordinary PostgreSQL, MinIO, and optional Redis/ClamAV integrations. PostgreSQL may be Neon, local/self-hosted PostgreSQL, or another compatible provider. No Supabase service, SDK, CLI, Auth, Realtime, or Storage dependency is required.
+AgencyOS owns its authentication and application data. Runtime infrastructure is ordinary PostgreSQL, S3-compatible object storage, and optional Redis/ClamAV integrations. Object storage may be hosted Backblaze B2 or bundled MinIO; PostgreSQL may be Neon, local/self-hosted PostgreSQL, or another compatible provider. No Supabase service, SDK, CLI, Auth, Realtime, or Storage dependency is required.
 
 It is not a public SaaS product. Organization boundaries remain in the data model for isolation and authorization, while billing, subscriptions, public tenant provisioning, and marketplaces are out of scope.
 
@@ -33,7 +33,7 @@ It is not a public SaaS product. Organization boundaries remain in the data mode
 - Documents, legal records, support, assets, vendors, procurement, calendar, approvals, reports, global search, and automation.
 - Founder Attention Queue, Daily Brief, Weekly Review, scheduled report delivery, audience ACLs, undo grace period, recipient-specific authorization, and partial-failure reporting.
 - Shared notifications with in-app delivery, optional email, payloadless Web Push, preferences, and provider-neutral foreground refresh.
-- Shared private-file service using MinIO quarantine, malware scanning, SHA-256 validation, and reauthorized downloads.
+- Shared private-file service using provider-neutral object-storage quarantine, malware scanning, SHA-256 validation, and reauthorized downloads.
 - Gemini and DeepSeek workspace using the permission-aware MCP registry and approval-bound sensitive mutations.
 - Redis-backed rate limiting, worker coordination with PostgreSQL advisory-lock fallback, replay protection, and short-lived permission-scoped caching.
 
@@ -42,7 +42,7 @@ It is not a public SaaS product. Organization boundaries remain in the data mode
 - Node.js 22.23.2 or newer within the Node 22 LTS line.
 - npm with lockfile support.
 - PostgreSQL with `pgcrypto`; AgencyOS migrations also install pgTAP for database verification.
-- MinIO for runtime object storage.
+- An S3-compatible object-storage service, such as Backblaze B2 or self-hosted MinIO.
 - ClamAV for releasing uploaded private files from quarantine.
 - Redis and external integrations required by the modules you enable.
 
@@ -55,18 +55,25 @@ cp .env.example .env.local
 At minimum configure:
 
 ```env
-NEXT_PUBLIC_APP_URL=http://localhost:3000
 APP_URL=http://localhost:3000
 DATABASE_URL=postgresql://...
 DATABASE_ADMIN_URL=postgresql://...
 INTERNAL_WORKER_SECRET=...
 AUTH_ENCRYPTION_KEY=...
-MINIO_ENDPOINT=http://127.0.0.1:9000
-MINIO_ACCESS_KEY=...
-MINIO_SECRET_KEY=...
+CRM_CONNECTOR_ENCRYPTION_KEY=...
+REDIS_URL=rediss://default:...@redis.example.com:6380/0
+OBJECT_STORAGE_ENDPOINT=https://s3.REGION.backblazeb2.com
+OBJECT_STORAGE_REGION=...
+OBJECT_STORAGE_ACCESS_KEY_ID=...
+OBJECT_STORAGE_SECRET_ACCESS_KEY=...
+OBJECT_STORAGE_BUCKET=...
 ```
 
 `DATABASE_URL` is the normal runtime connection and may be pooled. `DATABASE_ADMIN_URL` must be a direct/non-pooled administrative connection for migrations, pgTAP, dump/restore, and provider moves.
+
+Object storage needs one mutable private runtime bucket. AgencyOS supplies four non-overlapping
+private prefixes in application code. The variable names are identical for local and hosted
+storage; only the endpoint, region, credentials, and bucket value change.
 
 Generate stable server secrets with a cryptographically secure tool:
 
@@ -75,7 +82,12 @@ openssl rand -hex 32
 openssl rand -base64 32
 ```
 
-`AUTH_ENCRYPTION_KEY` must decode to exactly 32 bytes. Never place database credentials, MinIO keys, provider tokens, signing secrets, or encryption keys in `NEXT_PUBLIC_*` variables.
+Encryption keys must decode to exactly 32 bytes. Keep database credentials, object-storage keys, provider tokens, signing secrets, and encryption keys server-side.
+
+After the first sign-in, configure optional AI providers, browser-push delivery, and Vaultwarden
+under **Settings → Integrations**. Resend remains deployment-managed through `RESEND_API_KEY` and
+`NOTIFICATION_EMAIL_FROM`. Configure CRM credentials on each CRM connection. Browser-test accounts
+belong in `.env.e2e.local` (copy `.env.e2e.example`) rather than the application runtime environment.
 
 ## Install and run
 
@@ -85,12 +97,15 @@ npm run dependencies:start
 npm run db:migrate
 npm run db:doctor
 npm run db:test
-npm run storage:setup
 npm run storage:check
 npm run scanner:check
 npm run redis:check
 npm run dev
 ```
+
+Run `npm run storage:setup` only when provisioning the bundled self-hosted object store. For a
+hosted service, create the bucket at the provider and grant the runtime key read/write/delete access before running
+`npm run storage:check`.
 
 In a second terminal:
 

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { readMinioObject } from "@/integrations/minio/object-storage";
+import { readObject } from "@/integrations/object-storage/client";
 import { getDatabaseClient } from "@/integrations/postgres/database";
 import { isAllowedApplicationOrigin } from "@/lib/server/request-origin";
 import { authorizeCurrentUser } from "@/modules/permissions/server/authorization";
@@ -118,7 +118,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
     let fileBuffer: Buffer;
     try {
-      fileBuffer = await readMinioObject(result.row.storage_bucket, result.row.storage_path, {
+      fileBuffer = await readObject(result.row.storage_bucket, result.row.storage_path, {
         maxBytes: result.row.size_bytes + 1,
       });
     } catch {

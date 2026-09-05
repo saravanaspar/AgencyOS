@@ -1,17 +1,17 @@
 services:
-  minio:
+  object-storage:
     image: docker.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
-    container_name: agencyos-minio
+    container_name: agencyos-object-storage
     command: server /data --console-address ":9001"
     restart: unless-stopped
     environment:
-      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?Set MINIO_ACCESS_KEY in .env.local}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?Set MINIO_SECRET_KEY in .env.local}
+      MINIO_ROOT_USER: ${OBJECT_STORAGE_ACCESS_KEY_ID:?Set OBJECT_STORAGE_ACCESS_KEY_ID in .env.local}
+      MINIO_ROOT_PASSWORD: ${OBJECT_STORAGE_SECRET_ACCESS_KEY:?Set OBJECT_STORAGE_SECRET_ACCESS_KEY in .env.local}
     ports:
       - "127.0.0.1:9000:9000"
       - "127.0.0.1:9001:9001"
     volumes:
-      - agencyos_minio_data:/data
+      - agencyos_object_storage_data:/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
       interval: 10s
@@ -21,5 +21,5 @@ services:
     stop_grace_period: 30s
 
 volumes:
-  agencyos_minio_data:
-    name: ${AGENCYOS_MINIO_VOLUME:-agencyos_minio_data}
+  agencyos_object_storage_data:
+    name: ${AGENCYOS_OBJECT_STORAGE_VOLUME:-agencyos_object_storage_data}

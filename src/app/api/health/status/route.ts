@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { hasValidBearerSecret } from "@/lib/server/bearer-auth";
 import {
   checkDatabase,
-  checkMinio,
+  checkObjectStorage,
   checkPrivateFileScanner,
   checkRedis,
 } from "@/lib/server/dependency-health";
@@ -19,23 +19,23 @@ export async function GET(request: Request) {
       { status: 401, headers: { "Cache-Control": "private, no-store" } },
     );
   }
-  const [database, redis, minio, scanner] = await Promise.all([
+  const [database, redis, objectStorage, scanner] = await Promise.all([
     checkDatabase(),
     checkRedis(),
-    checkMinio(),
+    checkObjectStorage(),
     checkPrivateFileScanner(),
   ]);
   const required = getRuntimeDependencyPolicy();
   const healthy =
     database.status === "ok" &&
     (!required.redisRequired || redis.status === "ok") &&
-    (!required.minioRequired || minio.status === "ok") &&
+    (!required.objectStorageRequired || objectStorage.status === "ok") &&
     (!required.privateFileScannerRequired || scanner.status === "ok");
 
   return NextResponse.json(
     {
       status: healthy ? "ok" : "degraded",
-      dependencies: { database, redis, minio, scanner },
+      dependencies: { database, redis, objectStorage, scanner },
       required,
       timestamp: new Date().toISOString(),
     },

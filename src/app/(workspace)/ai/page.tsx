@@ -11,7 +11,7 @@ export default async function AiPage() {
   if (!access.allowed) {
     return <PageAccessFailure reason={access.reason} nextPath="/ai" />;
   }
-  const providers = getAiProviderOptions();
+  const providers = await getAiProviderOptions(access.context.membership.organizationId);
   return (
     <div className="module-page ai-page">
       <section className="page-heading module-page__heading">

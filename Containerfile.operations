@@ -1,5 +1,5 @@
 FROM docker.io/restic/restic:0.18.1@sha256:39d9072fb5651c80d75c7a811612eb60b4c06b32ffe87c2e9f3c7222e1797e76 AS restic
-FROM docker.io/minio/mc:RELEASE.2025-08-13T08-35-41Z@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727 AS minio-client
+FROM docker.io/minio/mc:RELEASE.2025-08-13T08-35-41Z@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727 AS object-storage-client
 FROM docker.io/library/node:22.23.2-bookworm-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436 AS dependencies
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -24,7 +24,7 @@ RUN apt-get update \
 COPY --from=dependencies /usr/local/bin/node /usr/local/bin/node
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY --from=restic /usr/bin/restic /usr/local/bin/restic
-COPY --from=minio-client /usr/bin/mc /usr/local/bin/mc
+COPY --from=object-storage-client /usr/bin/mc /usr/local/bin/mc
 COPY package.json ./
 COPY database/migrations ./database/migrations
 COPY database/tests ./database/tests
@@ -33,7 +33,6 @@ COPY scripts/database ./scripts/database
 COPY scripts/storage ./scripts/storage
 COPY scripts/operations ./scripts/operations
 COPY scripts/backup ./scripts/backup
-COPY deploy/minio ./deploy/minio
 RUN node --version \
   && pg_dump --version \
   && restic version \

@@ -1,5 +1,7 @@
 import "server-only";
 
+import { getOrganizationIntegrationConfiguration } from "@/modules/integrations/server/integration-settings";
+
 interface ParsedUrlOptions {
   allowLocalhost?: boolean;
   allowedHosts?: readonly string[];
@@ -88,13 +90,16 @@ function validVapidSubject(value: string | null): string | null {
   return parsedHttpsUrl(value);
 }
 
-export function getNotificationDeliveryConfiguration(): NotificationDeliveryConfiguration {
-  const resendApiKey = validResendApiKey(stringValue("RESEND_API_KEY"));
-  const emailFrom = validEmailFrom(stringValue("NOTIFICATION_EMAIL_FROM"));
+export async function getNotificationDeliveryConfiguration(
+  organizationId?: string | null,
+): Promise<NotificationDeliveryConfiguration> {
+  const stored = await getOrganizationIntegrationConfiguration(organizationId);
+  const resendApiKey = validResendApiKey(stored.notifications.resendApiKey);
+  const emailFrom = validEmailFrom(stored.notifications.emailFrom);
   const encryptionKey = validEncryptionKey(stringValue("NOTIFICATION_DELIVERY_ENCRYPTION_KEY"));
-  const vapidPublicKey = validVapidPublicKey(stringValue("NOTIFICATION_VAPID_PUBLIC_KEY"));
-  const vapidPrivateKey = validVapidPrivateKey(stringValue("NOTIFICATION_VAPID_PRIVATE_KEY"));
-  const vapidSubject = validVapidSubject(stringValue("NOTIFICATION_VAPID_SUBJECT"));
+  const vapidPublicKey = validVapidPublicKey(stored.notifications.vapidPublicKey);
+  const vapidPrivateKey = validVapidPrivateKey(stored.notifications.vapidPrivateKey);
+  const vapidSubject = validVapidSubject(stored.notifications.vapidSubject);
 
   return {
     email: {
@@ -112,8 +117,10 @@ export function getNotificationDeliveryConfiguration(): NotificationDeliveryConf
   };
 }
 
-export function publicNotificationDeliveryConfiguration(): PublicNotificationDeliveryConfiguration {
-  const configuration = getNotificationDeliveryConfiguration();
+export async function publicNotificationDeliveryConfiguration(
+  organizationId: string,
+): Promise<PublicNotificationDeliveryConfiguration> {
+  const configuration = await getNotificationDeliveryConfiguration(organizationId);
   return {
     emailConfigured: configuration.email.configured,
     browserPushConfigured: configuration.browserPush.configured,

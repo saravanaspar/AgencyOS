@@ -5,7 +5,6 @@ import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 import { createClient } from "redis";
 
-import { infrastructureMode } from "../../src/integrations/object-storage/config.mjs";
 import {
   assertMatchingPostgresDatabase,
   assertSecurePostgresUrl,
@@ -32,7 +31,7 @@ async function probeClamav(environment) {
     value !== "clamav://clamav:3310" ||
     environment.AGENCYOS_TRUST_PRIVATE_SERVICE_NETWORK !== "1"
   ) {
-    throw new Error("Cloud mode requires the trusted private ClamAV service URL.");
+    throw new Error("Production preflight requires the trusted private ClamAV service URL.");
   }
   await new Promise((resolve, reject) => {
     const socket = connectTcp({ host: "clamav", port: 3310 });
@@ -58,10 +57,7 @@ async function probeClamav(environment) {
   });
 }
 
-export async function validateCloudProduction(environment = process.env) {
-  if (infrastructureMode(environment) !== "cloud") {
-    throw new Error("Cloud production validation requires AGENCYOS_INFRA_MODE=cloud.");
-  }
+export async function validateProductionDependencies(environment = process.env) {
   const agencyRuntime = requiredEnvironment("DATABASE_URL", environment);
   const agencyAdmin = requiredEnvironment("DATABASE_ADMIN_URL", environment);
   const vaultRuntime = requiredEnvironment("VAULTWARDEN_DATABASE_URL", environment);
@@ -102,7 +98,7 @@ export async function validateCloudProduction(environment = process.env) {
     !redisParsed.password ||
     redisParsed.hash
   ) {
-    throw new Error("REDIS_URL must be an authenticated native rediss:// URL in cloud mode.");
+    throw new Error("Remote REDIS_URL must be an authenticated native rediss:// URL.");
   }
   const redis = createClient({
     url: redisUrl,
@@ -117,11 +113,11 @@ export async function validateCloudProduction(environment = process.env) {
   }
   await checkObjectStorage({ environment, destructiveProbe: true });
   await probeClamav(environment);
-  console.log("Cloud production dependencies passed validation.");
+  console.log("Production dependencies passed validation.");
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  validateCloudProduction().catch((error) => {
+  validateProductionDependencies().catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
   });

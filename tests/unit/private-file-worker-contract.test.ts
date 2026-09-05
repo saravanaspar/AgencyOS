@@ -49,9 +49,9 @@ describe("private-file scan worker contracts", () => {
     expect(worker).toContain("status = 'rejected'");
     expect(worker).toContain("status = 'scan_failed'");
     expect(worker).toContain("PRIVATE_FILE_CLEAN_BUCKET");
-    expect(worker).toContain("readMinioObject");
-    expect(worker).toContain("putMinioObject");
-    expect(worker).toContain("removeMinioObject");
+    expect(worker).toContain("readObject");
+    expect(worker).toContain("putObject");
+    expect(worker).toContain("removeObject");
     expect(worker).not.toContain(".storage.from(");
     expect(worker).toContain('status === "available"');
     expect(worker).toContain("file.quarantine_purged");

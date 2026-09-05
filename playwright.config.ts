@@ -57,7 +57,6 @@ export default defineConfig({
         url: baseURL,
         env: {
           APP_URL: baseURL,
-          NEXT_PUBLIC_APP_URL: baseURL,
         },
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,

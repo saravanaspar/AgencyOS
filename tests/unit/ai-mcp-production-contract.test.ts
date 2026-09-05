@@ -20,6 +20,7 @@ describe("AI and MCP production contracts", () => {
     const agent = source("src/modules/ai/server/agent.ts");
     const discovery = source("src/modules/mcp/tool-discovery.ts");
     const config = source("src/modules/ai/server/config.ts");
+    const integrationConfig = source("src/modules/integrations/server/integration-settings.ts");
     const client = source("src/components/ai/ai-workspace.tsx");
     expect(agent).toContain("generateContent");
     expect(agent).toContain("/chat/completions");
@@ -28,8 +29,11 @@ describe("AI and MCP production contracts", () => {
     expect(discovery).toContain("agencyos.tools.search_catalog");
     expect(discovery).toContain("agencyos.tools.describe");
     expect(discovery).toContain("agencyos.tools.invoke");
-    expect(config).toContain("GEMINI_API_KEY");
-    expect(config).toContain("DEEPSEEK_API_KEY");
+    expect(config).toContain("getOrganizationIntegrationConfiguration");
+    expect(integrationConfig).not.toContain("GEMINI_API_KEY");
+    expect(integrationConfig).not.toContain("DEEPSEEK_API_KEY");
+    expect(integrationConfig).toContain("decryptSecretObjectWithEnvironmentKey");
+    expect(integrationConfig).toContain("RESEND_API_KEY");
     expect(client).not.toContain("GEMINI_API_KEY");
     expect(client).not.toContain("DEEPSEEK_API_KEY");
   });

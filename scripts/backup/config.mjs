@@ -2,7 +2,6 @@ import { isAbsolute, relative, resolve } from "node:path";
 
 import {
   assertRuntimeBackupIsolation,
-  infrastructureMode,
   objectStorageConfiguration,
 } from "../../src/integrations/object-storage/config.mjs";
 
@@ -142,6 +141,11 @@ function assertCloudDirectPostgres(value, label) {
   return value;
 }
 
+function productionDatabaseUrl(value, label) {
+  const parsed = postgresDatabaseIdentity(value, label);
+  return parsed.normalizedHost === "postgres" ? value : assertCloudDirectPostgres(value, label);
+}
+
 export function resticEnvironment(environment = process.env, credentialKind = "writer") {
   const endpoint = requiredEnvironment("B2_ENDPOINT", environment).replace(/\/$/, "");
   const endpointUrl = new URL(endpoint);
@@ -175,42 +179,24 @@ export function backupConfiguration(environment = process.env) {
   const vaultwardenData = resolve(
     environment.AGENCYOS_VAULTWARDEN_DATA_DIR?.trim() || "/vaultwarden-data",
   );
-  const mode = infrastructureMode(environment);
-  const minioRootUser = environment.MINIO_ROOT_USER?.trim();
-  const minioRootPassword = environment.MINIO_ROOT_PASSWORD?.trim();
-  const objectStorage =
-    mode === "local"
-      ? objectStorageConfiguration({
-          ...environment,
-          MINIO_ACCESS_KEY: requiredEnvironment("MINIO_ROOT_USER", environment),
-          MINIO_SECRET_KEY: requiredEnvironment("MINIO_ROOT_PASSWORD", environment),
-        })
-      : objectStorageConfiguration(environment, "backup-source");
-  if (mode === "cloud") assertRuntimeBackupIsolation(objectStorage, environment);
+  const objectStorage = objectStorageConfiguration(environment, "backup-source");
+  assertRuntimeBackupIsolation(objectStorage, environment);
+  const agencyDatabaseUrl = requiredEnvironment("DATABASE_ADMIN_URL", environment);
+  const vaultwardenDatabaseUrl =
+    environment.VAULTWARDEN_DATABASE_ADMIN_URL?.trim() ||
+    requiredEnvironment("VAULTWARDEN_DATABASE_URL", environment);
   return {
     stateDirectory,
     stageRoot,
     vaultwardenData,
-    agencyDatabaseUrl:
-      mode === "cloud"
-        ? assertCloudDirectPostgres(
-            requiredEnvironment("DATABASE_ADMIN_URL", environment),
-            "DATABASE_ADMIN_URL",
-          )
-        : requiredEnvironment("DATABASE_ADMIN_URL", environment),
-    vaultwardenDatabaseUrl:
-      mode === "cloud"
-        ? assertCloudDirectPostgres(
-            requiredEnvironment("VAULTWARDEN_DATABASE_ADMIN_URL", environment),
-            "VAULTWARDEN_DATABASE_ADMIN_URL",
-          )
-        : environment.VAULTWARDEN_DATABASE_ADMIN_URL?.trim() ||
-          requiredEnvironment("VAULTWARDEN_DATABASE_URL", environment),
+    agencyDatabaseUrl: productionDatabaseUrl(agencyDatabaseUrl, "DATABASE_ADMIN_URL"),
+    vaultwardenDatabaseUrl: productionDatabaseUrl(
+      vaultwardenDatabaseUrl,
+      environment.VAULTWARDEN_DATABASE_ADMIN_URL?.trim()
+        ? "VAULTWARDEN_DATABASE_ADMIN_URL"
+        : "VAULTWARDEN_DATABASE_URL",
+    ),
     objectStorage,
-    // Legacy fields remain available to existing callers in local mode.
-    minioEndpoint: objectStorage.endpoint,
-    minioRootUser,
-    minioRootPassword,
     restic: resticEnvironment(environment, "writer"),
     host: safeName("BACKUP_HOST", environment.BACKUP_HOST?.trim() || "agencyos-production"),
     releaseId: environment.AGENCYOS_RELEASE_ID?.trim() || "unknown",

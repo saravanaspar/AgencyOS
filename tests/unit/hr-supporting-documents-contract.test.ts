@@ -18,7 +18,7 @@ describe("HR supporting-document contracts", () => {
     expect(migration).not.toContain("government_id text");
   });
 
-  it("reuses quarantine, scanning, MinIO, integrity checks, and audit events", () => {
+  it("reuses quarantine, scanning, object storage, integrity checks, and audit events", () => {
     const service = source("src/modules/hr/server/supporting-documents.ts");
     const download = source("src/app/api/hr/supporting-documents/[documentId]/route.ts");
     expect(service).toContain("createQuarantinedPrivateFile");
@@ -27,7 +27,7 @@ describe("HR supporting-document contracts", () => {
     expect(service).toContain('action: "hr.supporting_document_quarantined"');
     expect(download).toContain('createHash("sha256")');
     expect(download).toContain('eventType: "file.downloaded"');
-    expect(download).toContain("readMinioObject");
+    expect(download).toContain("readObject");
   });
 
   it("keeps background checks and exit records out of employee self uploads", () => {

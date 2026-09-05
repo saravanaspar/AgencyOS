@@ -137,7 +137,7 @@ describe("final security hardening contracts", () => {
     const security = source("docs/SECURITY.md");
     expect(operations).toContain("Backup and recovery");
     expect(operations).toContain("off the application host");
-    expect(operations).toContain("MinIO");
+    expect(operations).toContain("S3-compatible object storage");
     expect(security).toContain("Contain");
     expect(security).toContain("Evidence should be access-controlled");
     expect(security).toContain("Security acceptance matrix");

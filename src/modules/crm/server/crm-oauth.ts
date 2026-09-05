@@ -139,7 +139,7 @@ export function isCrmOAuthProvider(
 }
 
 export function crmOAuthRedirectUri(provider: CrmOAuthProvider): string {
-  const appUrl = process.env.APP_URL?.trim() || process.env.NEXT_PUBLIC_APP_URL?.trim();
+  const appUrl = process.env.APP_URL?.trim();
   if (!appUrl) throw new Error("APP_URL is required for CRM OAuth callbacks.");
   const origin = new URL(appUrl);
   if (origin.protocol !== "https:" && origin.hostname !== "localhost") {

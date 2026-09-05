@@ -210,7 +210,10 @@ function mapAiExecution(row: AiExecutionRow): AutomationAiExecutionSummary {
   };
 }
 
-function mapVaultLink(row: VaultLinkRow): VaultwardenLinkSummary {
+function mapVaultLink(
+  row: VaultLinkRow,
+  vaultwardenBaseUrl: string | null,
+): VaultwardenLinkSummary {
   return {
     id: row.id,
     entityType: row.entity_type,
@@ -218,7 +221,7 @@ function mapVaultLink(row: VaultLinkRow): VaultwardenLinkSummary {
     entityLabel: row.entity_label,
     itemReference: row.item_reference,
     visibilityPermissionKey: row.visibility_permission_key,
-    openUrl: buildVaultwardenItemUrl(row.item_reference),
+    openUrl: buildVaultwardenItemUrl(row.item_reference, vaultwardenBaseUrl),
     createdAt: row.created_at.toISOString(),
   };
 }
@@ -424,7 +427,7 @@ export async function getAutomationWorkspaceData(
           `
       : Promise.resolve([] as EntityOptionRow[]),
   ]);
-  const configuration = getAutomationIntegrationConfiguration();
+  const configuration = await getAutomationIntegrationConfiguration(organizationId);
 
   return {
     workerConfigured: configuration.workerConfigured,
@@ -436,7 +439,7 @@ export async function getAutomationWorkspaceData(
     dispatches: dispatches.map(mapDispatch),
     aiIntents: aiIntents.map(mapAiIntent),
     aiExecutions: aiExecutions.map(mapAiExecution),
-    vaultwardenLinks: vaultLinks.map(mapVaultLink),
+    vaultwardenLinks: vaultLinks.map((row) => mapVaultLink(row, configuration.vaultwardenBaseUrl)),
     entityOptions: entityOptions.map((option) => ({
       entityType: option.entity_type,
       id: option.id,

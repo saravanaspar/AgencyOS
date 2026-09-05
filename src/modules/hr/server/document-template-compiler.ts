@@ -6,7 +6,7 @@ import path from "node:path";
 
 import * as cheerio from "cheerio";
 
-import { readMinioObject } from "@/integrations/minio/object-storage";
+import { readObject } from "@/integrations/object-storage/client";
 import {
   getHrBuiltinDocumentTemplate,
   isSupportedHrDocumentPlaceholder,
@@ -271,17 +271,17 @@ export async function resolveBuiltinHrTemplate(key: string): Promise<HrResolvedT
   };
 }
 
-export async function resolveMinioHrTemplate(
+export async function resolveObjectStorageHrTemplate(
   record: HrTemplateRecord,
 ): Promise<HrResolvedTemplate> {
-  const buffer = await readMinioObject(record.storageBucket, record.storagePath, {
+  const buffer = await readObject(record.storageBucket, record.storagePath, {
     maxBytes: HR_DOCUMENT_TEMPLATE_MAX_BYTES,
   });
   const actualDigest = digest(buffer);
   if (actualDigest !== record.sha256) throw new Error("hr-document-template-integrity-mismatch");
   const normalized = validateAndNormalizeHrTemplateHtml(decodeTemplate(buffer));
   return {
-    source: "minio",
+    source: "object_storage",
     key: record.id,
     id: record.id,
     name: record.name,

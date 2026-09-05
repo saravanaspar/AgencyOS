@@ -4,7 +4,7 @@ import { Agent as HttpAgent } from "node:http";
 import { Agent as HttpsAgent } from "node:https";
 import { fileURLToPath } from "node:url";
 
-import * as Minio from "minio";
+import { Client } from "minio";
 
 import {
   assertRuntimeBackupIsolation,
@@ -46,11 +46,13 @@ export async function checkObjectStorage({
   destructiveProbe = true,
 } = {}) {
   const configuration = objectStorageConfiguration(environment);
-  if (configuration.mode === "cloud") assertRuntimeBackupIsolation(configuration, environment);
+  if (environment.B2_ENDPOINT?.trim() && environment.B2_BUCKET?.trim()) {
+    assertRuntimeBackupIsolation(configuration, environment);
+  }
   const agent = configuration.useSSL
     ? new HttpsAgent({ keepAlive: false, timeout: 15_000 })
     : new HttpAgent({ keepAlive: false, timeout: 15_000 });
-  const client = new Minio.Client({
+  const client = new Client({
     endPoint: configuration.hostname,
     port: configuration.port,
     useSSL: configuration.useSSL,
@@ -121,13 +123,13 @@ export async function checkObjectStorage({
   } finally {
     agent.destroy();
   }
-  return { provider: configuration.provider, locationsChecked: configuration.locations.length };
+  return { locationsChecked: configuration.locations.length };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   checkObjectStorage()
-    .then(({ provider, locationsChecked }) =>
-      console.log(`Object storage ready (${provider}; ${locationsChecked} logical locations).`),
+    .then(({ locationsChecked }) =>
+      console.log(`Object storage ready (${locationsChecked} logical locations).`),
     )
     .catch((error) => {
       console.error(error instanceof Error ? error.message : String(error));

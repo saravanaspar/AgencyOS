@@ -5,11 +5,7 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 
 import { scanBufferWithClamav } from "@/integrations/clamav/client";
-import {
-  putMinioObject,
-  readMinioObject,
-  removeMinioObject,
-} from "@/integrations/minio/object-storage";
+import { putObject, readObject, removeObject } from "@/integrations/object-storage/client";
 import { getDatabaseClient } from "@/integrations/postgres/database";
 import { readBoundedResponseText } from "@/lib/server/bounded-response";
 import { privateFileRetryDelaySeconds } from "@/modules/private-files/private-files";
@@ -298,7 +294,7 @@ async function rejectFile(
 
 async function releaseFile(row: ClaimedFileRow, buffer: Buffer, verdict: ScanVerdict) {
   try {
-    await putMinioObject({
+    await putObject({
       bucket: PRIVATE_FILE_CLEAN_BUCKET,
       objectName: row.clean_target_path,
       body: buffer,
@@ -330,15 +326,13 @@ async function releaseFile(row: ClaimedFileRow, buffer: Buffer, verdict: ScanVer
       });
     });
   } catch (error) {
-    await removeMinioObject(PRIVATE_FILE_CLEAN_BUCKET, row.clean_target_path).catch(
-      () => undefined,
-    );
+    await removeObject(PRIVATE_FILE_CLEAN_BUCKET, row.clean_target_path).catch(() => undefined);
     throw error;
   }
 
   let quarantineRemoved = true;
   try {
-    await removeMinioObject(row.quarantine_bucket, row.quarantine_path);
+    await removeObject(row.quarantine_bucket, row.quarantine_path);
   } catch {
     quarantineRemoved = false;
   }
@@ -365,7 +359,7 @@ async function processFile(
   row: ClaimedFileRow,
 ): Promise<"available" | "rejected" | "retrying" | "exhausted" | "skipped" | "lost"> {
   try {
-    const buffer = await readMinioObject(row.quarantine_bucket, row.quarantine_path);
+    const buffer = await readObject(row.quarantine_bucket, row.quarantine_path);
     if (buffer.length !== row.size_bytes) {
       return (await rejectFile(row, { code: "size_mismatch", engine: "agencyos-integrity" }))
         ? "rejected"
@@ -439,7 +433,7 @@ async function processPurge(row: PurgeRow): Promise<boolean> {
     if (!row.quarantine_bucket || !row.quarantine_path) return true;
     let quarantineRemoved = true;
     try {
-      await removeMinioObject(row.quarantine_bucket, row.quarantine_path);
+      await removeObject(row.quarantine_bucket, row.quarantine_path);
     } catch {
       quarantineRemoved = false;
     }

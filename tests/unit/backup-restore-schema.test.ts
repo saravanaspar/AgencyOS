@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
   atomicPrivateJson: vi.fn(),
   checkedCommand: vi.fn(),
   sha256File: vi.fn(),
-  schemaVersion: 1,
+  schemaVersion: 3,
 }));
 
 vi.mock("../../scripts/backup/process.mjs", () => ({
@@ -74,25 +74,23 @@ beforeEach(() => {
   });
 });
 
-describe("backup restore manifest compatibility", () => {
-  for (const schemaVersion of [1, 2]) {
-    it(`prepares a verified schema-v${schemaVersion} snapshot`, async () => {
-      mocks.schemaVersion = schemaVersion;
-      const result = await prepareRestore({ environment: await restoreEnvironment() });
-      expect(result).toMatchObject({
-        status: "prepared",
-        recoveryId: "recovery-one",
-        snapshotId: "abc12345",
-        backupRunId: "backup-run-one",
-      });
-      expect(
-        mocks.checkedCommand.mock.calls.filter(([call]) => call.command === "pg_restore"),
-      ).toHaveLength(2);
-    });
-  }
-
-  it("rejects an unknown manifest schema before component restoration", async () => {
+describe("backup restore manifest contract", () => {
+  it("prepares a verified schema-v3 snapshot", async () => {
     mocks.schemaVersion = 3;
+    const result = await prepareRestore({ environment: await restoreEnvironment() });
+    expect(result).toMatchObject({
+      status: "prepared",
+      recoveryId: "recovery-one",
+      snapshotId: "abc12345",
+      backupRunId: "backup-run-one",
+    });
+    expect(
+      mocks.checkedCommand.mock.calls.filter(([call]) => call.command === "pg_restore"),
+    ).toHaveLength(2);
+  });
+
+  it("rejects a pre-cutover manifest before component restoration", async () => {
+    mocks.schemaVersion = 2;
     await expect(prepareRestore({ environment: await restoreEnvironment() })).rejects.toThrow(
       "Restored backup manifest is invalid",
     );

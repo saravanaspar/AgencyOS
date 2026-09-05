@@ -53,11 +53,7 @@ export async function prepareRestore({ environment = process.env } = {}) {
   }
   const sourceRoot = dirname(manifests[0]);
   const manifest = JSON.parse(await readFile(manifests[0], "utf8"));
-  if (
-    ![1, 2].includes(manifest.schemaVersion) ||
-    typeof manifest.runId !== "string" ||
-    !manifest.runId
-  ) {
+  if (manifest.schemaVersion !== 3 || typeof manifest.runId !== "string" || !manifest.runId) {
     throw new Error("Restored backup manifest is invalid.");
   }
   for (const [name, expected] of [

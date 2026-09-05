@@ -3400,7 +3400,7 @@ export const AGENCYOS_MCP_TOOLS: readonly AgencyOsMcpToolDefinition[] = [
     name: "agencyos.finance.generate_payment_receipt",
     title: "Generate payment receipt",
     description:
-      "Generates or reuses the immutable MinIO-backed PDF receipt for a visible payment.",
+      "Generates or reuses the immutable object-storage-backed PDF receipt for a visible payment.",
     inputSchema: objectSchema({ entityId: uuidSchema }, ["entityId"]),
     requiredPermissions: [
       financePermissionKeys.workspace,

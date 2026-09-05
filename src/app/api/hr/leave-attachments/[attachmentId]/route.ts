@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { readMinioObject } from "@/integrations/minio/object-storage";
+import { readObject } from "@/integrations/object-storage/client";
 import { getDatabaseClient } from "@/integrations/postgres/database";
 import { isAllowedApplicationOrigin } from "@/lib/server/request-origin";
 import { writeAuditEvent } from "@/modules/audit/server/write-audit-event";
@@ -91,7 +91,7 @@ export async function GET(_request: Request, context: RouteContext) {
     }
 
     const expectedSize = Number(row.size_bytes);
-    const bytes = await readMinioObject(row.storage_bucket, row.storage_path, {
+    const bytes = await readObject(row.storage_bucket, row.storage_path, {
       maxBytes: expectedSize + 1,
     });
     if (bytes.length !== expectedSize) throw new Error("hr-leave-attachment-size-mismatch");

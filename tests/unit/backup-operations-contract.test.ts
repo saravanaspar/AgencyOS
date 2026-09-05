@@ -21,9 +21,12 @@ function backupEnvironment() {
   return {
     DATABASE_ADMIN_URL: "postgresql://agency:password@postgres:5432/agencyos",
     VAULTWARDEN_DATABASE_URL: "postgresql://vault:password@postgres:5432/vaultwarden",
-    MINIO_ENDPOINT: "http://minio:9000",
-    MINIO_ROOT_USER: "root-user",
-    MINIO_ROOT_PASSWORD: "root-password",
+    OBJECT_STORAGE_ENDPOINT: "http://object-storage:9000",
+    OBJECT_STORAGE_REGION: "us-east-1",
+    OBJECT_STORAGE_ACCESS_KEY_ID: "runtime-key",
+    OBJECT_STORAGE_BACKUP_ACCESS_KEY_ID: "backup-source-key",
+    OBJECT_STORAGE_BACKUP_SECRET_ACCESS_KEY: "backup-source-secret",
+    OBJECT_STORAGE_BUCKET: "agencyos-runtime",
     B2_ENDPOINT: "https://s3.us-west-004.backblazeb2.com",
     B2_BUCKET: "agencyos-backup",
     B2_PREFIX: "production/restic",
@@ -35,8 +38,6 @@ function backupEnvironment() {
 
 function cloudBackupEnvironment() {
   return {
-    AGENCYOS_INFRA_MODE: "cloud",
-    OBJECT_STORAGE_PROVIDER: "b2",
     DATABASE_ADMIN_URL:
       "postgresql://agency:password@ep-agency.us-east-2.aws.neon.tech/agencyos?sslmode=require",
     VAULTWARDEN_DATABASE_ADMIN_URL:
@@ -46,14 +47,7 @@ function cloudBackupEnvironment() {
     OBJECT_STORAGE_ACCESS_KEY_ID: "runtime-key",
     OBJECT_STORAGE_BACKUP_ACCESS_KEY_ID: "source-key",
     OBJECT_STORAGE_BACKUP_SECRET_ACCESS_KEY: "source-secret",
-    OBJECT_STORAGE_QUARANTINE_BUCKET: "agencyos-runtime",
-    OBJECT_STORAGE_QUARANTINE_PREFIX: "private-file-quarantine",
-    OBJECT_STORAGE_PRIVATE_FILES_BUCKET: "agencyos-runtime",
-    OBJECT_STORAGE_PRIVATE_FILES_PREFIX: "private-files",
-    OBJECT_STORAGE_PROJECT_ATTACHMENTS_BUCKET: "agencyos-runtime",
-    OBJECT_STORAGE_PROJECT_ATTACHMENTS_PREFIX: "project-attachments",
-    OBJECT_STORAGE_DOCUMENT_TEMPLATES_BUCKET: "agencyos-runtime",
-    OBJECT_STORAGE_DOCUMENT_TEMPLATES_PREFIX: "document-templates",
+    OBJECT_STORAGE_BUCKET: "agencyos-runtime",
     B2_ENDPOINT: "https://s3.us-west-004.backblazeb2.com",
     B2_BUCKET: "agencyos-backup",
     B2_PREFIX: "production/restic",
@@ -73,24 +67,34 @@ describe("backup operations contract", () => {
     expect(JSON.stringify(value)).not.toContain("DATABASE_ADMIN_URL");
   });
 
-  it("keeps local backups on canonical MinIO buckets using the existing root credentials", () => {
+  it("uses the common object-storage backup contract for a local endpoint", () => {
     const configuration = backupConfiguration(backupEnvironment());
     expect(configuration.objectStorage).toMatchObject({
-      mode: "local",
-      provider: "minio",
-      endpoint: "http://minio:9000",
-      accessKey: "root-user",
-      secretKey: "root-password",
+      endpoint: "http://object-storage:9000",
+      accessKey: "backup-source-key",
+      secretKey: "backup-source-secret",
     });
     expect(configuration.objectStorage.locations).toEqual([
-      { logicalBucket: "private-file-quarantine", bucket: "private-file-quarantine", prefix: "" },
-      { logicalBucket: "private-files", bucket: "private-files", prefix: "" },
-      { logicalBucket: "project-attachments", bucket: "project-attachments", prefix: "" },
-      { logicalBucket: "document-templates", bucket: "document-templates", prefix: "" },
+      {
+        logicalBucket: "private-file-quarantine",
+        bucket: "agencyos-runtime",
+        prefix: "private-file-quarantine",
+      },
+      { logicalBucket: "private-files", bucket: "agencyos-runtime", prefix: "private-files" },
+      {
+        logicalBucket: "project-attachments",
+        bucket: "agencyos-runtime",
+        prefix: "project-attachments",
+      },
+      {
+        logicalBucket: "document-templates",
+        bucket: "agencyos-runtime",
+        prefix: "document-templates",
+      },
     ]);
   });
 
-  it("uses the cloud source-read key and direct database URLs for hosted backups", () => {
+  it("uses the isolated source-read key and direct database URLs for hosted backups", () => {
     const environment = cloudBackupEnvironment();
     const configuration = backupConfiguration(environment);
     expect(configuration.agencyDatabaseUrl).toBe(environment.DATABASE_ADMIN_URL);
@@ -165,7 +169,7 @@ describe("backup operations contract", () => {
     ).toBe("recovery-postgres");
   });
 
-  it("captures B2 prefixes without invoking the MinIO-only ready command", async () => {
+  it("captures hosted object-storage prefixes without provider-specific commands", async () => {
     const target = await mkdtemp(join(tmpdir(), "agencyos-object-backup-test-"));
     const calls: Array<{ command: string; args: string[] }> = [];
     const configuration = backupConfiguration(cloudBackupEnvironment());

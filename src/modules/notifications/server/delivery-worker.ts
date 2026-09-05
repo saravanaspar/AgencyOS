@@ -129,7 +129,7 @@ async function postWithTimeout(url: string, init: RequestInit): Promise<Response
 }
 
 async function deliverEmail(row: ClaimedDeliveryRow): Promise<DeliveryResult> {
-  const configuration = getNotificationDeliveryConfiguration().email;
+  const configuration = (await getNotificationDeliveryConfiguration(row.organization_id)).email;
   if (
     !configuration.configured ||
     !configuration.resendApiKey ||
@@ -174,7 +174,8 @@ async function revokePushSubscription(id: string, errorCode: string): Promise<vo
 }
 
 async function deliverBrowserPush(row: ClaimedDeliveryRow): Promise<DeliveryResult> {
-  const configuration = getNotificationDeliveryConfiguration().browserPush;
+  const configuration = (await getNotificationDeliveryConfiguration(row.organization_id))
+    .browserPush;
   if (
     !configuration.configured ||
     !configuration.publicKey ||

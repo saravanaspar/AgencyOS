@@ -72,14 +72,14 @@ describe("release remediation contracts", () => {
     const packageJson = JSON.parse(source("package.json")) as { scripts: Record<string, string> };
     const pullRequestWorkflow = source(".github/workflows/react-doctor.yml");
     const releaseWorkflow = source(".github/workflows/release.yml");
-    const minio = source("compose.minio.yaml");
+    const objectStorage = source("compose.object-storage.yaml");
     const production = source("compose.production.yaml");
     const ingress = source("deploy/nginx/agencyos.conf");
     expect(packageJson.scripts["verify:release"]).toContain("db:test");
     expect(packageJson.scripts["verify:release"]).toContain("test:e2e");
     expect(pullRequestWorkflow).toContain("npm run test:e2e");
     expect(releaseWorkflow).toContain("npm run verify:release");
-    expect(minio).not.toContain("minio/minio:latest");
+    expect(objectStorage).not.toContain("minio/minio:latest");
     expect(production).toContain("scripts/workers/run.mjs");
     expect(production).toContain("/api/health/ready");
     expect(ingress).toContain("client_max_body_size 28m");
@@ -97,7 +97,7 @@ describe("release remediation contracts", () => {
     expect(renderer).toContain("Bundled Chromium executable is missing, empty, or not executable");
     expect(vitest).toContain("maxWorkers: 1");
     expect(playwright).toContain("--hostname 127.0.0.1");
-    expect(playwright).toContain("NEXT_PUBLIC_APP_URL: baseURL");
+    expect(playwright).toContain("APP_URL: baseURL");
     expect(playwright).toContain("timeout: 240_000");
     expect(playwright).toContain("fullyParallel: true");
     expect(playwright).toContain("workers: 2");

@@ -11,7 +11,7 @@ External services are connected through adapters:
 | External service    | AgencyOS usage                                                          |
 | ------------------- | ----------------------------------------------------------------------- |
 | Supabase/PostgreSQL | Database, authentication and realtime                                   |
-| MinIO               | Private file and document storage                                       |
+| S3-compatible object storage | Private file and document storage                               |
 | Redis               | Caching, rate limits, short-lived locks and background job coordination |
 | AgencyOS worker      | Internal scheduling and registered automation handlers                       |
 | Vaultwarden         | Password and credential management                                      |

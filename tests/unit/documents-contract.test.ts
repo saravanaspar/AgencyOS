@@ -45,7 +45,7 @@ describe("documents module contracts", () => {
   it("integrity-checks every preview and download and records both histories", () => {
     const route = source("src/app/api/documents/[documentId]/versions/[versionId]/route.ts");
     expect(route).toContain('createHash("sha256")');
-    expect(route).toContain("readMinioObject");
+    expect(route).toContain("readObject");
     expect(route).toContain("recordPrivateFileEvent");
     expect(route).toContain("recordDocumentEvent");
     expect(route).toContain("writeAuditEvent");

@@ -19,7 +19,7 @@ describe("project attachment adoption of shared private files", () => {
     const route = source("src/app/api/projects/attachments/[attachmentId]/route.ts");
     expect(route).toContain('file_status !== "available"');
     expect(route).toContain('eventType: "file.downloaded"');
-    expect(route).toContain("readMinioObject");
+    expect(route).toContain("readObject");
     expect(route).not.toContain(".storage.from(");
     expect(route).toContain('"content-security-policy": "sandbox; default-src \'none\'"');
     expect(route).toContain('"x-content-type-options": "nosniff"');

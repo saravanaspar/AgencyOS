@@ -21,13 +21,13 @@ describe("HR private-document source contracts", () => {
     );
   });
 
-  it("keeps uploaded HTML private and validates it before MinIO storage", () => {
+  it("keeps uploaded HTML private and validates it before object storage", () => {
     const route = source("src/app/api/hr/document-templates/upload/route.ts");
     const storage = source("src/modules/hr/server/document-template-storage.ts");
     const compiler = source("src/modules/hr/server/document-template-compiler.ts");
     expect(route).toContain("documentTemplateManage");
     expect(route).toContain("512 KB");
-    expect(storage).toContain("MINIO_DOCUMENT_TEMPLATE_BUCKET");
+    expect(storage).toContain("OBJECT_STORAGE_DOCUMENT_TEMPLATE_BUCKET");
     expect(storage).toContain("validateAndNormalizeHrTemplateHtml");
     expect(compiler).toContain("allowedElements");
     expect(compiler).toContain("blocked-element");

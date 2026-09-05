@@ -57,7 +57,7 @@ describe("Coolify deployment contract", () => {
     for (const service of [
       "postgres",
       "redis",
-      "minio",
+      "object-storage",
       "clamav",
       "bootstrap",
       "vaultwarden",
@@ -78,7 +78,7 @@ describe("Coolify deployment contract", () => {
     for (const suffix of [
       "postgres-v1",
       "redis-v1",
-      "minio-v1",
+      "object-storage-v1",
       "clamav-signatures-v1",
       "vaultwarden-v1",
       "backup-state-v1",
@@ -93,7 +93,7 @@ describe("Coolify deployment contract", () => {
     const compose = source("compose.coolify.cloud.yaml");
     const expectedServices = [
       "clamav",
-      "cloud-preflight",
+      "dependency-preflight",
       "vaultwarden",
       "predeploy-backup",
       "migrate",
@@ -108,7 +108,7 @@ describe("Coolify deployment contract", () => {
     for (const [service, body] of services) {
       for (const dependency of dependencies(body)) {
         expect(services.has(dependency), `${service} depends on missing ${dependency}`).toBe(true);
-        expect(["postgres", "redis", "minio", "bootstrap"]).not.toContain(dependency);
+        expect(["postgres", "redis", "object-storage", "bootstrap"]).not.toContain(dependency);
       }
     }
     expect([...topLevelEntries(compose, "volumes").keys()]).toEqual([
@@ -122,8 +122,12 @@ describe("Coolify deployment contract", () => {
     ]);
     expect(compose).not.toMatch(/^\s+ports:/m);
     expect(compose).not.toContain("/var/run/docker.sock");
-    expect(compose).toContain("AGENCYOS_INFRA_MODE: cloud");
-    expect(compose).toContain("OBJECT_STORAGE_PROVIDER: b2");
+    expect(compose).not.toContain("AGENCYOS_INFRA_MODE:");
+    expect(compose).not.toContain("OBJECT_STORAGE_PROVIDER:");
+    expect(compose).toContain('OBJECT_STORAGE_REQUIRED: "1"');
+    expect(compose).not.toContain("MINIO_REQUIRED:");
+    expect(compose).toContain("OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:?");
+    expect(compose).not.toContain("OBJECT_STORAGE_QUARANTINE_BUCKET:");
     expect(compose).toContain("BACKUP_KEEP_DAILY: ${BACKUP_KEEP_DAILY:-7}");
     expect(compose).toContain("BACKUP_KEEP_WEEKLY: ${BACKUP_KEEP_WEEKLY:-4}");
     expect(compose).toContain("BACKUP_KEEP_MONTHLY: ${BACKUP_KEEP_MONTHLY:-12}");
@@ -131,12 +135,12 @@ describe("Coolify deployment contract", () => {
     expect(compose).toContain("BACKUP_PRUNE_ENABLED: ${BACKUP_PRUNE_ENABLED:-0}");
   });
 
-  it("keeps every local service and persistent volume identity backward compatible", () => {
+  it("uses provider-neutral service and volume identities in the bundled stack", () => {
     const compose = source("compose.coolify.yaml");
     expect([...topLevelEntries(compose, "services").keys()]).toEqual([
       "postgres",
       "redis",
-      "minio",
+      "object-storage",
       "clamav",
       "bootstrap",
       "vaultwarden",
@@ -151,7 +155,7 @@ describe("Coolify deployment contract", () => {
     expect([...topLevelEntries(compose, "volumes").keys()]).toEqual([
       "postgres-data",
       "redis-data",
-      "minio-data",
+      "object-storage-data",
       "clamav-signatures",
       "vaultwarden-data",
       "backup-state",
@@ -173,12 +177,15 @@ describe("Coolify deployment contract", () => {
     expect(compose).toContain("BACKUP_KEEP_MONTHLY: ${BACKUP_KEEP_MONTHLY:-12}");
     expect(compose).toContain("BACKUP_KEEP_YEARLY: ${BACKUP_KEEP_YEARLY:-1}");
     expect(compose).toContain("BACKUP_PRUNE_ENABLED: ${BACKUP_PRUNE_ENABLED:-0}");
+    expect(compose).toContain('OBJECT_STORAGE_REQUIRED: "1"');
+    expect(compose).not.toContain("MINIO_REQUIRED:");
   });
 
-  it("keeps the legacy three-service production manifest on explicit local defaults", () => {
+  it("keeps the three-service production manifest independent of a provider mode", () => {
     const compose = source("compose.production.yaml");
-    expect(compose).toContain("AGENCYOS_INFRA_MODE: ${AGENCYOS_INFRA_MODE:-local}");
-    expect(compose).toContain("OBJECT_STORAGE_PROVIDER: ${OBJECT_STORAGE_PROVIDER:-minio}");
+    expect(compose).not.toContain("AGENCYOS_INFRA_MODE:");
+    expect(compose).not.toContain("OBJECT_STORAGE_PROVIDER:");
+    expect(compose).toContain("env_file:");
   });
 
   it("requires immutable release images and pins all bundled external images", () => {

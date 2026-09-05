@@ -41,7 +41,6 @@ jobs:
       AGENCYOS_POSTGRES_DB: agencyos
       REDIS_URL: redis://127.0.0.1:6379/0
       APP_URL: http://127.0.0.1:3000
-      NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
       AUTH_ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
       CRM_CONNECTOR_ENCRYPTION_KEY: ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA=
       INTERNAL_WORKER_SECRET: ci-only-internal-worker-secret-32-bytes-minimum

@@ -80,9 +80,9 @@ describe("August 2026 production hardening contracts", () => {
     expect(source("compose.database.yaml")).toContain("Containerfile.postgres");
     expect(source("Containerfile.postgres")).toContain("postgresql-17-pgtap");
     expect(source("compose.redis.yaml")).toContain("127.0.0.1:${AGENCYOS_REDIS_PORT:-6379}");
-    expect(source("compose.minio.yaml")).toContain("127.0.0.1:9000:9000");
-    expect(source("compose.minio.yaml")).toContain("minio/minio:");
-    expect(source("compose.minio.yaml")).toContain("@sha256:");
+    expect(source("compose.object-storage.yaml")).toContain("127.0.0.1:9000:9000");
+    expect(source("compose.object-storage.yaml")).toContain("minio/minio:");
+    expect(source("compose.object-storage.yaml")).toContain("@sha256:");
     expect(source("compose.scanner.yaml")).toContain("127.0.0.1:3310:3310");
     expect(source("compose.scanner.yaml")).toContain("clamav/clamav:");
     expect(source("compose.scanner.yaml")).toContain("@sha256:");

@@ -4,10 +4,11 @@ For the complete persistent Coolify topology, automatic migration gate, two-imag
 and backups, use [`docs/COOLIFY.md`](../docs/COOLIFY.md). The Podman flow below remains useful for
 release-candidate verification but is not the complete stateful production stack.
 
-Use `compose.coolify.yaml` for bundled local PostgreSQL/Redis/MinIO or
-`compose.coolify.cloud.yaml` for hosted PostgreSQL, native TLS Redis, and B2 runtime storage.
+Use `compose.coolify.yaml` for bundled PostgreSQL, Redis, and object storage or
+`compose.coolify.cloud.yaml` for hosted PostgreSQL, native TLS Redis, and S3-compatible runtime
+storage.
 
-AgencyOS requires ordinary PostgreSQL plus the dependencies declared required by runtime policy. Production defaults `REDIS_REQUIRED`, `MINIO_REQUIRED`, and `PRIVATE_FILE_SCANNER_REQUIRED` to true; explicitly set a flag to `0` only for an intentional degraded deployment. PostgreSQL may be hosted by Neon, a local/self-hosted server, or another compatible provider. No Supabase service or CLI is required.
+AgencyOS requires ordinary PostgreSQL plus the dependencies declared required by runtime policy. Production defaults `REDIS_REQUIRED`, `OBJECT_STORAGE_REQUIRED`, and `PRIVATE_FILE_SCANNER_REQUIRED` to true; explicitly set a flag to `0` only for an intentional degraded deployment. PostgreSQL may be hosted by Neon, a local/self-hosted server, or another compatible provider. No Supabase service or CLI is required.
 
 Build and publish one immutable application image:
 
@@ -45,7 +46,11 @@ Use `/api/health/live` for liveness and `/api/health/ready` for the load balance
 
 Container resource controls default to 2 GiB memory, 2 CPUs, and 256 PIDs for app/worker services. Override them at Compose interpolation time with `AGENCYOS_MEMORY_LIMIT`, `AGENCYOS_CPU_LIMIT`, and `AGENCYOS_PIDS_LIMIT` after load testing; the gateway has a separate 256 MiB/1 CPU/128 PID cap.
 
-Back up PostgreSQL and every MinIO bucket before migrations. Use provider snapshots or `pg_dump --format=custom` for PostgreSQL and a version-pinned MinIO client to mirror all buckets into encrypted, access-controlled, off-host storage. Record checksums, retain at least one immutable copy, and test both restores in an isolated environment on a schedule. Do not continue a deployment when either backup or restore verification is stale.
+Back up PostgreSQL and every object-storage prefix before migrations. Use provider snapshots or
+`pg_dump --format=custom` for PostgreSQL and the pinned S3-compatible operations client to mirror
+objects into encrypted, access-controlled, off-host storage. Record checksums, retain at least one
+immutable copy, and test both restores in an isolated environment on a schedule. Do not continue a
+deployment when either backup or restore verification is stale.
 
 The GitHub Release Gate verifies the reviewed framework floor and dependency audit, runs the full
 release suite, then builds and pushes the application image once with Podman. GitHub's official

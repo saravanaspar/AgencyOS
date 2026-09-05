@@ -95,7 +95,11 @@ for (const control of ["pids_limit:", "mem_limit:", "cpus:"]) {
     failures.push(`compose.production.yaml: missing runtime resource control ${control}`);
 }
 
-for (const fileName of ["compose.redis.yaml", "compose.minio.yaml", "compose.scanner.yaml"]) {
+for (const fileName of [
+  "compose.redis.yaml",
+  "compose.object-storage.yaml",
+  "compose.scanner.yaml",
+]) {
   const contents = await readFile(fileName, "utf8");
   for (const [index, line] of contents.split(/\r?\n/).entries()) {
     const match = line.match(/^\s+image:\s+([^\s]+)$/);

@@ -4,20 +4,18 @@
 
 x-app-environment: &app-environment
   NODE_ENV: production
-  AGENCYOS_INFRA_MODE: local
-  OBJECT_STORAGE_PROVIDER: minio
   APP_URL: ${APP_URL:?Set the public AgencyOS HTTPS URL}
-  NEXT_PUBLIC_APP_URL: ${APP_URL:?Set the public AgencyOS HTTPS URL}
   DATABASE_URL: ${DATABASE_URL:?Set the private AgencyOS PostgreSQL URL}
   DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-8}
   REDIS_URL: ${REDIS_URL:?Set redis://default:PASSWORD@redis:6379/0}
-  MINIO_ENDPOINT: http://minio:9000
-  MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?Set a non-root MinIO application access key}
-  MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?Set a non-root MinIO application secret}
-  MINIO_REGION: ${MINIO_REGION:-us-east-1}
+  OBJECT_STORAGE_ENDPOINT: http://object-storage:9000
+  OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
+  OBJECT_STORAGE_ACCESS_KEY_ID: ${OBJECT_STORAGE_ACCESS_KEY_ID:?Set a non-root object-storage application access key}
+  OBJECT_STORAGE_SECRET_ACCESS_KEY: ${OBJECT_STORAGE_SECRET_ACCESS_KEY:?Set a non-root object-storage application secret}
+  OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-agencyos-runtime}
   PRIVATE_FILE_SCANNER_URL: clamav://clamav:3310
   REDIS_REQUIRED: "1"
-  MINIO_REQUIRED: "1"
+  OBJECT_STORAGE_REQUIRED: "1"
   PRIVATE_FILE_SCANNER_REQUIRED: "1"
   AGENCYOS_TRUST_PRIVATE_SERVICE_NETWORK: "1"
   INTERNAL_WORKER_SECRET: ${INTERNAL_WORKER_SECRET:?Set a 32+ character worker secret}
@@ -25,30 +23,12 @@ x-app-environment: &app-environment
   CRM_CONNECTOR_ENCRYPTION_KEY: ${CRM_CONNECTOR_ENCRYPTION_KEY:?Set a stable 32-byte encryption key}
   AUDIT_PIPELINE_ALERT_WEBHOOK_URL: ${AUDIT_PIPELINE_ALERT_WEBHOOK_URL:?Set the HTTPS audit alert webhook}
   AUDIT_PIPELINE_ALERT_WEBHOOK_SECRET: ${AUDIT_PIPELINE_ALERT_WEBHOOK_SECRET:?Set its 32+ character secret}
-  VAULTWARDEN_URL: ${VAULTWARDEN_URL:?Set the public Vaultwarden HTTPS URL}
   RESEND_API_KEY: ${RESEND_API_KEY:-}
-  NOTIFICATION_EMAIL_FROM: ${NOTIFICATION_EMAIL_FROM:-AgencyOS <notifications@example.com>}
+  NOTIFICATION_EMAIL_FROM: ${NOTIFICATION_EMAIL_FROM:-}
   NOTIFICATION_DELIVERY_ENCRYPTION_KEY: ${NOTIFICATION_DELIVERY_ENCRYPTION_KEY:-}
-  NOTIFICATION_VAPID_PUBLIC_KEY: ${NOTIFICATION_VAPID_PUBLIC_KEY:-}
-  NOTIFICATION_VAPID_PRIVATE_KEY: ${NOTIFICATION_VAPID_PRIVATE_KEY:-}
-  NOTIFICATION_VAPID_SUBJECT: ${NOTIFICATION_VAPID_SUBJECT:-}
   REPORT_DELIVERY_ENCRYPTION_KEY: ${REPORT_DELIVERY_ENCRYPTION_KEY:-}
   SECURITY_RATE_LIMIT_REDIS_FAILURE_MODE: deny
   SECURITY_WORKER_RATE_LIMIT_PER_MINUTE: ${SECURITY_WORKER_RATE_LIMIT_PER_MINUTE:-120}
-  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-  GEMINI_MODELS: ${GEMINI_MODELS:-gemini-3.5-flash,gemini-3.1-pro-preview}
-  DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
-  DEEPSEEK_API_URL: ${DEEPSEEK_API_URL:-https://api.deepseek.com}
-  DEEPSEEK_MODELS: ${DEEPSEEK_MODELS:-deepseek-v4-flash,deepseek-v4-pro}
-  HUBSPOT_OAUTH_CLIENT_ID: ${HUBSPOT_OAUTH_CLIENT_ID:-}
-  HUBSPOT_OAUTH_CLIENT_SECRET: ${HUBSPOT_OAUTH_CLIENT_SECRET:-}
-  SALESFORCE_OAUTH_CLIENT_ID: ${SALESFORCE_OAUTH_CLIENT_ID:-}
-  SALESFORCE_OAUTH_CLIENT_SECRET: ${SALESFORCE_OAUTH_CLIENT_SECRET:-}
-  SALESFORCE_OAUTH_LOGIN_URL: ${SALESFORCE_OAUTH_LOGIN_URL:-https://login.salesforce.com}
-  ZOHO_OAUTH_CLIENT_ID: ${ZOHO_OAUTH_CLIENT_ID:-}
-  ZOHO_OAUTH_CLIENT_SECRET: ${ZOHO_OAUTH_CLIENT_SECRET:-}
-  PIPEDRIVE_OAUTH_CLIENT_ID: ${PIPEDRIVE_OAUTH_CLIENT_ID:-}
-  PIPEDRIVE_OAUTH_CLIENT_SECRET: ${PIPEDRIVE_OAUTH_CLIENT_SECRET:-}
 
 x-app-service: &app-service
   image: ${AGENCYOS_IMAGE:?Set AGENCYOS_IMAGE to an immutable application digest (name@sha256:...)}
@@ -67,15 +47,16 @@ x-app-service: &app-service
 
 x-operations-environment: &operations-environment
   NODE_ENV: production
-  AGENCYOS_INFRA_MODE: local
-  OBJECT_STORAGE_PROVIDER: minio
   AGENCYOS_OPERATIONS_IMAGE: ${AGENCYOS_OPERATIONS_IMAGE:?Set the immutable operations digest (name@sha256:...)}
   AGENCYOS_RELEASE_ID: ${AGENCYOS_RELEASE_ID:-manual-first-deploy}
   DATABASE_ADMIN_URL: ${DATABASE_ADMIN_URL:?Set the direct private AgencyOS PostgreSQL URL}
   VAULTWARDEN_DATABASE_URL: ${VAULTWARDEN_DATABASE_URL:?Set the private Vaultwarden PostgreSQL URL}
-  MINIO_ENDPOINT: http://minio:9000
-  MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set the MinIO root user}
-  MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set the MinIO root password}
+  OBJECT_STORAGE_ENDPOINT: http://object-storage:9000
+  OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
+  OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-agencyos-runtime}
+  OBJECT_STORAGE_ACCESS_KEY_ID: ${OBJECT_STORAGE_ACCESS_KEY_ID:?Set the runtime object-storage key ID}
+  OBJECT_STORAGE_BACKUP_ACCESS_KEY_ID: ${OBJECT_STORAGE_ADMIN_ACCESS_KEY_ID:?Set the object-storage administrator key ID}
+  OBJECT_STORAGE_BACKUP_SECRET_ACCESS_KEY: ${OBJECT_STORAGE_ADMIN_SECRET_ACCESS_KEY:?Set the object-storage administrator secret}
   B2_ENDPOINT: ${B2_ENDPOINT:?Set the Backblaze B2 S3 HTTPS endpoint}
   B2_BUCKET: ${B2_BUCKET:?Set the Object-Lock-enabled B2 bucket}
   B2_PREFIX: ${B2_PREFIX:-agencyos/restic}
@@ -160,16 +141,16 @@ services:
     cpus: 0.25
     stop_grace_period: 30s
 
-  minio:
+  object-storage:
     image: docker.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
     command: ["server", "/data"]
     restart: unless-stopped
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set the MinIO root user}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set the MinIO root password}
+      MINIO_ROOT_USER: ${OBJECT_STORAGE_ADMIN_ACCESS_KEY_ID:?Set the object-storage administrator key ID}
+      MINIO_ROOT_PASSWORD: ${OBJECT_STORAGE_ADMIN_SECRET_ACCESS_KEY:?Set the object-storage administrator secret}
       MINIO_BROWSER: "off"
     volumes:
-      - minio-data:/data
+      - object-storage-data:/data
     networks:
       - private
     healthcheck:
@@ -212,21 +193,21 @@ services:
     restart: "no"
     environment:
       NODE_ENV: production
-      AGENCYOS_INFRA_MODE: local
-      OBJECT_STORAGE_PROVIDER: minio
       DATABASE_CONTROL_URL: ${DATABASE_CONTROL_URL:?Set the private PostgreSQL control URL}
       VAULTWARDEN_DATABASE_USER: ${VAULTWARDEN_DATABASE_USER:-vaultwarden}
       VAULTWARDEN_DATABASE_NAME: ${VAULTWARDEN_DATABASE_NAME:-vaultwarden}
       VAULTWARDEN_DATABASE_PASSWORD: ${VAULTWARDEN_DATABASE_PASSWORD:?Set a stable 32+ character password}
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set the MinIO root user}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set the MinIO root password}
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?Set a non-root MinIO application access key}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?Set a non-root MinIO application secret}
+      OBJECT_STORAGE_ENDPOINT: http://object-storage:9000
+      OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
+      OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-agencyos-runtime}
+      OBJECT_STORAGE_ADMIN_ACCESS_KEY_ID: ${OBJECT_STORAGE_ADMIN_ACCESS_KEY_ID:?Set the object-storage administrator key ID}
+      OBJECT_STORAGE_ADMIN_SECRET_ACCESS_KEY: ${OBJECT_STORAGE_ADMIN_SECRET_ACCESS_KEY:?Set the object-storage administrator secret}
+      OBJECT_STORAGE_ACCESS_KEY_ID: ${OBJECT_STORAGE_ACCESS_KEY_ID:?Set a non-root object-storage application access key}
+      OBJECT_STORAGE_SECRET_ACCESS_KEY: ${OBJECT_STORAGE_SECRET_ACCESS_KEY:?Set a non-root object-storage application secret}
     depends_on:
       postgres:
         condition: service_healthy
-      minio:
+      object-storage:
         condition: service_healthy
     networks:
       - private
@@ -320,7 +301,7 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
-      minio:
+      object-storage:
         condition: service_healthy
       clamav:
         condition: service_healthy
@@ -461,8 +442,8 @@ volumes:
     name: ${AGENCYOS_VOLUME_PREFIX:-agencyos-production}-postgres-v1
   redis-data:
     name: ${AGENCYOS_VOLUME_PREFIX:-agencyos-production}-redis-v1
-  minio-data:
-    name: ${AGENCYOS_VOLUME_PREFIX:-agencyos-production}-minio-v1
+  object-storage-data:
+    name: ${AGENCYOS_VOLUME_PREFIX:-agencyos-production}-object-storage-v1
   clamav-signatures:
     name: ${AGENCYOS_VOLUME_PREFIX:-agencyos-production}-clamav-signatures-v1
   vaultwarden-data:

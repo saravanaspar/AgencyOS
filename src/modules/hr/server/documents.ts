@@ -10,7 +10,7 @@ import {
 import { hrPermissionKeys } from "@/modules/hr/hr";
 import {
   resolveBuiltinHrTemplate,
-  resolveMinioHrTemplate,
+  resolveObjectStorageHrTemplate,
   type HrResolvedTemplate,
 } from "@/modules/hr/server/document-template-compiler";
 import type { CurrentPermissionContext } from "@/modules/permissions/server/effective-permissions";
@@ -165,7 +165,7 @@ export async function getHrDocumentsData(
       item.document_type,
       item.source_type === "builtin"
         ? `builtin:${item.builtin_key}`
-        : `minio:${item.custom_template_id}`,
+        : `object-storage:${item.custom_template_id}`,
     ]),
   );
   const templates: HrDocumentTemplateOption[] = [];
@@ -187,7 +187,7 @@ export async function getHrDocumentsData(
       });
     }
     for (const template of customTemplates) {
-      const selection = `minio:${template.id}`;
+      const selection = `object-storage:${template.id}`;
       const customFields: string[] = [];
       for (const key of template.placeholder_keys ?? []) {
         if (key.startsWith("custom.")) customFields.push(key.slice("custom.".length));
@@ -195,7 +195,7 @@ export async function getHrDocumentsData(
       templates.push({
         selection,
         id: template.id,
-        source: "minio",
+        source: "object_storage",
         documentType: template.document_type,
         name: template.name,
         description: template.description,
@@ -252,7 +252,9 @@ export async function resolveHrDocumentTemplateSelection(input: {
     }
     return resolveBuiltinHrTemplate(key);
   }
-  if (source !== "minio") throw new Error("hr-document-template-selection-invalid");
+  if (source !== "object-storage") {
+    throw new Error("hr-document-template-selection-invalid");
+  }
   const rows = await getDatabaseClient()<CustomTemplateRow[]>`
     select id, document_type, name, description, version, status, storage_bucket,
       storage_path, sha256, original_file_name, placeholder_keys
@@ -266,7 +268,7 @@ export async function resolveHrDocumentTemplateSelection(input: {
   if (!row || row.document_type !== input.documentType) {
     throw new Error("hr-document-template-not-found");
   }
-  return resolveMinioHrTemplate({
+  return resolveObjectStorageHrTemplate({
     id: row.id,
     name: row.name,
     version: row.version,

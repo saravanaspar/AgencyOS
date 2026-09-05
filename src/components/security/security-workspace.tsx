@@ -283,7 +283,7 @@ function RestoreDrillForm() {
         <span>Drill type</span>
         <select name="drillType" defaultValue="database">
           <option value="database">Database</option>
-          <option value="minio">MinIO</option>
+          <option value="object_storage">Object storage</option>
           <option value="configuration">Configuration</option>
           <option value="redis">Redis</option>
           <option value="automation">Automation worker</option>

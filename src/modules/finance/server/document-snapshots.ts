@@ -4,11 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 
 import type { Sql, TransactionSql } from "postgres";
 
-import {
-  putMinioObject,
-  readMinioObject,
-  removeMinioObject,
-} from "@/integrations/minio/object-storage";
+import { putObject, readObject, removeObject } from "@/integrations/object-storage/client";
 import { getDatabaseClient } from "@/integrations/postgres/database";
 import { toJsonValue } from "@/lib/server/json-value";
 import type { FinanceDocumentTotals } from "@/modules/finance/calculations";
@@ -739,7 +735,7 @@ export async function ensureFinanceDocumentSnapshot(
       });
       uploadedPath = paths.cleanPath;
       try {
-        await putMinioObject({
+        await putObject({
           bucket: PRIVATE_FILE_CLEAN_BUCKET,
           objectName: paths.cleanPath,
           body: rendered.bytes,
@@ -821,7 +817,7 @@ export async function ensureFinanceDocumentSnapshot(
     });
   } catch (error) {
     if (uploadedPath) {
-      await removeMinioObject(PRIVATE_FILE_CLEAN_BUCKET, uploadedPath).catch(() => undefined);
+      await removeObject(PRIVATE_FILE_CLEAN_BUCKET, uploadedPath).catch(() => undefined);
     }
     throw error;
   }
@@ -849,7 +845,7 @@ export async function getFinanceDocumentSnapshot(
 export async function downloadFinanceSnapshotBytes(
   snapshot: StoredFinanceDocumentSnapshot,
 ): Promise<Buffer> {
-  const buffer = await readMinioObject(snapshot.storageBucket, snapshot.storagePath, {
+  const buffer = await readObject(snapshot.storageBucket, snapshot.storagePath, {
     maxBytes: snapshot.sizeBytes + 1,
   }).catch(() => {
     throw new Error("finance-pdf-not-found");

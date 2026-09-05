@@ -1,8 +1,9 @@
 # AgencyOS Architecture Decisions
 
 Production uses `compose.coolify.yaml` for bundled services or `compose.coolify.cloud.yaml` for
-hosted PostgreSQL, Redis, and runtime B2: disposable web/worker and operations images surround private
-PostgreSQL, authenticated Redis, MinIO, ClamAV, and PostgreSQL-backed Vaultwarden. Stateful data
+hosted PostgreSQL, Redis, and S3-compatible runtime object storage: disposable web/worker and
+operations images surround private PostgreSQL, authenticated Redis, object storage, ClamAV, and
+PostgreSQL-backed Vaultwarden. Stateful data
 stays in stable named volumes; encrypted off-host B2 snapshots are the disaster-recovery boundary.
 
 ## System shape
@@ -12,14 +13,15 @@ AgencyOS is a modular Next.js monolith backed by ordinary PostgreSQL. Authentica
 Core infrastructure:
 
 - **PostgreSQL:** AgencyOS identity, opaque sessions, TOTP metadata, tenant data, RLS, transactions, migrations, and pgTAP.
-- **MinIO:** private runtime object storage.
+- **Object storage:** one private S3-compatible bucket with application-owned logical prefixes.
 - **Redis:** rate limiting, worker coordination, short-lived cache entries, and replay protection. PostgreSQL advisory locks provide coordination fallback for bounded workers.
 - **AgencyOS worker:** internal scheduling and bounded automation execution using the same authorization/database boundaries as the web application.
 - **Vaultwarden:** independent secret storage; AgencyOS stores item references only.
 - **Chromium:** shared server-side HTML-to-PDF rendering.
 - **MCP:** same-origin, permission-filtered tools reauthorized on every call.
 
-The browser receives no database credentials, MinIO credentials, encryption keys, model-provider secrets, or unrestricted MCP access.
+The browser receives no database credentials, object-storage credentials, encryption keys,
+model-provider secrets, or unrestricted MCP access.
 
 ## First-party authentication
 
@@ -43,7 +45,10 @@ All modules use one organization-scoped approval engine with versioned definitio
 
 ## Shared private-file lifecycle
 
-Private files enter a MinIO quarantine bucket as opaque bytes. Server validation checks extension, MIME, signature, size, and SHA-256. A bounded worker sends the object to a trusted scanner. Only clean, checksum-matching files are copied to release buckets. Every download reauthorizes the current membership and returns forced-download headers.
+Private files enter an object-storage quarantine prefix as opaque bytes. Server validation checks
+extension, MIME, signature, size, and SHA-256. A bounded worker sends the object to a trusted
+scanner. Only clean, checksum-matching files are copied to release prefixes. Every download
+reauthorizes the current membership and returns forced-download headers.
 
 ## Internal worker boundary
 
@@ -61,7 +66,10 @@ Historical migrations are replayed unchanged. New migrations may not manage thei
 
 ## Backup and recovery
 
-Back up PostgreSQL, MinIO, and deployment configuration independently. Store secrets separately and keep at least one encrypted off-host copy. Restore into an isolated environment with outbound email/integrations disabled, run migrations, `db:doctor`, pgTAP, source verification, worker smoke tests, and application smoke tests before reconnecting external services.
+Back up PostgreSQL, object storage, and deployment configuration independently. Store secrets
+separately and keep at least one encrypted off-host copy. Restore into an isolated environment with
+outbound email/integrations disabled, run migrations, `db:doctor`, pgTAP, source verification,
+worker smoke tests, and application smoke tests before reconnecting external services.
 
 ## Maintainability and observability guardrails
 

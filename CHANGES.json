@@ -18,7 +18,6 @@
     "compose.coolify.yaml",
     "compose.production.yaml",
     "deploy/README.md",
-    "deploy/minio/agencyos-app-policy.json",
     "deploy/redis/start-redis.sh",
     "docs/ARCHITECTURE.md",
     "docs/BACKUP_RECOVERY.md",
@@ -60,14 +59,14 @@
     "scripts/backup/scheduler.mjs",
     "scripts/operations/bootstrap-production.mjs",
     "scripts/operations/release-gate.mjs",
-    "scripts/operations/validate-cloud-production.mjs",
+    "scripts/operations/validate-production-dependencies.mjs",
     "scripts/release/deploy-coolify.d.mts",
     "scripts/release/deploy-coolify.mjs",
     "scripts/release/production-release.mjs",
     "scripts/security/verify-supply-chain.mjs",
     "scripts/storage/check-object-storage.mjs",
     "src/app/api/health/live/route.ts",
-    "src/integrations/minio/object-storage.ts",
+    "src/integrations/object-storage/client.ts",
     "src/integrations/object-storage/config.d.mts",
     "src/integrations/object-storage/config.mjs",
     "src/lib/server/dependency-health.ts",
@@ -80,7 +79,8 @@
     "tests/unit/env-validation.test.ts",
     "tests/unit/hardening-20260822-contract.test.ts",
     "tests/unit/immutable-repository.test.ts",
-    "tests/unit/minio-storage.test.ts"
+    "tests/unit/object-storage.test.ts",
+    "tests/unit/object-storage-runtime-contract.test.ts"
   ],
   "deleted": []
 }

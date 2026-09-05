@@ -2,9 +2,7 @@ x-agencyos-service: &agencyos-service
   image: ${AGENCYOS_IMAGE:?Set AGENCYOS_IMAGE to an immutable application digest (name@sha256:...)}
   env_file:
     - ${AGENCYOS_ENV_FILE:-.env.production}
-  environment: &agencyos-environment
-    AGENCYOS_INFRA_MODE: ${AGENCYOS_INFRA_MODE:-local}
-    OBJECT_STORAGE_PROVIDER: ${OBJECT_STORAGE_PROVIDER:-minio}
+  environment: &agencyos-environment {}
   restart: unless-stopped
   read_only: true
   tmpfs:

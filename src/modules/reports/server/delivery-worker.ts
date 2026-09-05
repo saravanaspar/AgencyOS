@@ -428,7 +428,7 @@ async function deliverEmail(
   context: CurrentPermissionContext,
   snapshot: StoredReportSnapshot,
 ): Promise<void> {
-  const config = getNotificationDeliveryConfiguration().email;
+  const config = (await getNotificationDeliveryConfiguration(batch.organization_id)).email;
   if (!context.user.email) {
     await markDelivery(row.id, {
       outcome: "suppressed",

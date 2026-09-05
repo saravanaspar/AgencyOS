@@ -12,7 +12,7 @@ export const hrDocumentTypes = [
 ] as const;
 
 export type HrDocumentType = (typeof hrDocumentTypes)[number];
-export type HrDocumentTemplateSource = "builtin" | "minio";
+export type HrDocumentTemplateSource = "builtin" | "object_storage";
 
 export interface HrBuiltinDocumentTemplate {
   key: HrDocumentType;

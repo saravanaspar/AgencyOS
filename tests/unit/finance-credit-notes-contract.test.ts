@@ -49,8 +49,8 @@ describe("finance credit-note and correction contracts", () => {
     expect(snapshots).toContain("Original invoice");
   });
 
-  it("reuses the existing private MinIO PDF and idempotent delivery paths", () => {
-    expect(snapshots).toContain("putMinioObject");
+  it("reuses the existing private object-storage PDF and idempotent delivery paths", () => {
+    expect(snapshots).toContain("putObject");
     expect(snapshots).toContain("PRIVATE_FILE_CLEAN_BUCKET");
     expect(actions).toContain("on conflict (organization_id, request_token) do nothing");
     expect(actions).toContain("insert into public.finance_credit_note_events");

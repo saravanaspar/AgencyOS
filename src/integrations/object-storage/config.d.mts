@@ -1,13 +1,9 @@
-export type InfrastructureMode = "local" | "cloud";
-export type ObjectStorageProvider = "minio" | "b2";
 export interface ObjectStorageLocation {
   logicalBucket: string;
   bucket: string;
   prefix: string;
 }
 export interface ObjectStorageConfiguration {
-  mode: InfrastructureMode;
-  provider: ObjectStorageProvider;
   endpoint: string;
   hostname: string;
   port: number;
@@ -17,10 +13,20 @@ export interface ObjectStorageConfiguration {
   secretKey: string;
   locations: ObjectStorageLocation[];
 }
-export const AGENCYOS_OBJECT_STORAGE_BUCKETS: readonly string[];
-export function infrastructureMode(
-  environment?: Record<string, string | undefined>,
-): InfrastructureMode;
+export const OBJECT_STORAGE_QUARANTINE_BUCKET: "private-file-quarantine";
+export const OBJECT_STORAGE_PRIVATE_BUCKET: "private-files";
+export const OBJECT_STORAGE_PROJECT_ATTACHMENTS_BUCKET: "project-attachments";
+export const OBJECT_STORAGE_DOCUMENT_TEMPLATE_BUCKET: "document-templates";
+export const AGENCYOS_OBJECT_STORAGE_BUCKETS: readonly [
+  "private-file-quarantine",
+  "private-files",
+  "project-attachments",
+  "document-templates",
+];
+export function parseObjectStorageEndpoint(
+  value: string,
+  label?: string,
+): { value: string; hostname: string; port: number; useSSL: boolean };
 export function objectStorageConfiguration(
   environment?: Record<string, string | undefined>,
   credentialKind?: "runtime" | "backup-source" | "recovery" | "descriptor",
@@ -31,7 +37,8 @@ export function resolveObjectStorageLocation(
   objectName?: string,
 ): { logicalBucket: string; physicalBucket: string; physicalKey: string; prefix: string };
 export function redactedObjectStorageDescriptor(configuration: ObjectStorageConfiguration): {
-  provider: ObjectStorageProvider;
+  endpoint: string;
+  region: string;
   locations: ObjectStorageLocation[];
 };
 export function normalizedObjectStorageDestination(

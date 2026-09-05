@@ -8044,6 +8044,16 @@ a.task-attachment-file:hover { border-color: var(--border-strong); background: v
 .security-form-grid--incident { border-bottom: 1px solid var(--border); }
 .security-form-grid__wide { grid-column: 1 / -1; }
 .security-form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+
+.module-stack { display: grid; gap: 18px; }
+.form-grid { display: grid; gap: 14px; margin-top: 18px; }
+.form-grid--two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+
+@media (max-width: 760px) {
+  .form-grid--two { grid-template-columns: 1fr; }
+  .form-grid--two > span:empty { display: none; }
+}
 .security-table-wrap { overflow-x: auto; }
 .security-table { width: 100%; border-collapse: collapse; min-width: 880px; }
 .security-table th, .security-table td { padding: 13px 16px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; font-size: 12px; }

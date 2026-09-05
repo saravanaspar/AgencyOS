@@ -1,6 +1,9 @@
 # AgencyOS ordered delivery checklist
 
-> **Current infrastructure:** authentication is AgencyOS-owned and PostgreSQL-provider neutral. Neon, local PostgreSQL, or another compatible PostgreSQL provider can host the database; MinIO is the runtime object store. Former Supabase-specific checklist wording below is retained only where it records historical implementation evidence.
+> **Current infrastructure:** authentication is AgencyOS-owned and PostgreSQL-provider neutral.
+> Runtime files use one provider-neutral S3-compatible object-storage contract for self-hosted or
+> hosted services. Older provider-specific checklist wording below is retained only where it records
+> historical implementation evidence.
 
 Last updated: 2026-07-21
 

@@ -1,8 +1,8 @@
 # AgencyOS Security
 
-The single-host production exception permits plaintext Redis, MinIO, and ClamAV only on exact
+The single-host production exception permits plaintext Redis, object storage, and ClamAV only on exact
 Compose service names behind an internal network and explicit opt-in. Redis stays authenticated,
-MinIO uses a non-root app identity, stateful ports are not published, and remote endpoints still
+The bundled object store uses a non-root app identity, stateful ports are not published, and remote endpoints still
 require TLS. Backup writer, maintenance, and restore credentials remain separate.
 
 ## Authentication and privileged access
@@ -18,7 +18,7 @@ Passwords are stored only as bcrypt hashes. Session and verification tokens are 
 - Use independent secrets for workers, callbacks, connector credentials, notifications, and outbound signing boundaries.
 - Keep `AUDIT_PIPELINE_ALERT_WEBHOOK_SECRET` distinct from `INTERNAL_WORKER_SECRET`; production requires a paired credential-free HTTPS `AUDIT_PIPELINE_ALERT_WEBHOOK_URL` and a bearer secret of at least 32 characters.
 - Rotate credentials after exposure, staff departure, suspected compromise, or provider incident.
-- Never log passwords, password hashes, database URLs, MinIO keys, encryption keys, private document contents, or raw AI prompts.
+- Never log passwords, password hashes, database URLs, object-storage keys, encryption keys, private document contents, or raw AI prompts.
 - `.env.local`, generated evidence, local bootstrap scripts, and legacy provider metadata must not be committed or archived.
 
 ## Request and response protections
@@ -29,7 +29,7 @@ Rate limits apply to password login, MFA attempts, password reset, search, expor
 
 ## Files and exports
 
-Private files are quarantined in MinIO, scanned, checksum-verified, and served only through reauthorizing server routes. Multipart routes require bounded `Content-Length`, and reference ingress limits protect against oversized bodies. Server-side PDF rendering disables JavaScript, aborts network requests, and does not permit `file:` resources. Uploaded HR HTML templates use a positive tag/attribute allowlist, and the security gate rejects raw browser HTML-injection APIs. Exports require separate permission, private no-store responses, and spreadsheet-formula neutralization; bulk HR report output additionally requires `hr.report.export`.
+Private files are quarantined in object storage, scanned, checksum-verified, and served only through reauthorizing server routes. Multipart routes require bounded `Content-Length`, and reference ingress limits protect against oversized bodies. Server-side PDF rendering disables JavaScript, aborts network requests, and does not permit `file:` resources. Uploaded HR HTML templates use a positive tag/attribute allowlist, and the security gate rejects raw browser HTML-injection APIs. Exports require separate permission, private no-store responses, and spreadsheet-formula neutralization; bulk HR report output additionally requires `hr.report.export`.
 
 ## MCP and AI
 

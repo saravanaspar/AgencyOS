@@ -72,7 +72,7 @@ const utcDateTimeLocal = z
   .transform((value) => `${value}:00.000Z`);
 
 export const restoreDrillSchema = z.object({
-  drillType: z.enum(["database", "minio", "configuration", "redis", "automation", "full"]),
+  drillType: z.enum(["database", "object_storage", "configuration", "redis", "automation", "full"]),
   status: z.enum(["passed", "failed", "partial"]),
   runbookVersion: z.string().trim().min(1).max(80),
   startedAt: utcDateTimeLocal,

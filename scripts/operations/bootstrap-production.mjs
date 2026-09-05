@@ -1,19 +1,18 @@
 #!/usr/bin/env node
 import process from "node:process";
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 
 import postgres from "postgres";
 
-import { infrastructureMode } from "../../src/integrations/object-storage/config.mjs";
+import {
+  objectStorageConfiguration,
+  parseObjectStorageEndpoint,
+} from "../../src/integrations/object-storage/config.mjs";
 import { checkedCommand, redactDiagnostic } from "../backup/process.mjs";
 
 const IDENTIFIER_PATTERN = /^[a-z][a-z0-9_]{0,62}$/;
-const BUCKETS = [
-  "private-file-quarantine",
-  "private-files",
-  "project-attachments",
-  "document-templates",
-];
-
 function required(name) {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`Missing required environment variable: ${name}`);
@@ -85,11 +84,8 @@ async function bootstrapVaultwardenDatabase() {
   }
 }
 
-function minioHost(user, password) {
-  const endpoint = new URL(required("MINIO_ENDPOINT"));
-  if (!["http:", "https:"].includes(endpoint.protocol) || endpoint.username || endpoint.password) {
-    throw new Error("MINIO_ENDPOINT must be a credential-free HTTP or HTTPS URL.");
-  }
+function objectStorageHost(user, password) {
+  const endpoint = new URL(parseObjectStorageEndpoint(required("OBJECT_STORAGE_ENDPOINT")).value);
   return `${endpoint.protocol}//${encodeURIComponent(user)}:${encodeURIComponent(password)}@${endpoint.host}`;
 }
 
@@ -97,24 +93,55 @@ async function command(args, env) {
   return checkedCommand({ command: "mc", args, env, timeoutMs: 120_000 });
 }
 
-async function bootstrapMinio() {
-  const rootUser = required("MINIO_ROOT_USER");
-  const rootPassword = required("MINIO_ROOT_PASSWORD");
-  const applicationUser = required("MINIO_ACCESS_KEY");
-  const applicationPassword = required("MINIO_SECRET_KEY");
+function applicationPolicy(configuration) {
+  const bucket = configuration.locations[0].bucket;
+  return {
+    Version: "2012-10-17",
+    Statement: [
+      {
+        Effect: "Allow",
+        Action: ["s3:GetBucketLocation", "s3:ListBucket", "s3:ListBucketVersions"],
+        Resource: [`arn:aws:s3:::${bucket}`],
+      },
+      {
+        Effect: "Allow",
+        Action: [
+          "s3:AbortMultipartUpload",
+          "s3:DeleteObject",
+          "s3:GetObject",
+          "s3:GetObjectVersion",
+          "s3:ListMultipartUploadParts",
+          "s3:PutObject",
+        ],
+        Resource: configuration.locations.map(
+          ({ bucket: locationBucket, prefix }) => `arn:aws:s3:::${locationBucket}/${prefix}/*`,
+        ),
+      },
+    ],
+  };
+}
+
+async function bootstrapObjectStorage() {
+  const rootUser = required("OBJECT_STORAGE_ADMIN_ACCESS_KEY_ID");
+  const rootPassword = required("OBJECT_STORAGE_ADMIN_SECRET_ACCESS_KEY");
+  const applicationUser = required("OBJECT_STORAGE_ACCESS_KEY_ID");
+  const applicationPassword = required("OBJECT_STORAGE_SECRET_ACCESS_KEY");
   if (applicationUser === rootUser || applicationPassword === rootPassword) {
-    throw new Error("MinIO application credentials must be distinct from the root credentials.");
+    throw new Error(
+      "Object-storage application credentials must be distinct from administrator credentials.",
+    );
   }
   if (applicationPassword.length < 32)
-    throw new Error("MINIO_SECRET_KEY must contain 32 characters.");
-  const rootEnvironment = { MC_HOST_root: minioHost(rootUser, rootPassword) };
+    throw new Error("OBJECT_STORAGE_SECRET_ACCESS_KEY must contain 32 characters.");
+  const configuration = objectStorageConfiguration();
+  const rootEnvironment = { MC_HOST_root: objectStorageHost(rootUser, rootPassword) };
   await command(["ready", "root"], rootEnvironment);
-  for (const bucket of BUCKETS) {
+  for (const bucket of new Set(configuration.locations.map(({ bucket }) => bucket))) {
     await command(["mb", "--ignore-existing", `root/${bucket}`], rootEnvironment);
     await command(["version", "enable", `root/${bucket}`], rootEnvironment);
     const anonymous = await command(["anonymous", "get", `root/${bucket}`], rootEnvironment);
     if (!/private/i.test(anonymous.stdoutText)) {
-      throw new Error(`MinIO bucket ${bucket} is not private.`);
+      throw new Error(`Object-storage bucket ${bucket} is not private.`);
     }
   }
   const userProbe = await command(
@@ -129,39 +156,26 @@ async function bootstrapMinio() {
       rootEnvironment,
     );
   }
-  await command(
-    [
-      "admin",
-      "policy",
-      "create",
-      "root",
-      "agencyos-app",
-      "/app/deploy/minio/agencyos-app-policy.json",
-    ],
-    rootEnvironment,
-  );
+  const policyPath = join(tmpdir(), "agencyos-object-storage-policy.json");
+  await writeFile(policyPath, JSON.stringify(applicationPolicy(configuration)), { mode: 0o600 });
+  await command(["admin", "policy", "create", "root", "agencyos-app", policyPath], rootEnvironment);
   await command(
     ["admin", "policy", "attach", "root", "agencyos-app", "--user", applicationUser],
     rootEnvironment,
   );
   const applicationEnvironment = {
-    MC_HOST_application: minioHost(applicationUser, applicationPassword),
+    MC_HOST_application: objectStorageHost(applicationUser, applicationPassword),
   };
-  for (const bucket of BUCKETS) {
+  for (const bucket of new Set(configuration.locations.map(({ bucket }) => bucket))) {
     await command(["stat", `application/${bucket}`], applicationEnvironment);
   }
 }
 
 async function main() {
-  if (infrastructureMode() !== "local") {
-    throw new Error(
-      "bootstrap-production is local-only; cloud resources must be provider-created.",
-    );
-  }
   await bootstrapVaultwardenDatabase();
-  await bootstrapMinio();
+  await bootstrapObjectStorage();
   console.log(
-    "Production bootstrap complete: Vaultwarden database and private MinIO access verified.",
+    "Production bootstrap complete: Vaultwarden database and private object storage verified.",
   );
 }
 

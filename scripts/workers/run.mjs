@@ -30,11 +30,7 @@ const jobs = jobDefinitions.map((job, index) => ({
 const runOnce = process.argv.includes("--once");
 const secret = process.env.INTERNAL_WORKER_SECRET?.trim() ?? "";
 const internalAppUrl = process.env.INTERNAL_APP_URL?.trim() ?? "";
-const configuredAppUrl =
-  internalAppUrl ||
-  process.env.APP_URL ||
-  process.env.NEXT_PUBLIC_APP_URL ||
-  "http://127.0.0.1:3000";
+const configuredAppUrl = internalAppUrl || process.env.APP_URL || "http://127.0.0.1:3000";
 const appUrl = configuredAppUrl.replace(/\/$/, "");
 const configuredConcurrency = Number.parseInt(process.env.WORKER_MAX_CONCURRENCY ?? "3", 10);
 const maxConcurrency = Number.isSafeInteger(configuredConcurrency)

@@ -94,7 +94,7 @@ export async function scheduleNotificationDeliveries(notificationId: string): Pr
 
   const preferences = normalizeNotificationPreferences(row.notification_preferences);
   if (!preferences.categories[row.category]) return;
-  const configuration = getNotificationDeliveryConfiguration();
+  const configuration = await getNotificationDeliveryConfiguration(row.organization_id);
   const channels: ExternalNotificationChannel[] = [];
   if (preferences.emailEnabled && configuration.email.configured) channels.push("email");
   if (

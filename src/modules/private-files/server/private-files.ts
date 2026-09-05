@@ -5,11 +5,11 @@ import { randomUUID } from "node:crypto";
 import type { Sql, TransactionSql } from "postgres";
 
 import {
-  MINIO_PRIVATE_BUCKET,
-  MINIO_QUARANTINE_BUCKET,
-  putMinioObject,
-  removeMinioObject,
-} from "@/integrations/minio/object-storage";
+  OBJECT_STORAGE_PRIVATE_BUCKET,
+  OBJECT_STORAGE_QUARANTINE_BUCKET,
+  putObject,
+  removeObject,
+} from "@/integrations/object-storage/client";
 import { getDatabaseClient } from "@/integrations/postgres/database";
 import { toJsonValue } from "@/lib/server/json-value";
 import type {
@@ -25,8 +25,8 @@ import {
   validatePrivateFileContent,
 } from "@/modules/private-files/server/file-policy";
 
-export const PRIVATE_FILE_QUARANTINE_BUCKET = MINIO_QUARANTINE_BUCKET;
-export const PRIVATE_FILE_CLEAN_BUCKET = MINIO_PRIVATE_BUCKET;
+export const PRIVATE_FILE_QUARANTINE_BUCKET = OBJECT_STORAGE_QUARANTINE_BUCKET;
+export const PRIVATE_FILE_CLEAN_BUCKET = OBJECT_STORAGE_PRIVATE_BUCKET;
 
 const MAX_METADATA_BYTES = 8 * 1024;
 type QuerySql = Sql | TransactionSql;
@@ -152,7 +152,7 @@ export async function createQuarantinedPrivateFile(
   const accessRules = boundedJsonObject(input.accessRules);
   const metadata = boundedJsonObject(input.metadata);
   try {
-    await putMinioObject({
+    await putObject({
       bucket: PRIVATE_FILE_QUARANTINE_BUCKET,
       objectName: paths.quarantinePath,
       body: input.buffer,
@@ -205,9 +205,7 @@ export async function createQuarantinedPrivateFile(
       await input.link(sql, linkRecord);
     });
   } catch (error) {
-    await removeMinioObject(PRIVATE_FILE_QUARANTINE_BUCKET, paths.quarantinePath).catch(
-      () => undefined,
-    );
+    await removeObject(PRIVATE_FILE_QUARANTINE_BUCKET, paths.quarantinePath).catch(() => undefined);
     if (isUniqueViolation(error)) {
       const racedDuplicate = await findDuplicate({
         organizationId: input.organizationId,
@@ -307,7 +305,7 @@ export async function purgePrivateFileObjects(input: {
   let removed = true;
   for (const object of objects) {
     try {
-      await removeMinioObject(object.bucket, object.path);
+      await removeObject(object.bucket, object.path);
     } catch {
       removed = false;
     }

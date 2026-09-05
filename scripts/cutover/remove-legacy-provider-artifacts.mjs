@@ -21,7 +21,7 @@ try {
 const removable = [
   "supabase",
   "src/integrations/supabase",
-  "scripts/storage/migrate-supabase-storage-to-minio.mjs",
+  "scripts/storage/migrate-supabase-storage-to-object-storage.mjs",
   "scripts/database/generate-types.mjs",
   "database/tests/notification_realtime.test.sql",
   "src/modules/security/mfa-qr-code.ts",

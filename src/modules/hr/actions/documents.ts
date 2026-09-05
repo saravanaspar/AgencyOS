@@ -154,7 +154,7 @@ export async function generateHrEmployeeDocumentAction(
       expiryDate: values.expiryDate,
       templateSource: template.source,
       builtinTemplateKey: template.source === "builtin" ? template.key : null,
-      customTemplateId: template.source === "minio" ? template.id : null,
+      customTemplateId: template.source === "object_storage" ? template.id : null,
       templateName: template.name,
       templateVersion: template.version,
       templateSha256: template.sha256,
@@ -212,7 +212,7 @@ export async function setDefaultHrDocumentTemplateAction(
         ) values (
           ${context.membership.organizationId}::uuid, ${values.documentType}, ${template.source},
           ${template.source === "builtin" ? template.key : null},
-          ${template.source === "minio" ? template.id : null}::uuid,
+          ${template.source === "object_storage" ? template.id : null}::uuid,
           ${context.membership.id}::uuid
         )
         on conflict (organization_id, document_type) do update

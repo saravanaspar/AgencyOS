@@ -77,11 +77,11 @@ export async function runRestoreDrillVerification(options, root = process.cwd())
 
   const fixedChecks = [
     {
-      name: "minio-restored-storage",
+      name: "restored-object-storage",
       command: process.execPath,
-      args: ["scripts/storage/check-minio.mjs"],
+      args: ["scripts/storage/check-object-storage.mjs"],
       timeoutMs: 120_000,
-      summary: "Restored MinIO credentials, bucket policy, and object-storage access are healthy.",
+      summary: "Restored object-storage credentials and read/write access are healthy.",
     },
     {
       name: "malware-scanner-connectivity",
@@ -128,7 +128,7 @@ export async function runRestoreDrillVerification(options, root = process.cwd())
     expectedMigration: deployment.expectedMigration,
     localMigrationCount: deployment.localMigrationCount,
     checks,
-    note: "This verifies an already-restored isolated environment. Preserve separate provider evidence that PostgreSQL, MinIO, configuration, DNS/TLS, and secret-manager data were restored from the named backup set.",
+    note: "This verifies an already-restored isolated environment. Preserve separate provider evidence that PostgreSQL, object storage, configuration, DNS/TLS, and secret-manager data were restored from the named backup set.",
   };
   return { ...evidence, manifestSha256: sha256Json(evidence) };
 }

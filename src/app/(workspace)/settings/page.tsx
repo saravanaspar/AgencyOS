@@ -3,6 +3,7 @@ import {
   Building2,
   KeyRound,
   Network,
+  PlugZap,
   ScrollText,
   ShieldCheck,
   UsersRound,
@@ -20,6 +21,7 @@ import { authorizeCurrentUser } from "@/modules/permissions/server/authorization
 import { permissionViewerPermissionKeys } from "@/modules/permissions/server/permission-viewer";
 import { roleEditorPermissionKeys } from "@/modules/permissions/server/role-editor";
 import { securityPermissionKeys } from "@/modules/security/security";
+import { integrationSettingsPermissionKeys } from "@/modules/integrations/integration-settings";
 
 export const metadata = { title: "Settings" };
 
@@ -35,6 +37,7 @@ export default async function SettingsPage() {
   const canViewRoles = permissions.has(roleEditorPermissionKeys.view);
   const canViewOrganization = permissions.has(organizationProfilePermissionKeys.view);
   const canViewSecurity = permissions.has(securityPermissionKeys.view);
+  const canViewIntegrations = permissions.has(integrationSettingsPermissionKeys.view);
   const canViewStructure =
     permissions.has(organizationStructurePermissionKeys.departmentView) ||
     permissions.has(organizationStructurePermissionKeys.teamView);
@@ -82,6 +85,13 @@ export default async function SettingsPage() {
       href: canViewStructure ? "/settings/structure" : undefined,
       icon: Network,
       status: canViewStructure ? "Available" : "Restricted",
+    },
+    {
+      title: "Integrations",
+      description: "Configure AI, browser push, and Vaultwarden after deployment.",
+      href: canViewIntegrations ? "/settings/integrations" : undefined,
+      icon: PlugZap,
+      status: canViewIntegrations ? "Available" : "Restricted",
     },
     {
       title: "Security controls",

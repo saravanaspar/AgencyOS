@@ -49,11 +49,11 @@ describe("finance expense contracts", () => {
     expect(actions).toContain("updateExpensePaymentStateAction");
   });
 
-  it("reuses private-file quarantine and MinIO integrity checks for receipts", () => {
+  it("reuses private-file quarantine and object-storage integrity checks for receipts", () => {
     expect(migration).toContain("private_file_id uuid not null references public.private_files");
     expect(receiptUpload).toContain("createQuarantinedPrivateFile");
     expect(receiptUpload).toContain('moduleKey: "finance"');
-    expect(receiptRoute).toContain("readMinioObject");
+    expect(receiptRoute).toContain("readObject");
     expect(receiptRoute).toContain('createHash("sha256")');
     expect(receiptRoute).toContain("softDeletePrivateFile");
     expect(receiptRoute).toContain("purgePrivateFileObjects");

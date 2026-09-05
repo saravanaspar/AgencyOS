@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { readMinioObject } from "@/integrations/minio/object-storage";
+import { readObject } from "@/integrations/object-storage/client";
 import { getDatabaseClient } from "@/integrations/postgres/database";
 import { writeAuditEvent } from "@/modules/audit/server/write-audit-event";
 import { documentPermissionKeys } from "@/modules/documents/documents";
@@ -95,7 +95,7 @@ export async function GET(request: Request, routeContext: RouteContext) {
       return jsonError("This file is still awaiting security scanning.", 409);
     }
     const expectedSize = Number(row.size_bytes);
-    const bytes = await readMinioObject(row.storage_bucket, row.storage_path, {
+    const bytes = await readObject(row.storage_bucket, row.storage_path, {
       maxBytes: expectedSize + 1,
     });
     if (bytes.length !== expectedSize) throw new Error("document-size-mismatch");

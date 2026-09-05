@@ -138,6 +138,11 @@
       "testSection": "F02-AUDIT"
     },
     {
+      "route": "/settings/integrations",
+      "feature": "Integration settings",
+      "testSection": "Feature 35"
+    },
+    {
       "route": "/settings/permissions",
       "feature": "Effective permissions",
       "testSection": "F03-AUTHZ"

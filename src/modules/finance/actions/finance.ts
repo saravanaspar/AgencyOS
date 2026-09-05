@@ -1935,6 +1935,7 @@ export async function sendFinanceDocumentAction(
       parsed.data.entityId,
     );
     const result = await deliverFinanceDocumentEmail({
+      organizationId: context.membership.organizationId,
       deliveryId: delivery.id,
       recipientEmail: parsed.data.recipientEmail,
       subject: parsed.data.subject,

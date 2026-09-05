@@ -3,32 +3,22 @@
 # Route the AgencyOS domain to gateway:8080 and the vault domain to vaultwarden:8080.
 
 x-object-storage-environment: &object-storage-environment
-  AGENCYOS_INFRA_MODE: cloud
-  OBJECT_STORAGE_PROVIDER: b2
-  OBJECT_STORAGE_ENDPOINT: ${OBJECT_STORAGE_ENDPOINT:?Set the mutable runtime B2 S3 HTTPS endpoint}
-  OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:?Set the runtime B2 region}
-  OBJECT_STORAGE_QUARANTINE_BUCKET: ${OBJECT_STORAGE_QUARANTINE_BUCKET:?Set the runtime bucket}
-  OBJECT_STORAGE_QUARANTINE_PREFIX: ${OBJECT_STORAGE_QUARANTINE_PREFIX:-private-file-quarantine}
-  OBJECT_STORAGE_PRIVATE_FILES_BUCKET: ${OBJECT_STORAGE_PRIVATE_FILES_BUCKET:?Set the runtime bucket}
-  OBJECT_STORAGE_PRIVATE_FILES_PREFIX: ${OBJECT_STORAGE_PRIVATE_FILES_PREFIX:-private-files}
-  OBJECT_STORAGE_PROJECT_ATTACHMENTS_BUCKET: ${OBJECT_STORAGE_PROJECT_ATTACHMENTS_BUCKET:?Set the runtime bucket}
-  OBJECT_STORAGE_PROJECT_ATTACHMENTS_PREFIX: ${OBJECT_STORAGE_PROJECT_ATTACHMENTS_PREFIX:-project-attachments}
-  OBJECT_STORAGE_DOCUMENT_TEMPLATES_BUCKET: ${OBJECT_STORAGE_DOCUMENT_TEMPLATES_BUCKET:?Set the runtime bucket}
-  OBJECT_STORAGE_DOCUMENT_TEMPLATES_PREFIX: ${OBJECT_STORAGE_DOCUMENT_TEMPLATES_PREFIX:-document-templates}
+  OBJECT_STORAGE_ENDPOINT: ${OBJECT_STORAGE_ENDPOINT:?Set the S3-compatible runtime endpoint}
+  OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:?Set the runtime object-storage region}
+  OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:?Set the mutable runtime bucket}
 
 x-app-environment: &app-environment
   <<: *object-storage-environment
   NODE_ENV: production
   APP_URL: ${APP_URL:?Set the public AgencyOS HTTPS URL}
-  NEXT_PUBLIC_APP_URL: ${APP_URL:?Set the public AgencyOS HTTPS URL}
   DATABASE_URL: ${DATABASE_URL:?Set the pooled TLS AgencyOS PostgreSQL URL}
   DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-8}
   REDIS_URL: ${REDIS_URL:?Set the authenticated native rediss URL}
-  OBJECT_STORAGE_ACCESS_KEY_ID: ${OBJECT_STORAGE_ACCESS_KEY_ID:?Set the runtime B2 key ID}
-  OBJECT_STORAGE_SECRET_ACCESS_KEY: ${OBJECT_STORAGE_SECRET_ACCESS_KEY:?Set the runtime B2 application key}
+  OBJECT_STORAGE_ACCESS_KEY_ID: ${OBJECT_STORAGE_ACCESS_KEY_ID:?Set the runtime object-storage key ID}
+  OBJECT_STORAGE_SECRET_ACCESS_KEY: ${OBJECT_STORAGE_SECRET_ACCESS_KEY:?Set the runtime object-storage secret}
   PRIVATE_FILE_SCANNER_URL: clamav://clamav:3310
   REDIS_REQUIRED: "1"
-  MINIO_REQUIRED: "1"
+  OBJECT_STORAGE_REQUIRED: "1"
   PRIVATE_FILE_SCANNER_REQUIRED: "1"
   AGENCYOS_TRUST_PRIVATE_SERVICE_NETWORK: "1"
   INTERNAL_WORKER_SECRET: ${INTERNAL_WORKER_SECRET:?Set a 32+ character worker secret}
@@ -36,30 +26,12 @@ x-app-environment: &app-environment
   CRM_CONNECTOR_ENCRYPTION_KEY: ${CRM_CONNECTOR_ENCRYPTION_KEY:?Set a stable 32-byte encryption key}
   AUDIT_PIPELINE_ALERT_WEBHOOK_URL: ${AUDIT_PIPELINE_ALERT_WEBHOOK_URL:?Set the HTTPS audit alert webhook}
   AUDIT_PIPELINE_ALERT_WEBHOOK_SECRET: ${AUDIT_PIPELINE_ALERT_WEBHOOK_SECRET:?Set its 32+ character secret}
-  VAULTWARDEN_URL: ${VAULTWARDEN_URL:?Set the public Vaultwarden HTTPS URL}
   RESEND_API_KEY: ${RESEND_API_KEY:-}
-  NOTIFICATION_EMAIL_FROM: ${NOTIFICATION_EMAIL_FROM:-AgencyOS <notifications@example.com>}
+  NOTIFICATION_EMAIL_FROM: ${NOTIFICATION_EMAIL_FROM:-}
   NOTIFICATION_DELIVERY_ENCRYPTION_KEY: ${NOTIFICATION_DELIVERY_ENCRYPTION_KEY:-}
-  NOTIFICATION_VAPID_PUBLIC_KEY: ${NOTIFICATION_VAPID_PUBLIC_KEY:-}
-  NOTIFICATION_VAPID_PRIVATE_KEY: ${NOTIFICATION_VAPID_PRIVATE_KEY:-}
-  NOTIFICATION_VAPID_SUBJECT: ${NOTIFICATION_VAPID_SUBJECT:-}
   REPORT_DELIVERY_ENCRYPTION_KEY: ${REPORT_DELIVERY_ENCRYPTION_KEY:-}
   SECURITY_RATE_LIMIT_REDIS_FAILURE_MODE: deny
   SECURITY_WORKER_RATE_LIMIT_PER_MINUTE: ${SECURITY_WORKER_RATE_LIMIT_PER_MINUTE:-120}
-  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-  GEMINI_MODELS: ${GEMINI_MODELS:-gemini-3.5-flash,gemini-3.1-pro-preview}
-  DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
-  DEEPSEEK_API_URL: ${DEEPSEEK_API_URL:-https://api.deepseek.com}
-  DEEPSEEK_MODELS: ${DEEPSEEK_MODELS:-deepseek-v4-flash,deepseek-v4-pro}
-  HUBSPOT_OAUTH_CLIENT_ID: ${HUBSPOT_OAUTH_CLIENT_ID:-}
-  HUBSPOT_OAUTH_CLIENT_SECRET: ${HUBSPOT_OAUTH_CLIENT_SECRET:-}
-  SALESFORCE_OAUTH_CLIENT_ID: ${SALESFORCE_OAUTH_CLIENT_ID:-}
-  SALESFORCE_OAUTH_CLIENT_SECRET: ${SALESFORCE_OAUTH_CLIENT_SECRET:-}
-  SALESFORCE_OAUTH_LOGIN_URL: ${SALESFORCE_OAUTH_LOGIN_URL:-https://login.salesforce.com}
-  ZOHO_OAUTH_CLIENT_ID: ${ZOHO_OAUTH_CLIENT_ID:-}
-  ZOHO_OAUTH_CLIENT_SECRET: ${ZOHO_OAUTH_CLIENT_SECRET:-}
-  PIPEDRIVE_OAUTH_CLIENT_ID: ${PIPEDRIVE_OAUTH_CLIENT_ID:-}
-  PIPEDRIVE_OAUTH_CLIENT_SECRET: ${PIPEDRIVE_OAUTH_CLIENT_SECRET:-}
 
 x-app-service: &app-service
   image: ${AGENCYOS_IMAGE:?Set an immutable application digest (name@sha256:...)}
@@ -138,9 +110,9 @@ services:
     cpus: 1.0
     stop_grace_period: 45s
 
-  cloud-preflight:
+  dependency-preflight:
     <<: *operations-service
-    command: ["node", "scripts/operations/validate-cloud-production.mjs"]
+    command: ["node", "scripts/operations/validate-production-dependencies.mjs"]
     restart: "no"
     environment:
       <<: *object-storage-environment
@@ -150,8 +122,8 @@ services:
       VAULTWARDEN_DATABASE_URL: ${VAULTWARDEN_DATABASE_URL:?Set the Vaultwarden PostgreSQL URL}
       VAULTWARDEN_DATABASE_ADMIN_URL: ${VAULTWARDEN_DATABASE_ADMIN_URL:?Set its direct dump URL}
       REDIS_URL: ${REDIS_URL:?Set the authenticated native rediss URL}
-      OBJECT_STORAGE_ACCESS_KEY_ID: ${OBJECT_STORAGE_ACCESS_KEY_ID:?Set the runtime B2 key ID}
-      OBJECT_STORAGE_SECRET_ACCESS_KEY: ${OBJECT_STORAGE_SECRET_ACCESS_KEY:?Set the runtime B2 application key}
+      OBJECT_STORAGE_ACCESS_KEY_ID: ${OBJECT_STORAGE_ACCESS_KEY_ID:?Set the runtime object-storage key ID}
+      OBJECT_STORAGE_SECRET_ACCESS_KEY: ${OBJECT_STORAGE_SECRET_ACCESS_KEY:?Set the runtime object-storage secret}
       OBJECT_STORAGE_BACKUP_ACCESS_KEY_ID: ${OBJECT_STORAGE_BACKUP_ACCESS_KEY_ID:?Set the source-read key ID}
       B2_ENDPOINT: ${B2_ENDPOINT:?Set the immutable backup endpoint}
       B2_BUCKET: ${B2_BUCKET:?Set the separate immutable backup bucket}
@@ -181,7 +153,7 @@ services:
     expose:
       - "8080"
     depends_on:
-      cloud-preflight:
+      dependency-preflight:
         condition: service_completed_successfully
     networks:
       - private
@@ -211,7 +183,7 @@ services:
       - backup-stage:/stage
       - vaultwarden-data:/vaultwarden-data:ro
     depends_on:
-      cloud-preflight:
+      dependency-preflight:
         condition: service_completed_successfully
       vaultwarden:
         condition: service_healthy
@@ -224,7 +196,6 @@ services:
     restart: "no"
     environment:
       NODE_ENV: production
-      AGENCYOS_INFRA_MODE: cloud
       DATABASE_URL: ${DATABASE_URL:?Set the pooled TLS AgencyOS PostgreSQL URL}
       DATABASE_ADMIN_URL: ${DATABASE_ADMIN_URL:?Set the direct TLS AgencyOS PostgreSQL URL}
       AGENCYOS_RELEASE_ID: ${AGENCYOS_RELEASE_ID:-manual-first-deploy}
@@ -347,7 +318,6 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      AGENCYOS_INFRA_MODE: cloud
       B2_ENDPOINT: ${B2_ENDPOINT:?Set the immutable backup endpoint}
       B2_BUCKET: ${B2_BUCKET:?Set the immutable backup bucket}
       B2_PREFIX: ${B2_PREFIX:-agencyos/restic}

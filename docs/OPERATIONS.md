@@ -24,11 +24,11 @@ owned by the deployment user; do not run AgencyOS containers as root merely to a
 subordinate UID/GID ranges.
 
 The Podman manifests give each persistent volume an engine-stable name configured by
-`AGENCYOS_POSTGRES_VOLUME`, `AGENCYOS_REDIS_VOLUME`, `AGENCYOS_MINIO_VOLUME`, and
+`AGENCYOS_POSTGRES_VOLUME`, `AGENCYOS_REDIS_VOLUME`, `AGENCYOS_OBJECT_STORAGE_VOLUME`, and
 `AGENCYOS_CLAMAV_VOLUME`. Changing one of these values intentionally selects a different data
 directory. Keep these values stable after the first successful startup.
 
-Configure `APP_URL`, `DATABASE_URL`, `DATABASE_ADMIN_URL`, `INTERNAL_WORKER_SECRET`, `AUTH_ENCRYPTION_KEY`, `CRM_CONNECTOR_ENCRYPTION_KEY`, MinIO, and any integrations you enable. `DATABASE_POOL_MAX` defaults to 10. Production startup validates required secrets, TLS requirements, the independent audit-pipeline alert webhook, dependency policy, and paired CRM OAuth credentials before accepting traffic.
+Configure `APP_URL`, `DATABASE_URL`, `DATABASE_ADMIN_URL`, `REDIS_URL`, `INTERNAL_WORKER_SECRET`, `AUTH_ENCRYPTION_KEY`, `CRM_CONNECTOR_ENCRYPTION_KEY`, and the selected object-storage connection. Optional organization integrations are configured after sign-in under **Settings → Integrations**. `DATABASE_POOL_MAX` defaults to 10. Production startup validates required secrets, TLS requirements, the independent audit-pipeline alert webhook, and dependency policy before accepting traffic.
 
 `AUTH_ENCRYPTION_KEY` and `CRM_CONNECTOR_ENCRYPTION_KEY` must each decode to exactly 32 bytes:
 
@@ -36,7 +36,7 @@ Configure `APP_URL`, `DATABASE_URL`, `DATABASE_ADMIN_URL`, `INTERNAL_WORKER_SECR
 openssl rand -base64 32
 ```
 
-Do not rotate it casually: verified TOTP factors are encrypted with this key.
+Do not rotate either key casually: verified TOTP factors, CRM credentials, and application-managed provider settings depend on them.
 
 ## PostgreSQL
 
@@ -68,9 +68,9 @@ npm run db:logs
 
 For the one-time former-provider migration or later Neon/local/provider moves, follow [`POSTGRESQL_CUTOVER.md`](POSTGRESQL_CUTOVER.md).
 
-## MinIO object storage
+## S3-compatible object storage
 
-Runtime file bytes live only in private MinIO buckets.
+Runtime file bytes live only in one private bucket, separated into application-owned prefixes.
 
 ```bash
 npm run storage:start
@@ -78,7 +78,11 @@ npm run storage:setup
 npm run storage:check
 ```
 
-`storage:setup` idempotently creates the private `private-file-quarantine`, `private-files`, `project-attachments`, and `document-templates` buckets. Browser clients never receive MinIO credentials or unrestricted object URLs.
+`storage:setup` idempotently creates the configured bucket and is intended only for the bundled
+self-hosted service. With hosted storage, create the bucket in the provider console and run only
+`storage:check`. The application maps `private-file-quarantine`, `private-files`,
+`project-attachments`, and `document-templates` to non-overlapping prefixes. Browser clients never
+receive object-storage credentials or unrestricted object URLs.
 
 ## Private-file scanning
 
@@ -188,15 +192,9 @@ Use a high-entropy production secret and rotate it through the deployment secret
 
 ## AI providers
 
-Configure at least one enabled provider:
-
-```env
-GEMINI_API_KEY=
-GEMINI_MODELS=gemini-3.5-flash,gemini-3.1-pro-preview
-DEEPSEEK_API_KEY=
-DEEPSEEK_API_URL=https://api.deepseek.com
-DEEPSEEK_MODELS=deepseek-v4-flash,deepseek-v4-pro
-```
+Configure provider keys and allowed model names after sign-in under **Settings → Integrations**.
+Provider keys, endpoints, and model allowlists are application-managed and are not read from the
+runtime environment.
 
 Model tools remain permission-filtered and reauthorized per call. AI is additionally fail-closed at the organization boundary: external provider egress is disabled until an operator explicitly enables an organization policy. Configure it with `npm run ai:policy -- --organization <slug> --providers gemini --modules crm,projects --enable-egress`; add `--allow-mutations` only when ordinary non-read tool execution is intended. Sensitive/destructive tools still require their existing bound approval. Provider execution evidence stores metadata only, never prompts, tool payloads, credentials, or model output.
 
@@ -246,7 +244,7 @@ The production Compose defaults cap each app/worker container at 2 GiB memory, 2
 
 ## Backup and recovery
 
-Back up PostgreSQL, MinIO, and deployment configuration independently. Keep secrets in a separate secret manager/backup path.
+Back up PostgreSQL, object storage, and deployment configuration independently. Keep secrets in a separate secret manager/backup path.
 
 Recommended PostgreSQL backup:
 
@@ -254,9 +252,11 @@ Recommended PostgreSQL backup:
 pg_dump --format=custom --no-owner --file agencyos.dump "$DATABASE_ADMIN_URL"
 ```
 
-For hosted providers, combine provider snapshots with portable `pg_dump` evidence. Mirror all MinIO buckets to encrypted, access-controlled off-host storage and record checksums.
+For hosted providers, combine provider snapshots with portable `pg_dump` evidence. Mirror every
+runtime object-storage prefix to encrypted, access-controlled off-host storage and record checksums.
 
-Restore into an isolated environment with outbound email/integrations disabled. Restore PostgreSQL and MinIO, restore configuration/secrets, then run:
+Restore into an isolated environment with outbound email/integrations disabled. Restore PostgreSQL
+and object storage, restore configuration/secrets, then run:
 
 ```bash
 npm run db:migrate
@@ -279,7 +279,12 @@ npm run security:restore-drill:verify -- \
   --output restore-drill-verification-summary.json
 ```
 
-The verifier reuses deployment migration/provider/pgTAP/HTTP security checks and adds MinIO, scanner, and one-cycle worker checks. It refuses `NODE_ENV=production` and writes a private hashed evidence manifest. The manifest verifies the **restored target**; it is not proof that infrastructure providers restored each backup component. Preserve PostgreSQL, MinIO, configuration, DNS/TLS, and secret-manager restore evidence separately and attach its references/hashes when recording the immutable Security restore-drill record.
+The verifier reuses deployment migration/provider/pgTAP/HTTP security checks and adds object-storage,
+scanner, and one-cycle worker checks. It refuses `NODE_ENV=production` and writes a private hashed
+evidence manifest. The manifest verifies the **restored target**; it is not proof that infrastructure
+providers restored each backup component. Preserve PostgreSQL, object-storage, configuration,
+DNS/TLS, and secret-manager restore evidence separately and attach its references/hashes when
+recording the immutable Security restore-drill record.
 
 Only reconnect outbound integrations after application, authorization, file, worker, and reporting smoke tests pass.
 

@@ -669,8 +669,8 @@ function VaultwardenSection({ data }: { data: AutomationWorkspaceData }) {
         <p className="automation-warning">
           <LockKeyhole size={15} aria-hidden="true" />
           <span>
-            Set <code>VAULTWARDEN_URL</code> to enable Open Vaultwarden buttons. References can
-            still be recorded.
+            Configure Vaultwarden under Settings → Integrations to enable Open Vaultwarden buttons.
+            References can still be recorded.
           </span>
         </p>
       ) : null}

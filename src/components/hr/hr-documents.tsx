@@ -200,7 +200,7 @@ function TemplateUploadForm() {
   return (
     <details className="hr-create-panel">
       <summary>
-        <FileUp size={16} aria-hidden="true" /> Upload MinIO HTML template
+        <FileUp size={16} aria-hidden="true" /> Upload HTML template
       </summary>
       <form className="hr-document-template-upload" onSubmit={upload}>
         <label className="field">
@@ -226,7 +226,8 @@ function TemplateUploadForm() {
           <input name="file" type="file" accept="text/html,.html,.htm" required />
           <small>
             Maximum 512 KB. Scripts, forms, iframes, external URLs, active attributes, and CSS URL
-            loading are rejected. Templates stay private in MinIO and are never served as web pages.
+            loading are rejected. Templates stay private in object storage and are never served as
+            web pages.
           </small>
         </label>
         <Button type="submit" variant="secondary" disabled={pending}>
@@ -276,7 +277,7 @@ function TemplateCard({ template }: { template: HrDocumentTemplateOption }) {
             </Button>
           </form>
         ) : null}
-        {template.source === "minio" ? (
+        {template.source === "object_storage" ? (
           <form action={statusAction}>
             <input type="hidden" name="templateId" value={template.id ?? ""} />
             <input
@@ -366,7 +367,7 @@ function DocumentCard({ document }: { document: HrEmployeeDocumentSummary }) {
 
 export function HrDocuments({ data }: { data: HrWorkspaceData }) {
   const customTemplates = useMemo(
-    () => data.documents.templates.filter((template) => template.source === "minio"),
+    () => data.documents.templates.filter((template) => template.source === "object_storage"),
     [data.documents.templates],
   );
   if (
@@ -383,7 +384,7 @@ export function HrDocuments({ data }: { data: HrWorkspaceData }) {
           <h2>Private HR documents</h2>
           <p>
             Generate immutable employee PDFs from swappable templates. Built-in drafts work now;
-            later template versions can be selected from the private MinIO catalogue without
+            later template versions can be selected from the private template catalogue without
             changing document access or storage rules.
           </p>
         </div>
@@ -411,7 +412,7 @@ export function HrDocuments({ data }: { data: HrWorkspaceData }) {
             ))}
           </div>
           {customTemplates.length === 0 ? (
-            <p className="empty-state">No custom MinIO templates have been uploaded yet.</p>
+            <p className="empty-state">No custom templates have been uploaded yet.</p>
           ) : null}
         </div>
       ) : null}

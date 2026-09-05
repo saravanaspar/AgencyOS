@@ -3,10 +3,10 @@ import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 
 import {
-  MINIO_DOCUMENT_TEMPLATE_BUCKET,
-  putMinioObject,
-  removeMinioObject,
-} from "@/integrations/minio/object-storage";
+  OBJECT_STORAGE_DOCUMENT_TEMPLATE_BUCKET,
+  putObject,
+  removeObject,
+} from "@/integrations/object-storage/client";
 import { getDatabaseClient } from "@/integrations/postgres/database";
 import { toJsonValue } from "@/lib/server/json-value";
 import { writeAuditEvent } from "@/modules/audit/server/write-audit-event";
@@ -65,8 +65,8 @@ export async function storeHrDocumentTemplate(input: {
   const safeName = safeTemplateFileName(input.fileName).replace(/\.html?$/i, "") || "template";
   const storagePath = `${organizationId}/${templateId}/${randomUUID()}-${safeName}.html`;
 
-  await putMinioObject({
-    bucket: MINIO_DOCUMENT_TEMPLATE_BUCKET,
+  await putObject({
+    bucket: OBJECT_STORAGE_DOCUMENT_TEMPLATE_BUCKET,
     objectName: storagePath,
     body: normalizedBuffer,
     contentType: "text/html; charset=utf-8",
@@ -91,7 +91,7 @@ export async function storeHrDocumentTemplate(input: {
           placeholder_keys, created_by_membership_id
         ) values (
           ${templateId}::uuid, ${organizationId}::uuid, ${input.documentType}, ${input.name},
-          ${input.description}, ${version}, ${MINIO_DOCUMENT_TEMPLATE_BUCKET}, ${storagePath},
+          ${input.description}, ${version}, ${OBJECT_STORAGE_DOCUMENT_TEMPLATE_BUCKET}, ${storagePath},
           ${sha256}, ${normalizedBuffer.length}, ${safeTemplateFileName(input.fileName)},
           ${sql.json(toJsonValue(normalized.placeholders))}, ${input.context.membership.id}::uuid
         )
@@ -112,12 +112,12 @@ export async function storeHrDocumentTemplate(input: {
         id: templateId,
         version,
         sha256,
-        storageBucket: MINIO_DOCUMENT_TEMPLATE_BUCKET,
+        storageBucket: OBJECT_STORAGE_DOCUMENT_TEMPLATE_BUCKET,
         storagePath,
       };
     });
   } catch (error) {
-    await removeMinioObject(MINIO_DOCUMENT_TEMPLATE_BUCKET, storagePath).catch(() => undefined);
+    await removeObject(OBJECT_STORAGE_DOCUMENT_TEMPLATE_BUCKET, storagePath).catch(() => undefined);
     if (isUniqueViolation(error)) throw new Error("hr-document-template-version-conflict");
     throw error;
   }
