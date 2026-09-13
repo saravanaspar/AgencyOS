@@ -14,8 +14,9 @@ export const metadata: Metadata = {
   },
   description: "A unified operating system for agency work.",
   icons: {
-    icon: "/favicon.ico",
-    shortcut: "/favicon.ico",
+    icon: [{ url: "/agencyos-mark-transparent.png", type: "image/png" }],
+    shortcut: "/agencyos-mark-transparent.png",
+    apple: "/agencyos-mark-transparent.png",
   },
 };
 

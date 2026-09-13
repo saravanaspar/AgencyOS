@@ -85,20 +85,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   border-bottom: 1px solid var(--border);
   overflow: hidden;
 }
-.brand-mark {
-  width: 32px;
-  height: 32px;
-  flex: 0 0 32px;
-  display: inline-grid;
-  place-items: center;
-  border-radius: var(--radius-md);
-  background: var(--cobalt-700);
-  color: white;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-.brand-mark--inverse { background: white; color: var(--cobalt-900); }
+.brand-logo { display: block; object-fit: contain; }
+.brand-logo--wordmark { width: 156px; height: auto; }
+.brand-logo--mark { width: 32px; height: 32px; }
+.brand-logo--inverse { filter: brightness(0) invert(1); }
+.sidebar__brand-mark { flex: 0 0 32px; }
 .brand-name { font-size: 16px; font-weight: 650; letter-spacing: -0.015em; white-space: nowrap; }
 .sidebar__mobile-close { display: none; margin-left: auto; }
 .sidebar__nav {
@@ -423,12 +414,14 @@ kbd {
 .error-state h1 { margin: 0; font-size: 20px; }
 .error-state p { max-width: 68ch; color: oklch(0.32 0.06 25); }
 .standalone-state { min-height: 100vh; padding: 32px; display: grid; place-content: center; justify-items: start; background: var(--surface); }
-.standalone-state__code { margin: 28px 0 4px; color: var(--cobalt-700); font-size: 12px; font-weight: 700; }
+.standalone-state__brand { width: 164px; margin-bottom: 24px; }
+.standalone-state__code { margin: 4px 0; color: var(--cobalt-700); font-size: 12px; font-weight: 700; }
 .standalone-state h1 { margin: 0; font-size: 30px; letter-spacing: -0.025em; }
 .standalone-state p:not(.standalone-state__code) { max-width: 54ch; margin: 10px 0 22px; color: var(--muted); }
 .login-page { min-height: 100vh; display: grid; grid-template-columns: minmax(360px, 0.85fr) minmax(420px, 1.15fr); background: white; }
 .login-context { min-height: 100vh; padding: 36px clamp(32px, 5vw, 76px); display: flex; flex-direction: column; justify-content: space-between; background: var(--cobalt-900); color: white; }
-.login-context__brand { display: flex; align-items: center; gap: 10px; font-size: 16px; }
+.login-context__brand { min-height: 44px; display: flex; align-items: center; }
+.login-context__brand .brand-logo { width: 184px; }
 .login-context__copy { max-width: 520px; }
 .login-context__icon { width: 44px; height: 44px; display: grid; place-items: center; border-radius: var(--radius-lg); background: oklch(1 0 0 / 0.12); }
 .login-context h1 { max-width: 12ch; margin: 20px 0 14px; font-size: clamp(36px, 5vw, 62px); line-height: 1.02; letter-spacing: -0.035em; text-wrap: balance; }

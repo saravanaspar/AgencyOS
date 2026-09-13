@@ -2,9 +2,13 @@ node_modules
 .next
 out
 coverage
+
+# Environment files (keep committed example templates only).
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!.env.*.example
+
 *.log
 .DS_Store
 
@@ -12,7 +16,10 @@ coverage
 .agents/
 .impeccable/
 makeowner.txt
-tsconfig.tsbuildinfo
+*.tsbuildinfo
+
+# Locally generated source archive.
+agencyos-source.zip
 
 # Generated operator evidence.
 deployment-verification-summary.json

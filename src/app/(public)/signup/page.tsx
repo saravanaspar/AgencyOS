@@ -1,6 +1,7 @@
 import { CheckCircle2, UserPlus } from "lucide-react";
 
 import { SignUpForm } from "@/components/auth/signup-form";
+import { BrandLogo } from "@/components/brand/brand-logo";
 
 export const metadata = { title: "Request access" };
 
@@ -9,8 +10,7 @@ export default function SignUpPage() {
     <main className="login-page">
       <section className="login-context">
         <div className="login-context__brand">
-          <span className="brand-mark brand-mark--inverse">AO</span>
-          <strong>AgencyOS</strong>
+          <BrandLogo inverse priority />
         </div>
         <div className="login-context__copy">
           <span className="login-context__icon">

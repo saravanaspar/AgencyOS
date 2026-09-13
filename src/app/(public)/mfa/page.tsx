@@ -1,6 +1,7 @@
 import { CheckCircle2, ShieldCheck } from "lucide-react";
 import { redirect } from "next/navigation";
 
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { MfaChallenge } from "@/components/security/mfa-challenge";
 import { getCurrentIdentitySession } from "@/modules/identity/server/auth-session";
 import { getSafeNextPath } from "@/modules/identity/schemas/auth";
@@ -32,8 +33,7 @@ export default async function MfaPage({ searchParams }: MfaPageProps) {
     <main className="login-page">
       <section className="login-context">
         <div className="login-context__brand">
-          <span className="brand-mark brand-mark--inverse">AO</span>
-          <strong>AgencyOS</strong>
+          <BrandLogo inverse priority />
         </div>
         <div className="login-context__copy">
           <span className="login-context__icon">

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useFormStatus } from "react-dom";
 
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { NotificationRealtimeRefresh } from "@/components/notifications/notification-realtime-refresh";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { cn } from "@/lib/cn";
@@ -161,9 +162,7 @@ export function WorkspaceShell({
         aria-label="Primary navigation"
       >
         <div className="sidebar__brand">
-          <span className="brand-mark" aria-hidden="true">
-            AO
-          </span>
+          <BrandLogo className="sidebar__brand-mark" variant="mark" decorative priority />
           <span className="brand-name">AgencyOS</span>
           <button
             className="icon-button sidebar__mobile-close"

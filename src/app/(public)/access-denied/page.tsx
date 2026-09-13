@@ -1,6 +1,7 @@
 import { ShieldAlert } from "lucide-react";
 import Link from "next/link";
 
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { signOutAction } from "@/modules/identity/actions/auth";
 import type { AccessDenialReason } from "@/modules/identity/server/get-current-access-context";
 
@@ -74,6 +75,7 @@ export default async function AccessDeniedPage({ searchParams }: AccessDeniedPag
 
   return (
     <main className="standalone-state">
+      <BrandLogo className="standalone-state__brand" priority />
       <span className="error-state__icon">
         <ShieldAlert size={22} aria-hidden="true" />
       </span>

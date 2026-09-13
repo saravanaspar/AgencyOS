@@ -2,6 +2,7 @@ import { Clock3 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { signOutAction } from "@/modules/identity/actions/auth";
 import { getCurrentAccessContext } from "@/modules/identity/server/get-current-access-context";
 
@@ -28,6 +29,7 @@ export default async function PendingAccessPage() {
 
   return (
     <main className="standalone-state">
+      <BrandLogo className="standalone-state__brand" priority />
       <span className="error-state__icon">
         <Clock3 size={22} aria-hidden="true" />
       </span>

@@ -2,6 +2,7 @@ import { KeyRound, ShieldCheck } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { ResetPasswordForm } from "@/components/auth/reset-password-form";
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { validateIdentityVerificationToken } from "@/modules/identity/server/verification-token";
 
 export const metadata = { title: "Choose a new password" };
@@ -21,8 +22,7 @@ export default async function ResetPasswordPage({ searchParams }: ResetPasswordP
     <main className="login-page">
       <section className="login-context">
         <div className="login-context__brand">
-          <span className="brand-mark brand-mark--inverse">AO</span>
-          <strong>AgencyOS</strong>
+          <BrandLogo inverse priority />
         </div>
         <div className="login-context__copy">
           <span className="login-context__icon">

@@ -1,6 +1,7 @@
 import { CheckCircle2, LockKeyhole } from "lucide-react";
 
 import { LoginForm } from "@/components/auth/login-form";
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { getSafeNextPath } from "@/modules/identity/schemas/auth";
 
 export const metadata = { title: "Sign in" };
@@ -34,8 +35,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     <main className="login-page">
       <section className="login-context">
         <div className="login-context__brand">
-          <span className="brand-mark brand-mark--inverse">AO</span>
-          <strong>AgencyOS</strong>
+          <BrandLogo inverse priority />
         </div>
         <div className="login-context__copy">
           <span className="login-context__icon">
