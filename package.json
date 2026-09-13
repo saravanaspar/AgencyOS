@@ -81,7 +81,7 @@
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.2.8",
-    "@sparticuz/chromium": "^147.0.0",
+    "@sparticuz/chromium": "^152.0.0",
     "cheerio": "^1.2.0",
     "clsx": "^2.1.1",
     "lucide-react": "^1.24.0",
