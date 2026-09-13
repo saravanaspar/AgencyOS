@@ -1,5 +1,14 @@
 # Backups and recovery
 
+The application runtime may store files in self-hosted S3 storage, Backblaze B2, Cloudflare R2, or
+another compatible provider. The packaged immutable backup pipeline intentionally uses a separate
+Backblaze B2 Object-Lock bucket. It may live with the same storage provider as runtime files, but it
+must use a different bucket and different credentials; a separate provider account or provider gives
+stronger failure-domain isolation.
+
+Do not place backup objects in the mutable runtime bucket. A compromised runtime credential should
+not be able to delete, overwrite, or shorten retention on recovery data.
+
 ## Final backup design
 
 Restic 0.18.1 creates encrypted, deduplicated snapshots in the persistent `restic-repository`

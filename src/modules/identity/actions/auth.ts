@@ -138,6 +138,16 @@ export async function signUpAction(
     };
   }
 
+  const request = await getRequestSecurityContext();
+  if (
+    !(await authenticationRateLimitAllows({ kind: "sign-up", email: result.data.email, request }))
+  ) {
+    return {
+      status: "error",
+      message: "Too many account requests. Wait before trying again.",
+    };
+  }
+
   try {
     const identity = await createLocalIdentity({
       email: result.data.email,

@@ -44,11 +44,23 @@ describe("AI and MCP production contracts", () => {
     expect(security).toContain('SECURITY_RATE_LIMIT_REDIS_FAILURE_MODE === "allow"');
   });
 
-  it("provides liveness and dependency-aware readiness endpoints", () => {
-    expect(source("src/app/api/health/live/route.ts")).toContain('status: "ok"');
+  it("provides minimal public health responses while keeping dependency checks internal", () => {
+    const live = source("src/app/api/health/live/route.ts");
+    expect(live).toContain('status: "ok"');
+    expect(live).not.toContain("AGENCYOS_REVISION");
+    expect(live).not.toContain("timestamp");
     const ready = source("src/app/api/health/ready/route.ts");
     expect(ready).toContain("checkDatabase");
     expect(ready).toContain("checkRedis");
     expect(ready).toContain("status: ready ? 200 : 503");
+    expect(ready).toContain('{ status: ready ? "ready" : "not_ready" }');
+    expect(ready).toContain('structuredLog("warn", "health.readiness.failed"');
+    expect(ready).not.toContain("timestamp: new Date()");
+  });
+
+  it("does not return upstream AI exception messages to browsers", () => {
+    const route = source("src/app/api/ai/chat/route.ts");
+    expect(route).toContain('{ error: "AI request failed." }');
+    expect(route).not.toContain("error.message.slice");
   });
 });

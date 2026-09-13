@@ -1,7 +1,9 @@
 import "server-only";
 
-import { Client } from "minio";
-
+import {
+  createS3CompatibleClient,
+  type S3CompatibleClient,
+} from "@/integrations/object-storage/s3-client.mjs";
 import {
   AGENCYOS_OBJECT_STORAGE_BUCKETS,
   objectStorageConfiguration,
@@ -32,7 +34,7 @@ interface PutObjectInput {
   cacheControl?: string;
 }
 
-let cachedClient: Client | null = null;
+let cachedClient: S3CompatibleClient | null = null;
 let cachedClientKey = "";
 
 export function assertObjectStorageLocation(bucket: string, objectName: string): void {
@@ -51,20 +53,18 @@ export function assertObjectStorageLocation(bucket: string, objectName: string):
 
 function clientConfiguration(configuration: ObjectStorageConfiguration) {
   return {
-    endPoint: configuration.hostname,
-    port: configuration.port,
-    useSSL: configuration.useSSL,
+    endpoint: configuration.endpoint,
+    region: configuration.region,
     accessKey: configuration.accessKey,
     secretKey: configuration.secretKey,
-    region: configuration.region,
   };
 }
 
-export function getObjectStorageClient(): Client {
+export function getObjectStorageClient(): S3CompatibleClient {
   const configuration = clientConfiguration(objectStorageConfiguration());
   const key = JSON.stringify(configuration);
   if (cachedClient && cachedClientKey === key) return cachedClient;
-  cachedClient = new Client(configuration);
+  cachedClient = createS3CompatibleClient(configuration);
   cachedClientKey = key;
   return cachedClient;
 }
@@ -96,7 +96,7 @@ export async function putObject(input: PutObjectInput): Promise<void> {
 }
 
 async function readBoundedStream(
-  stream: Awaited<ReturnType<Client["getObject"]>>,
+  stream: Awaited<ReturnType<S3CompatibleClient["getObject"]>>,
   maxBytes: number,
 ): Promise<Buffer> {
   const chunks: Buffer[] = [];
@@ -105,7 +105,7 @@ async function readBoundedStream(
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
     size += buffer.length;
     if (size > maxBytes) {
-      if ("destroy" in stream && typeof stream.destroy === "function") stream.destroy();
+      stream.destroy();
       throw new Error("object-storage-object-too-large");
     }
     chunks.push(buffer);

@@ -1,20 +1,12 @@
 #!/usr/bin/env node
 import { fileURLToPath } from "node:url";
 
-import { Client } from "minio";
-
 import { objectStorageConfiguration } from "../../src/integrations/object-storage/config.mjs";
+import { createS3CompatibleClient } from "../../src/integrations/object-storage/s3-client.mjs";
 
 export async function setupObjectStorage(environment = process.env) {
   const configuration = objectStorageConfiguration(environment);
-  const client = new Client({
-    endPoint: configuration.hostname,
-    port: configuration.port,
-    useSSL: configuration.useSSL,
-    accessKey: configuration.accessKey,
-    secretKey: configuration.secretKey,
-    region: configuration.region,
-  });
+  const client = createS3CompatibleClient(configuration);
   const buckets = [...new Set(configuration.locations.map(({ bucket }) => bucket))];
   for (const bucket of buckets) {
     if (!(await client.bucketExists(bucket))) {

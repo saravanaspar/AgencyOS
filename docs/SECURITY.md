@@ -25,7 +25,7 @@ Passwords are stored only as bcrypt hashes. Session and verification tokens are 
 
 Unsafe authenticated requests require a valid same-origin `Origin`. Production responses use private/no-store caching where identity or authorization is involved. CSP, frame protection, MIME protection, referrer policy, permissions policy, secure cookies, and HSTS on HTTPS are verified during deployment checks. The bundled Nginx edge overwrites `X-Real-IP`, `X-Forwarded-For`, and forwarded scheme values instead of trusting client-supplied forwarding headers. If another load balancer/CDN sits in front of Nginx, configure Nginx `real_ip` with an explicit trusted-proxy CIDR list before relying on client-IP security signals.
 
-Rate limits apply to password login, MFA attempts, password reset, search, exports, AI chat, MCP, and internal workers. Production authenticated limits fail closed if Redis is unavailable unless the operation has a database-backed safety fallback.
+Rate limits apply to password login, sign-up, MFA attempts, password reset, search, exports, AI chat, MCP, and internal workers. Sign-up is limited by both normalized email and network identity so rotating email addresses does not bypass the network issuance boundary. Production authentication and authenticated limits fail closed if Redis is unavailable unless the operation has a database-backed safety fallback. Public liveness and readiness probes expose only coarse status; detailed dependency state stays behind authenticated health status.
 
 ## Files and exports
 

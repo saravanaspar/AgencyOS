@@ -1,7 +1,7 @@
 import { mkdir, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { checkedCommand } from "./process.mjs";
-import { Client } from "minio";
+import { createS3CompatibleClient } from "../../src/integrations/object-storage/s3-client.mjs";
 
 export function localRepository(environment = process.env) {
   return environment.AGENCYOS_RESTIC_LOCAL_DIR || "/repository";
@@ -20,10 +20,8 @@ export function remoteRepository(environment = process.env) {
 
 export async function prepareLocalRepository(configuration, environment) {
   const endpoint = new URL(environment.B2_ENDPOINT);
-  const client = new Client({
-    endPoint: endpoint.hostname,
-    port: Number(endpoint.port || 443),
-    useSSL: true,
+  const client = createS3CompatibleClient({
+    endpoint: `${endpoint.protocol}//${endpoint.host}`,
     accessKey: environment.B2_WRITER_KEY_ID,
     secretKey: environment.B2_WRITER_APPLICATION_KEY,
     region: environment.B2_REGION || "us-west-004",

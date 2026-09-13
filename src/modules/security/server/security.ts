@@ -1,7 +1,10 @@
 import "server-only";
 
 import { getDatabaseClient } from "@/integrations/postgres/database";
-import { incrementRedisRateLimit } from "@/integrations/redis/rate-limit";
+import {
+  incrementRedisRateLimit,
+  type RedisRateLimitResult,
+} from "@/integrations/redis/rate-limit";
 import {
   getRequestSecurityContext,
   hashSecurityIdentity,
@@ -45,7 +48,7 @@ export type SecurityWorkspaceResult =
   | { allowed: true; data: SecurityWorkspaceData }
   | { allowed: false; reason: AuthorizationFailureReason };
 
-export type AuthenticationRateLimitKind = "login" | "password-reset";
+export type AuthenticationRateLimitKind = "login" | "password-reset" | "sign-up";
 export type AuthorizedRateLimitKind = "api" | "ai" | "worker" | "export" | "mcp";
 
 export const defaultSecurityPolicy: SecurityPolicy = {
@@ -172,23 +175,37 @@ export async function authenticationRateLimitAllows(input: {
   email: string;
   request: RequestSecurityContext;
 }): Promise<boolean> {
-  const memberships = await knownMembershipsForEmail(input.email);
-  const limit = memberships.length
-    ? Math.min(
-        ...memberships.map((row) =>
-          input.kind === "login" ? row.login_limit_per_window : row.password_reset_limit_per_window,
-        ),
-      )
-    : input.kind === "login"
-      ? defaultSecurityPolicy.loginLimitPerWindow
-      : defaultSecurityPolicy.passwordResetLimitPerWindow;
+  const memberships = input.kind === "sign-up" ? [] : await knownMembershipsForEmail(input.email);
+  const limit =
+    input.kind === "sign-up"
+      ? defaultSecurityPolicy.passwordResetLimitPerWindow
+      : memberships.length
+        ? Math.min(
+            ...memberships.map((row) =>
+              input.kind === "login"
+                ? row.login_limit_per_window
+                : row.password_reset_limit_per_window,
+            ),
+          )
+        : input.kind === "login"
+          ? defaultSecurityPolicy.loginLimitPerWindow
+          : defaultSecurityPolicy.passwordResetLimitPerWindow;
   const emailHash = hashSecurityIdentity(input.email);
-  const networkIdentity = hashSecurityIdentity(
-    `${input.request.ipAddress ?? "unknown"}:${emailHash}`,
-  );
+  const networkRatePromise = input.request.ipAddress
+    ? incrementRedisRateLimit(
+        `security:${input.kind}:network`,
+        hashSecurityIdentity(
+          input.kind === "sign-up"
+            ? input.request.ipAddress
+            : `${input.request.ipAddress}:${emailHash}`,
+        ),
+        limit,
+        900,
+      )
+    : Promise.resolve<RedisRateLimitResult>({ available: true, allowed: true, count: 0 });
   const [emailRate, networkRate] = await Promise.all([
     incrementRedisRateLimit(`security:${input.kind}:email`, emailHash, limit, 900),
-    incrementRedisRateLimit(`security:${input.kind}:network`, networkIdentity, limit, 900),
+    networkRatePromise,
   ]);
   if (emailRate.available && networkRate.available) {
     return emailRate.allowed && networkRate.allowed;
@@ -199,7 +216,7 @@ export async function authenticationRateLimitAllows(input: {
   ) {
     return false;
   }
-  if (memberships.length === 0) {
+  if (input.kind === "sign-up" || memberships.length === 0) {
     return (
       process.env.NODE_ENV !== "production" &&
       process.env.SECURITY_RATE_LIMIT_REDIS_FAILURE_MODE === "allow"

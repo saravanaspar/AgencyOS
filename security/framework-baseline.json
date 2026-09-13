@@ -1,7 +1,7 @@
 {
   "next": {
-    "minimumVersion": "16.2.11",
-    "reviewedAt": "2026-08-22",
-    "reason": "Known-good Active LTS floor after the July 2026 Next.js security release. Future advisories are enforced by the scheduled npm audit workflow in addition to this floor."
+    "minimumVersion": "16.3.3",
+    "reviewedAt": "2026-09-13",
+    "reason": "Reviewed security floor after the August 2026 Next.js security advisories. Future advisories are additionally enforced by the scheduled npm audit workflow."
   }
 }

@@ -6,11 +6,16 @@ daily health/status, Object Lock limitations, and isolated recovery.
 
 ## Runtime topology
 
-AgencyOS runs as a web process plus a worker process against PostgreSQL and S3-compatible private
-storage. Production can use bundled local dependencies or hosted PostgreSQL, native TLS Redis, and
-B2 through the two explicit Coolify manifests. The private-file scanner remains required.
+AgencyOS runs as a web process plus a persistent Node.js worker against PostgreSQL and
+S3-compatible private storage. Production may use bundled/self-hosted dependencies or managed
+services. The supported contracts are provider-neutral: PostgreSQL, native Redis, S3-compatible
+object storage, and an optional private-file scanner selected by runtime policy.
 
-PostgreSQL can be Neon, local/self-hosted, or another compatible provider. No Supabase service or CLI is required.
+A common managed combination is Neon PostgreSQL, Upstash native TLS Redis, and either Backblaze B2
+or Cloudflare R2. The Next.js web process may run on Vercel, but the current worker is long-running
+Node.js and must run on a persistent Node/container host. Cloudflare Workers are not a drop-in target
+for `scripts/workers/run.mjs` without redesigning jobs around Queues/Workflows/Cron. No Supabase
+service or CLI is required.
 
 ## Local setup
 
@@ -80,11 +85,22 @@ npm run storage:check
 
 `storage:setup` idempotently creates the configured bucket and is intended only for the bundled
 self-hosted service. With hosted storage, create the bucket in the provider console and run only
-`storage:check`. The application maps `private-file-quarantine`, `private-files`,
-`project-attachments`, and `document-templates` to non-overlapping prefixes. Browser clients never
-receive object-storage credentials or unrestricted object URLs.
+`storage:check`. Backblaze B2 and Cloudflare R2 both use the same `OBJECT_STORAGE_*` contract;
+Cloudflare R2 normally uses the account S3 endpoint with `OBJECT_STORAGE_REGION=auto`. The
+application maps `private-file-quarantine`, `private-files`, `project-attachments`, and
+`document-templates` to non-overlapping prefixes. Browser clients never receive object-storage
+credentials or unrestricted object URLs.
+
+The runtime uses AgencyOS's small AWS Signature V4 S3 client rather than a provider SDK. Keep the
+runtime key bucket-scoped with only the read/write/delete/list permissions required by the app. Do
+not reuse backup writer or recovery credentials.
 
 ## Private-file scanning
+
+ClamAV is self-hostable and optional at the deployment-policy level. Production defaults
+`PRIVATE_FILE_SCANNER_REQUIRED=1`; keep that default whenever untrusted uploads are enabled. If an
+operator intentionally deploys without file scanning, set `PRIVATE_FILE_SCANNER_REQUIRED=0` and
+treat that as a reduced-security configuration.
 
 Start ClamAV:
 
@@ -124,7 +140,10 @@ In non-production only, `AUTH_DEV_SHOW_TOKENS=1` may expose a verification/reset
 
 ## Redis
 
-Use `redis://127.0.0.1:6379/0` locally. Production requires authenticated TLS `rediss://` whenever `REDIS_REQUIRED=1` (the default). Authenticated rate limits fail closed in production if Redis is unavailable. Worker coordination falls back to PostgreSQL advisory locks where designed.
+Use `redis://127.0.0.1:6379/0` locally. Upstash's native Redis TLS endpoint is supported through the
+same `REDIS_URL` variable. Production requires authenticated TLS `rediss://` whenever
+`REDIS_REQUIRED=1` (the default). Authenticated rate limits fail closed in production if Redis is
+unavailable. Worker coordination falls back to PostgreSQL advisory locks where designed.
 
 ```bash
 npm run redis:start
@@ -240,11 +259,21 @@ The verifier checks source migration validity, database migration parity, provid
 supplies restart supervision, readiness checks, worker execution, and bounded ingress. Follow
 [`../deploy/README.md`](../deploy/README.md) for the deployment sequence.
 
+For self-hosted production, Coolify can supervise both web and worker and provide the outer proxy.
+The bundled Nginx layer is part of that self-hosted topology; it is not needed when Vercel owns web
+ingress. If the Next.js web process runs on Vercel, run `npm run worker` on a separate persistent
+Node.js/container host and connect both processes to the same PostgreSQL, Redis, and object-storage
+services.
+
 The production Compose defaults cap each app/worker container at 2 GiB memory, 2 CPUs, and 256 PIDs. Tune `AGENCYOS_MEMORY_LIMIT`, `AGENCYOS_CPU_LIMIT`, and `AGENCYOS_PIDS_LIMIT` from load-test evidence rather than removing limits.
 
 ## Backup and recovery
 
-Back up PostgreSQL, object storage, and deployment configuration independently. Keep secrets in a separate secret manager/backup path.
+Back up PostgreSQL, object storage, and deployment configuration independently. Keep secrets in a
+separate secret manager/backup path. Runtime files and backups may use the same storage provider,
+but use a different immutable backup bucket, different credentials, and preferably a separate
+provider account or failure domain. The packaged immutable backup workflow is currently B2-specific
+because it verifies Backblaze Object Lock before publishing the encrypted Restic mirror.
 
 Recommended PostgreSQL backup:
 

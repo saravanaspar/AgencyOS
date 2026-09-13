@@ -26,7 +26,7 @@ const disposableInfrastructure = [
   await readFile("Containerfile.postgres", "utf8"),
   await readFile("compose.redis.yaml", "utf8"),
 ].join("\n");
-for (const expected of ["postgres:17.10-bookworm@sha256:", "redis:7.4.10-alpine@sha256:"]) {
+for (const expected of ["postgres:17.10-bookworm@sha256:", "redis:7.4.11-alpine@sha256:"]) {
   if (!disposableInfrastructure.includes(expected)) {
     failures.push(`Podman disposable infrastructure must use a digest-pinned image (${expected})`);
   }

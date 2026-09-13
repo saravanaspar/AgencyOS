@@ -6,9 +6,18 @@ release-candidate verification but is not the complete stateful production stack
 
 Use `compose.coolify.yaml` for bundled PostgreSQL, Redis, and object storage or
 `compose.coolify.cloud.yaml` for hosted PostgreSQL, native TLS Redis, and S3-compatible runtime
-storage.
+storage. Typical hosted choices are Neon, Upstash, and Backblaze B2 or Cloudflare R2.
 
-AgencyOS requires ordinary PostgreSQL plus the dependencies declared required by runtime policy. Production defaults `REDIS_REQUIRED`, `OBJECT_STORAGE_REQUIRED`, and `PRIVATE_FILE_SCANNER_REQUIRED` to true; explicitly set a flag to `0` only for an intentional degraded deployment. PostgreSQL may be hosted by Neon, a local/self-hosted server, or another compatible provider. No Supabase service or CLI is required.
+AgencyOS requires ordinary PostgreSQL plus the dependencies declared required by runtime policy.
+Production defaults `REDIS_REQUIRED`, `OBJECT_STORAGE_REQUIRED`, and
+`PRIVATE_FILE_SCANNER_REQUIRED` to true; explicitly set a flag to `0` only for an intentional
+degraded deployment. ClamAV and Vaultwarden are optional platform components rather than hard
+provider requirements. No Supabase service or CLI is required.
+
+The Next.js web process can also run on Vercel, but `npm run worker` must remain on a persistent
+Node.js/container host. The current worker is not compatible with Cloudflare Workers without an
+architectural migration to Cloudflare Queues/Workflows/Cron. Nginx is only part of the self-hosted
+Compose/Coolify ingress path; Vercel does not need the bundled reverse proxy.
 
 Build and publish one immutable application image:
 

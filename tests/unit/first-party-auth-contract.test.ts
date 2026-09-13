@@ -38,7 +38,22 @@ describe("first-party authentication contracts", () => {
     const security = source("src/modules/security/server/security.ts");
     expect(security).toContain("`security:${input.kind}:email`");
     expect(security).toContain("`security:${input.kind}:network`");
+    expect(security).toContain("input.request.ipAddress");
+    expect(security).toContain("Promise.resolve<RedisRateLimitResult>");
     expect(security).not.toContain("or ip_address = ${input.request.ipAddress}::inet");
+  });
+
+  it("rate-limits account creation before writing a new identity", () => {
+    const actions = source("src/modules/identity/actions/auth.ts");
+    const security = source("src/modules/security/server/security.ts");
+    const rateLimit = actions.indexOf('kind: "sign-up"');
+    const createIdentity = actions.indexOf("createLocalIdentity({");
+    expect(rateLimit).toBeGreaterThan(-1);
+    expect(createIdentity).toBeGreaterThan(rateLimit);
+    expect(security).toContain(
+      'AuthenticationRateLimitKind = "login" | "password-reset" | "sign-up"',
+    );
+    expect(security).toContain('input.kind === "sign-up"');
   });
 
   it("encrypts TOTP factors and rate-limits verification attempts", () => {

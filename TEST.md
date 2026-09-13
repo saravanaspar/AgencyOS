@@ -2,7 +2,7 @@
 
 > **Current database/auth architecture (August 2026):** AgencyOS owns authentication and runs on ordinary PostgreSQL. Use `DATABASE_URL`/`DATABASE_ADMIN_URL`, `npm run db:status`, `npm run db:migrate`, `npm run db:doctor`, and `npm run db:test`. Older sections that describe the former hosted provider are historical acceptance notes only; do not configure or link that provider for current verification.
 
-Last updated: 2026-09-02
+Last updated: 2026-09-13
 
 Coolify/B2 production approval also requires the staging API/deployment test, disposable Compliance
 Object Lock preflight, a second unchanged deploy proving named-volume identity, an injected migration
@@ -12,7 +12,7 @@ Source tests cannot mark provider retention or a live rollout as passed; see `do
 
 This file is the required manual and browser-MCP verification guide for every delivered feature. Every future feature must update this file in the same change set before it can be marked complete in `TASK.md`.
 
-## Current release-candidate status (2026-09-02)
+## Current release-candidate status (2026-09-13)
 
 This section is authoritative when older feature notes below describe an earlier foundation state.
 
@@ -22,13 +22,13 @@ This section is authoritative when older feature notes below describe an earlier
 - Source inventory: `test-results/ui-controls.json` now inventories buttons, links, tabs, disclosures, textboxes, checkboxes, and selects. It is a machine-readable coverage index, not proof that a business workflow succeeded.
 - Database and dependencies: all **67/67 migrations** are applied with no pending files or checksum drift; all **50 pgTAP files** pass transactionally. PostgreSQL 17.10, Redis authentication/read-write/TTL/delete, all four MinIO buckets, and ClamAV readiness passed against the Podman-only local stack.
 - Local environment: `.env.local` is mode `0600`; generated database, Redis, MinIO, encryption, worker, VAPID, disposable Owner-test credentials, and both PDF renderer paths (the verified local `/usr/bin/google-chrome-stable`) are populated. Values that cannot be invented locally remain empty: the audit-alert webhook pair, Vaultwarden URL, Resend key, live CRM OAuth client pairs, and Gemini/DeepSeek keys. The ClamAV protocol does not need `PRIVATE_FILE_SCANNER_BEARER_TOKEN`, so that optional field is also empty. Set the Chromium path again for the actual deployment host/image if it differs.
-- Podman image: `localhost/agencyos:local` was rebuilt from the digest-pinned Node 22.23.2 base after the final fixes. It runs as the non-root `nextjs` user. With explicit local-only overrides for unavailable external TLS/webhook services, `/api/health/live` and `/api/health/ready` pass and readiness reports PostgreSQL, Redis, MinIO, and the scanner healthy; the protected `/api/health/status` correctly returns 401 without a session. Bundled-Chromium PDF generation also passes inside this image. This is local image evidence, not deployed HTTPS evidence.
+- Podman image: `localhost/agencyos:local` was rebuilt from the digest-pinned Node 22.23.2 base during the 2026-09-02 release-candidate run and ran as the non-root `nextjs` user. The readiness implementation still checks PostgreSQL, Redis, object storage, and the scanner internally, but the public `/api/health/live` and `/api/health/ready` responses are now intentionally data-minimized to status only; detailed dependency state remains behind authenticated `/api/health/status`. Rebuild and re-run this image evidence after applying the 2026-09-13 hardening patch.
 - React Doctor: the advisory scan completes with **0 errors / 104 non-blocking warnings** and the security scan completes with **0 errors / 1 warning**. Its one code error identified an implicit sign-out session boundary; sign-out now explicitly validates a current session while still clearing expired/malformed credentials safely.
-- Dependency audit: the high-severity Browserslist advisory is fixed at 4.28.8. `npm audit --omit=dev` still reports three moderate paths for `minio@8.0.7 -> query-string@7.1.3 -> decode-uri-component@0.2.2`. AgencyOS uses MinIO's object-storage client and does not expose the vulnerable query-string decode path; npm's proposed `--force` resolution is a breaking downgrade to MinIO 7.0.26, so it was not applied. Recheck when MinIO publishes a compatible dependency update.
+- Dependency hardening (2026-09-13): Next.js is exact-pinned at 16.3.3, Vitest is updated to 4.1.11, and the Sharp override is 0.35.4. The `minio` JavaScript SDK was removed and the object-storage boundary now uses the repository-owned AWS Signature V4 S3-compatible client, removing the previously reported `decode-uri-component`/`stream-json` transitive paths. Self-hosted Redis is updated to digest-pinned 7.4.11 and optional Vaultwarden to digest-pinned 1.37.2; the archived MinIO server image remains at its current final upstream release. Run `npm ci`, `npm audit --omit=dev`, and the full release gate on a dependency-current Node 22.23.2 host before release; source-only validation is not a substitute for a fresh registry audit.
 - AI: `/ai` is a real permission-gated workspace with server-side Gemini and DeepSeek adapters. Models receive only the three lazy AgencyOS gateway schemas (catalog search, exact description, and invocation), then discover only tools visible to the signed-in membership. Provider keys and the full 113-tool schema registry never enter the model context.
 - MCP: **113 tools** are registered. Dashboard, Calendar read/create/cancel, Reports, Automation read/create/enable/retry, and Global Search are connected. Read tools use permission-scoped, short-lived Redis caching; mutations invalidate the organization cache generation.
 - MCP transport: the same-origin cookie-authenticated Streamable HTTP endpoint validates `Origin`, `Accept`, `MCP-Protocol-Version`, and `Mcp-Session-Id`, enforces initialize/initialized lifecycle state in Redis, returns 405 for GET because SSE is not offered, and supports DELETE session termination.
-- Security: local `.env.local` must be mode `0600` and must never be distributed. Production authenticated rate limits fail closed when Redis is unavailable. `/api/health/live` and `/api/health/ready` are available for platform probes.
+- Security: local `.env.local` must be mode `0600` and must never be distributed. Login, password-reset, sign-up, and authenticated production rate limits fail closed when Redis is unavailable unless an explicitly documented database-backed safety fallback exists. `/api/health/live` and `/api/health/ready` remain available for platform probes but expose only coarse status.
 - External release checks remain mandatory and are not marked passed by this local run: configure real HTTPS audit-alert/Vaultwarden/email/AI/CRM credentials, execute the Admin/Sales/Project-member/Restricted state-changing browser scenarios, run the deployment verifier against the real HTTPS release host, exercise PDF generation on that host, and restore a backup into an isolated recovery environment. The restore verifier was also checked to fail closed when `AGENCYOS_RESTORE_DRILL=1` and the required recovery evidence are absent.
 
 Required release candidate commands:
@@ -1834,7 +1834,7 @@ npm run db:check
 npm run db:test
 ```
 
-`minio` is a locked runtime dependency. After applying a patch that changes `package.json` or `package-lock.json`, refresh local dependencies with `npm install` (or `npm ci` in a clean checkout) before running TypeScript. A `Cannot find module 'minio'` type error with `minio` present in both manifests indicates stale `node_modules`, not a missing source declaration.
+The runtime object-storage adapter is repository-owned and has no `minio` npm dependency. After applying a patch that changes `package.json` or `package-lock.json`, refresh local dependencies with `npm ci` in a clean checkout before running TypeScript. The local MinIO container remains a supported S3-compatible development/self-hosted service; this is separate from the removed JavaScript SDK.
 
 ## X1 — React Doctor remediation and regression checks
 

@@ -99,9 +99,6 @@ export async function POST(request: Request) {
       durationMs: Date.now() - startedAt,
       error,
     });
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message.slice(0, 500) : "AI request failed." },
-      { status: 502 },
-    );
+    return NextResponse.json({ error: "AI request failed." }, { status: 502 });
   }
 }

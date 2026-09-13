@@ -45,12 +45,7 @@ export async function GET() {
   }
 
   return NextResponse.json(
-    {
-      status: ready ? "ready" : "not_ready",
-      checks,
-      required: policy,
-      timestamp: new Date().toISOString(),
-    },
+    { status: ready ? "ready" : "not_ready" },
     { status: ready ? 200 : 503, headers: { "Cache-Control": "no-store" } },
   );
 }

@@ -96,7 +96,7 @@ describe("August 2026 production hardening contracts", () => {
     expect(workflow).toContain("authenticated-e2e:");
     expect(workflow).toContain("podman-compose");
     expect(postgresContainer).toContain("postgres:17.10-bookworm@sha256:");
-    expect(redisCompose).toContain("redis:7.4.10-alpine@sha256:");
+    expect(redisCompose).toContain("redis:7.4.11-alpine@sha256:");
     expect(workflow).toContain("npm run db:migrate");
     expect(workflow).toContain("npm run db:test");
     expect(workflow).toContain("npm run test:e2e:seed");
